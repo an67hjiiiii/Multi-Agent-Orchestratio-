@@ -1,0 +1,52 @@
+schema_version: "1"
+profile_kind: stable-routing
+project:
+  id: local-multi-agent-rag
+  title: "Retrieval-Guided Task Decomposition and Overlap-Aware Context Allocation for Resource-Constrained Local Multi-Agent RAG"
+  repository_mode: local-research
+  governance_source: docs/PROJECT_GOVERNANCE.md
+
+research:
+  questions: [P, N, O]
+  conditions:
+    A: single_rag
+    B: multi_agent
+    C: multi_agent_with_P_N_O
+    C-P: multi_agent_without_P
+    C-N: multi_agent_without_N
+    C-O: multi_agent_without_O
+
+milestone_profiles:
+  M0:
+    allowed_conditions: [A]
+    implementation: vanilla-rag
+  M1:
+    allowed_conditions: [A, B, C]
+    implementation: "P-lite/N-rules/O-lite when enabled"
+  M2:
+    allowed_conditions: [A, B, C, C-P, C-N, C-O]
+    implementation: "full P/N/O and dependency-aware execution"
+
+routing:
+  locality: local-only
+  inference_adapter: Ollama
+  test_double: FakeProvider
+  default_generation_concurrency: 1
+  external_tools_for_workers: false
+  unconfirmed_frameworks_are_routable: false
+  unavailable_implementations: reject
+  silent_fallback: false
+
+model:
+  qwen3:4b:
+    status: calibration-candidate
+    research_frozen: false
+
+required_invariants:
+  - source-and-chunk-provenance
+  - citation-and-location-validation
+  - immutable-effective-config-and-trace
+  - explicit-terminal-failure-states
+  - hard-context-and-run-caps
+  - canonical-attempt-ledger
+  - dataset-rubric-evaluation-and-LKG-preserved

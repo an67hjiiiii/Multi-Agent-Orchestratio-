@@ -1,0 +1,32 @@
+schema_version: "1"
+profile_kind: mutable-project-state
+source_base_commit: d7fb275
+
+milestone:
+  current_label: M0-code-candidate
+  M0: NOT_DONE
+  M1: PLANNED
+  M2: PLANNED
+  evidence_boundary: "Plans, static checks, screens, unit tests, and FakeProvider runs do not promote a milestone."
+
+foundation:
+  governance_review: PENDING_HUMAN_REVIEW
+  external_framework: UNCONFIRMED
+  integration: BLOCKED_UNTIL_FOUNDATION_TRACKS_AND_GOVERNANCE_ARE_REVIEWED
+
+runtime:
+  model: UNFROZEN
+  corpus_version: UNFROZEN
+  hardware: UNVERIFIED
+  local_ollama_gate: PENDING
+
+evaluation:
+  status: NOT_STARTED
+  frozen_references: false
+  canonical_attempt_ledger: REQUIRED
+  dataset_and_rubric: PRESERVE
+  last_known_good: REQUIRED
+
+approval:
+  self_approval: PROHIBITED
+  milestone_promotion: HUMAN_REVIEW_WITH_REQUIRED_GATE_EVIDENCE

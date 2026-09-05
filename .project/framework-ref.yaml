@@ -1,0 +1,18 @@
+schema_version: "1"
+profile_kind: selected-framework-references
+decision: no-external-framework-approved
+source:
+  analysis_report: D:/Local-Multi-Agent-RAG-worktrees/analysis/reports/M_MINUS_1_FOUNDATION_ANALYSIS.md
+  analysis_commit: 8734255
+
+# Terra found no inspectable framework inventory at analysis time. No external
+# component name is therefore asserted or selected here.
+external_framework:
+  path: D:/AI-Framework
+  status: UNCONFIRMED
+  inspectable_inventory: false
+  selected_components: []
+  routing_allowed: false
+  approval_requires: inspectable-source-and-human-review
+
+selected_references: []
