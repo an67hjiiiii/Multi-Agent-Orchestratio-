@@ -1,8 +1,11 @@
 {
   "manifest_schema": "m0-release-v1",
-  "created_at": "2026-09-05T10:57:15.469394+00:00",
+  "created_at": "2026-09-05T17:37:59.965358+00:00",
   "milestone": "M0",
   "claim_status": "CANDIDATE_ONLY_UNTIL_LOCAL_GATE_PASSES",
+  "allowed_conditions": [
+    "A"
+  ],
   "runtime_config": {
     "implementation_profile": "m0",
     "provider": "fake",
@@ -16,20 +19,72 @@
     "retrieval_min_score": 0.18
   },
   "config_hash": "d11d6be5f99abc5b",
-  "python": "3.13.5 (main, Jul 15 2026, 20:25:40) [GCC 14.2.0]",
-  "platform": "Linux-6.18.35-x86_64-with-glibc2.41",
-  "git": {
-    "commit": null,
-    "dirty": null
+  "model": {
+    "tag": "qwen3:4b",
+    "status": "calibration-candidate",
+    "research_frozen": false
   },
-  "corpus_snapshot_id": "corpus_ecf5fd8b529c02d5",
+  "python": "3.12.14 (main, Aug 25 2026, 14:01:42) [MSC v.1944 64 bit (AMD64)]",
+  "platform": "Windows-11-10.0.22631-SP0",
+  "git": {
+    "commit": "16f24d973873de2aaa623033d89725fcf467873d",
+    "dirty": true
+  },
+  "corpus_snapshot_id": "corpus_e3b0c44298fc1c14",
+  "corpus": {
+    "store_file_present": false,
+    "chunk_count": 0
+  },
   "files": {
     "requirements.txt": "fb1adf106dae5e1ec39ff5ae5ac33f924d1fd38587de115347fca483c8415f45",
+    ".project/project-profile.yaml": "a0d5fef9386c59462bb92285ee947c38baf8f14940127a417b504a711c42df3d",
+    ".project/framework-ref.yaml": "5c8a809f5810c43d633fcfb1769b158104dd20c1aff04942d9e1682f591c6745",
     "config/conditions.json": "c65be26acca2f3576bfcbf0fc4ac27ab6219a9691d258804d0e467a4b63a69aa",
-    "datasets/calibration/m0_cases.json": "c8184eb69656e12f6b7a6adf9a3f8ed6c96c4348b7251d2d73dda0d6e32302d9"
+    "datasets/calibration/m0_cases.json": "c8184eb69656e12f6b7a6adf9a3f8ed6c96c4348b7251d2d73dda0d6e32302d9",
+    "app/core/config.py": "d3dbf876312916f7a4cad38e126defbc26ef0558275a8248cd5db5a766840819",
+    "app/core/telemetry.py": "9c2445ffe5f83b5b56d093e2bf454f48c79e49e47c1e4af00cb46c364610703a",
+    "app/core/types.py": "d9692777d5d4186e3cdb1ed290ba5b2aa8c00304ccf1f2b147a99a4dc4f0094d",
+    "app/providers/factory.py": "7edf7cec77b21316614bb0d3204505d57bc515e4fdb97d330227a555cf485d4b",
+    "app/providers/fake.py": "f82f5e3aa87fad3f73398bef9319713c5220ede8e74cf47a74656bd93ace229d",
+    "app/providers/ollama.py": "77e76b896ac3fcb44556bc6c42f5a89a7be4c1800e4f759dfc077c38803bd5b2",
+    "app/research/pipeline.py": "5f04dda9563cc7a352eb265a1df9f13eeba585de2cd3f403a973a46f0db28b51",
+    "app/research/vanilla.py": "e64fe5a537c993590ee67be6783702df1e7fb713d8a6994b042fbda72d48bb79",
+    "app/retrieval/text.py": "2ccd5d0f73496d8e154ae3f9d04cd7e262f6163b78943b4112cd06606e0c4dab",
+    "app/storage/source_store.py": "fcd64ff2998126b921c68f6ff0eb0e48412c0d7dadbaad16fbdf7e12056b2c59",
+    "scripts/run_m0_calibration.py": "fc98058d5100394ac8159c5c42b156a063273eb84048175095e18647f38c37f4",
+    "scripts/create_m0_manifest.py": "409e9c8d4fea8adbf0ea20be8fbe156b0955e9b8f67110091c0c583694f11580",
+    "docs/M0_STATUS.md": "b9db8797f7dedda10acafaac188d6165831cfcaa2661e9a3432d99a4fcd3b69a",
+    "docs/M0_TRACE_METRICS.md": "d29a04f771e874674b0d61ff97ce792156cc337e9dcd1401df64ebf74ad006a2"
+  },
+  "missing_files": [],
+  "trace_metrics_contract": {
+    "document": "docs/M0_TRACE_METRICS.md",
+    "identity": [
+      "run_id",
+      "condition",
+      "implementation_profile",
+      "provider",
+      "model",
+      "source_snapshot_id",
+      "config_hash",
+      "status"
+    ],
+    "metrics": [
+      "llm_calls",
+      "input_tokens",
+      "output_tokens",
+      "total_tokens",
+      "retrieval_latency_ms",
+      "generation_latency_ms",
+      "latency_ms",
+      "peak_rss_mb",
+      "gpu_memory_mb",
+      "citation_locator_validity"
+    ]
   },
   "notes": [
     "M0 is not DONE until the Ollama/local-model calibration and restore gate are executed on the target laptop.",
-    "Fake-provider runs validate wiring only and cannot prove local-LLM completion."
+    "Fake-provider runs validate wiring only and cannot prove local-LLM completion.",
+    "Memory metrics are best-effort observations; null means the host did not provide that measurement."
   ]
 }

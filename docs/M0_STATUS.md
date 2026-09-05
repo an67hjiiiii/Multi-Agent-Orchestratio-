@@ -20,11 +20,30 @@
 - Terminal failure run persisted.
 - 12-case calibration runner.
 - Candidate release manifest generator.
+- Import-safe candidate manifest export with code/config/case hashes, Git
+  identity, corpus presence, and an explicit trace/metrics contract.
 - Fake-provider wiring calibration and tests.
+
+## Trace/metrics QA boundary
+
+M0 traces bind the answer to `run_id`, condition A, implementation profile,
+provider/model, source snapshot, config hash, effective configuration, terminal
+status, retrieval provenance, and the persisted metrics object. The metrics
+contract is documented in `docs/M0_TRACE_METRICS.md`.
+
+The candidate manifest is a reproducibility artifact only. Its
+`claim_status` remains `CANDIDATE_ONLY_UNTIL_LOCAL_GATE_PASSES`; a clean hash,
+unit test, or FakeProvider run cannot promote M0. `null` RAM/VRAM values are
+valid when the host cannot provide a measurement, and the documented
+start/finalization sampling boundary must not be reported as continuous
+profiling.
 
 ### Kiểm tra trong build environment
 
-- `pytest`: 8 PASS.
+- Previously recorded candidate baseline: `pytest`: 8 PASS; this is not a
+  post-change result for the trace/manifest slice.
+- Focused coverage for this slice is `tests/test_m0_manifest.py`; execute it
+  in an environment with the repository test dependencies installed.
 - Fake calibration: 12 cases executed; expected evidence-present/missing behavior and expected source checks pass in the generated report.
 
 ### Chưa có bằng chứng
