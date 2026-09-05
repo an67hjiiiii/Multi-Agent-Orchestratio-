@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import os
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, UploadFile
 
 from app.api.dependencies import get_api_runtime
+from app.api.errors import ApiError
 from app.api.schemas import ChatRequest, SourceTextRequest
 from app.core.api_runtime import ApiRuntime
 from app.core.config import RuntimeConfig
@@ -12,18 +13,43 @@ from app.providers.ollama import OllamaProvider
 
 
 router = APIRouter(prefix="/api")
+MAX_SOURCE_BYTES = 2_000_000
+
+
+def _runtime_config() -> RuntimeConfig:
+    try:
+        return RuntimeConfig.from_env()
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ApiError(
+            500,
+            "INVALID_CONFIGURATION",
+            "Runtime configuration is invalid",
+        ) from exc
+
+
+def _pipeline_value_error(exc: ValueError) -> ApiError:
+    detail = str(exc)
+    if detail.startswith("Condition "):
+        code = "UNSUPPORTED_CONDITION"
+    elif detail.startswith("Unknown condition"):
+        code = "INVALID_CONDITION"
+    elif detail.startswith("Only fake and local Ollama providers"):
+        code = "UNSUPPORTED_PROVIDER"
+    else:
+        code = "INVALID_REQUEST"
+    return ApiError(400, code, detail or "Request could not be processed")
 
 
 @router.get("/health")
 def health(runtime: ApiRuntime = Depends(get_api_runtime)):
-    cfg = RuntimeConfig.from_env()
+    cfg = _runtime_config()
     return {
         "ok": True,
         "app": "local-multi-agent-rag",
         "version": "0.2.0-m0",
         "implementation_profile": cfg.implementation_profile,
         "allowed_conditions": cfg.allowed_conditions(),
-        "default_provider": os.getenv("PROVIDER", "fake"),
+        "default_provider": cfg.provider,
         "source_snapshot_id": runtime.source_store.snapshot_id(),
         "config_hash": cfg.config_hash(),
     }
@@ -31,7 +57,7 @@ def health(runtime: ApiRuntime = Depends(get_api_runtime)):
 
 @router.get("/config")
 def config():
-    cfg = RuntimeConfig.from_env()
+    cfg = _runtime_config()
     return {
         **cfg.public_dict(),
         "allowed_conditions": cfg.allowed_conditions(),
@@ -43,11 +69,17 @@ def config():
 async def local_model_health():
     try:
         return await OllamaProvider().health()
-    except Exception as exc:
+    except Exception:
+        configured_model = os.getenv("LOCAL_LLM_MODEL", "qwen3:4b").strip() or "qwen3:4b"
         return {
             "ok": False,
-            "error": str(exc),
-            "configured_model": os.getenv("LOCAL_LLM_MODEL", "qwen3:4b"),
+            # Keep the legacy error key for the existing frontend while
+            # avoiding raw provider bodies and connection details.
+            "error": "Local Ollama health check failed",
+            "code": "LOCAL_MODEL_UNAVAILABLE",
+            "message": "Local Ollama health check failed",
+            "retryable": True,
+            "configured_model": configured_model,
         }
 
 
@@ -63,7 +95,7 @@ def list_sources(runtime: ApiRuntime = Depends(get_api_runtime)):
 def get_source(source_id: str, runtime: ApiRuntime = Depends(get_api_runtime)):
     item = runtime.source_store.source(source_id)
     if not item:
-        raise HTTPException(404, "source not found")
+        raise ApiError(404, "NOT_FOUND", "source not found")
     return item
 
 
@@ -71,7 +103,7 @@ def get_source(source_id: str, runtime: ApiRuntime = Depends(get_api_runtime)):
 def get_chunk(chunk_id: str, runtime: ApiRuntime = Depends(get_api_runtime)):
     item = runtime.source_store.chunk(chunk_id)
     if not item:
-        raise HTTPException(404, "chunk not found")
+        raise ApiError(404, "NOT_FOUND", "chunk not found")
     return item
 
 
@@ -80,8 +112,10 @@ def import_text(
     body: SourceTextRequest,
     runtime: ApiRuntime = Depends(get_api_runtime),
 ):
+    if not body.source_name.strip():
+        raise ApiError(400, "SOURCE_NAME_REQUIRED", "source_name is required")
     if not body.text.strip():
-        raise HTTPException(400, "text is empty")
+        raise ApiError(400, "EMPTY_SOURCE", "text is empty")
     return runtime.source_store.import_text(body.source_name, body.text)
 
 
@@ -90,16 +124,17 @@ async def import_file(
     file: UploadFile = File(...),
     runtime: ApiRuntime = Depends(get_api_runtime),
 ):
-    data = await file.read()
-    if len(data) > 2_000_000:
-        raise HTTPException(413, "M0 only accepts UTF-8 text/code/markdown files up to 2 MB")
+    data = await file.read(MAX_SOURCE_BYTES + 1)
+    if len(data) > MAX_SOURCE_BYTES:
+        raise ApiError(413, "PAYLOAD_TOO_LARGE", "M0 only accepts UTF-8 text/code/markdown files up to 2 MB")
     try:
         text = data.decode("utf-8")
     except UnicodeDecodeError:
-        raise HTTPException(415, "M0 accepts UTF-8 text/code/markdown files only")
+        raise ApiError(415, "UNSUPPORTED_ENCODING", "M0 accepts UTF-8 text/code/markdown files only")
     if not text.strip():
-        raise HTTPException(400, "file is empty")
-    return runtime.source_store.import_text(file.filename or "upload.txt", text)
+        raise ApiError(400, "EMPTY_SOURCE", "file is empty")
+    filename = (file.filename or "").strip() or "upload.txt"
+    return runtime.source_store.import_text(filename, text)
 
 
 @router.post("/chat")
@@ -108,14 +143,12 @@ async def chat(
     runtime: ApiRuntime = Depends(get_api_runtime),
 ):
     if not body.message.strip():
-        raise HTTPException(400, "message is required")
+        raise ApiError(400, "MESSAGE_REQUIRED", "message is required")
     try:
         run = await runtime.pipeline.run(body.message.strip(), body.condition, body.provider)
-        if run["status"] == "FAILED":
-            return run
         return run
     except ValueError as exc:
-        raise HTTPException(400, str(exc))
+        raise _pipeline_value_error(exc) from exc
 
 
 @router.get("/runs")
@@ -127,5 +160,5 @@ def list_runs(runtime: ApiRuntime = Depends(get_api_runtime)):
 def get_run(run_id: str, runtime: ApiRuntime = Depends(get_api_runtime)):
     run = runtime.run_store.get(run_id)
     if not run:
-        raise HTTPException(404, "run not found")
+        raise ApiError(404, "NOT_FOUND", "run not found")
     return run

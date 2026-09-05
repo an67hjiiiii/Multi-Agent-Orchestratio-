@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.api.errors import register_exception_handlers
 from app.api.router import router as api_router
 from app.core.api_runtime import ApiRuntime
 
@@ -20,6 +21,7 @@ def create_app(
     """Build an isolated API plus the legacy static frontend boundary."""
 
     application = FastAPI(title="Local Multi-Agent RAG", version="0.2.0-m0")
+    register_exception_handlers(application)
     application.state.api_runtime = ApiRuntime.from_env(
         data_dir=data_dir,
         runs_dir=runs_dir,
