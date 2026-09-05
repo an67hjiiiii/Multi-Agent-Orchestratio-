@@ -1,10 +1,14 @@
 import type {
+  ApiErrorPayload,
+  ChatRequest,
   HealthResponse,
   RunListItem,
   RunRecord,
   SourceChunk,
+  SourceDetail,
   SourceImportResult,
   SourcesResponse,
+  SourceTextRequest,
 } from "../types/api";
 
 export class ApiError extends Error {
@@ -17,16 +21,26 @@ export class ApiError extends Error {
   }
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function getErrorMessage(payload: unknown, status: number): string {
+  if (isRecord(payload)) {
+    const typedPayload = payload as ApiErrorPayload;
+    for (const candidate of [typedPayload.message, typedPayload.detail, typedPayload.error]) {
+      if (typeof candidate === "string" && candidate.trim()) return candidate;
+    }
+  }
+  return `Request failed with HTTP ${status}`;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`/api${path}`, init);
   const payload = await response.json().catch(() => null);
 
   if (!response.ok) {
-    const detail =
-      payload && typeof payload === "object" && "detail" in payload
-        ? String(payload.detail)
-        : `Request failed with HTTP ${response.status}`;
-    throw new ApiError(detail, response.status);
+    throw new ApiError(getErrorMessage(payload, response.status), response.status);
   }
 
   return payload as T;
@@ -35,12 +49,20 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   health: () => request<HealthResponse>("/health"),
   listSources: () => request<SourcesResponse>("/sources"),
+  getSource: (sourceId: string) =>
+    request<SourceDetail>(`/sources/${encodeURIComponent(sourceId)}`),
   getChunk: (chunkId: string) =>
     request<SourceChunk>(`/chunks/${encodeURIComponent(chunkId)}`),
   listRuns: () => request<RunListItem[]>("/runs"),
   getRun: (runId: string) => request<RunRecord>(`/runs/${encodeURIComponent(runId)}`),
-  chat: (body: { message: string; condition: string; provider: string }) =>
+  chat: (body: ChatRequest) =>
     request<RunRecord>("/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  importText: (body: SourceTextRequest) =>
+    request<SourceImportResult>("/sources/text", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),

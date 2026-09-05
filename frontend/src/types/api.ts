@@ -1,4 +1,14 @@
-export type RunStatus = "COMPLETE" | "PARTIAL" | "NO_EVIDENCE" | "FAILED" | string;
+export type KnownRunStatus = "COMPLETE" | "PARTIAL" | "NO_EVIDENCE" | "FAILED";
+export type RunStatus = KnownRunStatus | (string & {});
+export type EvidenceId = string;
+
+export interface ApiErrorPayload {
+  detail?: string;
+  error?: string;
+  code?: string;
+  message?: string;
+  retryable?: boolean;
+}
 
 export interface HealthResponse {
   ok?: boolean;
@@ -17,7 +27,7 @@ export interface SourceSummary {
 }
 
 export interface SourcesResponse {
-  snapshot_id?: string;
+  snapshot_id: string;
   sources: SourceSummary[];
 }
 
@@ -28,6 +38,17 @@ export interface SourceChunk {
   text: string;
   index: number;
   score?: number;
+}
+
+export interface SourceDetail {
+  source_id: string;
+  source_name: string;
+  chunks: SourceChunk[];
+}
+
+export interface SourceTextRequest {
+  source_name: string;
+  text: string;
 }
 
 export interface Task {
@@ -59,10 +80,13 @@ export interface RunEvent {
   stage: string;
   ts?: string;
   task_id?: string;
-  selected?: string[];
+  selected?: EvidenceId[];
   dropped?: DroppedEvidence[];
-  candidates?: string[];
+  candidates?: EvidenceId[];
   result?: TaskResult;
+  status?: RunStatus;
+  error_type?: string;
+  error?: string;
   [key: string]: unknown;
 }
 
@@ -113,6 +137,12 @@ export interface RunRecord {
   error?: string;
 }
 
+export interface ChatRequest {
+  message: string;
+  condition: string;
+  provider?: string | null;
+}
+
 export interface RunListItem {
   run_id: string;
   created_at?: string;
@@ -122,9 +152,9 @@ export interface RunListItem {
 }
 
 export interface SourceImportResult {
-  source_id?: string;
-  source_name?: string;
-  chunks_added?: number;
-  total_chunks_for_source?: number;
-  snapshot_id?: string;
+  source_id: string;
+  source_name: string;
+  chunks_added: number;
+  total_chunks_for_source: number;
+  snapshot_id: string;
 }

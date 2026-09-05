@@ -10,9 +10,16 @@ interface SidebarProps {
 }
 function formatDate(value?: string) {
   if (!value) return "Unknown time";
-  return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(
-    new Date(value),
-  );
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Unknown time";
+  return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(date);
+}
+
+function corpusDescription(sources: SourceSummary[]) {
+  if (sources.length === 0) return "Current corpus is empty";
+  const chunkCount = sources.reduce((total, source) => total + source.chunk_count, 0);
+  const sourceNames = sources.map((source) => source.source_name).join(", ");
+  return `${chunkCount} ${chunkCount === 1 ? "chunk" : "chunks"} · ${sourceNames}`;
 }
 
 export function Sidebar({ history, sources, activeRunId, onNewRun, onSelectRun }: SidebarProps) {
@@ -44,6 +51,7 @@ export function Sidebar({ history, sources, activeRunId, onNewRun, onSelectRun }
               className={`history-item${item.run_id === activeRunId ? " history-item-active" : ""}`}
               key={item.run_id}
               type="button"
+              aria-label={`${item.condition ?? "Unknown"} run: ${item.query || "Untitled research run"}`}
               onClick={() => onSelectRun(item.run_id)}
             >
               <span className="history-item-topline">
@@ -61,8 +69,8 @@ export function Sidebar({ history, sources, activeRunId, onNewRun, onSelectRun }
         <div className="corpus-summary">
           <span className="summary-icon" aria-hidden="true">⌁</span>
           <span>
-            <strong>{sources.length} sources</strong>
-            <small>Current corpus</small>
+            <strong>{sources.length} {sources.length === 1 ? "source" : "sources"}</strong>
+            <small title={corpusDescription(sources)}>{corpusDescription(sources)}</small>
           </span>
         </div>
         <div className="local-only-label">
