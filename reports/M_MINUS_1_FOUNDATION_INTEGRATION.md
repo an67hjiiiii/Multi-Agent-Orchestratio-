@@ -3,13 +3,14 @@
 Date: 2026-09-06 (Asia/Saigon)
 Branch: `codex/foundation-integration`
 Baseline: `d7fb275` (`m0-code-candidate-pre-gate`)
-Integrated HEAD: `5e782f7`
+Previous integration HEAD: `d0b6ec9`
+Gate-fix commit: `test(frontend): add Vitest foundation gate`
 
 ## Decision
 
-`FOUNDATION_PARTIAL`
+`FOUNDATION_PASS`
 
-The seven reviewed Foundation commits integrated cleanly in the required order. Backend, API smoke, policy, compile/import, YAML, and frontend build checks pass. The frontend test gate is not runnable because the committed `frontend/package.json` has no `test` script and does not declare Vitest.
+The seven reviewed Foundation commits integrated cleanly in the required order, and the only known frontend test-gate blocker is closed. Backend, API smoke, policy, compile/import, YAML, frontend build, and frontend test checks pass.
 
 ## Cherry-picked commits
 
@@ -34,12 +35,17 @@ Each cherry-pick completed without a conflict or working-tree residue.
 - Foundation backend gate (`scripts/check_foundation.py --skip-frontend`): PASS.
 - FastAPI smoke with temporary data/run directories and `PROVIDER=fake`: health `200`, text source import `200`, M0/A chat `COMPLETE`, unsupported B rejected `400`.
 - Frontend `npm ci`: PASS; production `npm run build`: PASS.
-- Frontend `npm test -- --runInBand`: FAIL/UNAVAILABLE because npm reports `Missing script: "test"`; Vitest is absent from `package.json`.
+- Frontend gate fix: added Vitest `^3.2.4`, added the `test` script (`vitest run`), and added `frontend/tests/foundation.test.ts` with route-boundary and local-inference-boundary assertions. No React Testing Library was added.
+- Frontend `npm install`: PASS.
+- Frontend `npm test`: PASS (`1` test file, `2` tests).
+- Frontend `npm run build`: PASS.
+- Full backend `pytest`: PASS (`20 passed, 2 warnings`).
+- Previous API, YAML, compile/import, and policy checks remain PASS; bounded Fake FastAPI smoke remains PASS.
 - Provider boundary: only Fake and local Ollama are exposed by `app/providers/factory.py`; no hosted provider match was found in `app` or `frontend`.
 - No `app/research` or `app/providers` files changed relative to baseline; no new M1/M2 implementation was introduced by this integration. Existing baseline research code was not treated as proof of M1/M2 completion.
 - M0 calibration and live/local Ollama inference were not run, per hard stop.
 
-## Follow-up required
+## Final gate result
 
-Add an explicit frontend test runner/script (or document an approved alternative) and rerun the frontend contract gate before promoting this result to `FOUNDATION_PASS` or creating `foundation-v1-pre-m0`.
-
+- Working tree is clean after the gate-fix commit.
+- `foundation-v1-pre-m0` is created after this PASS decision.
