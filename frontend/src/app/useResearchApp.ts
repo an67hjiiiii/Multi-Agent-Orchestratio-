@@ -15,6 +15,7 @@ export interface ResearchAppState {
   sources: SourceSummary[];
   history: RunListItem[];
   activeRun: RunRecord | null;
+  pendingQuestion: string | null;
   activeTab: InspectorTab;
   isBooting: boolean;
   isRunning: boolean;
@@ -33,6 +34,7 @@ export function useResearchApp(): ResearchAppState {
   const [sources, setSources] = useState<SourceSummary[]>([]);
   const [history, setHistory] = useState<RunListItem[]>([]);
   const [activeRun, setActiveRun] = useState<RunRecord | null>(null);
+  const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<InspectorTab>("evidence");
   const [isBooting, setIsBooting] = useState(true);
   const [isRunning, setIsRunning] = useState(false);
@@ -81,10 +83,26 @@ export function useResearchApp(): ResearchAppState {
 
   const submitQuestion = useCallback(
     async (message: string, condition: string, provider: string) => {
+      const normalizedMessage = message.trim();
+      if (!normalizedMessage) return;
+
+      if (condition !== "A") {
+        const boundaryError = new Error("M0 supports condition A only.");
+        setError(boundaryError.message);
+        throw boundaryError;
+      }
+
+      if (provider !== "fake" && provider !== "ollama") {
+        const providerError = new Error("Only the Fake wiring or local Ollama provider is available.");
+        setError(providerError.message);
+        throw providerError;
+      }
+
       setIsRunning(true);
+      setPendingQuestion(normalizedMessage);
       setError(null);
       try {
-        const run = await api.chat({ message, condition, provider });
+        const run = await api.chat({ message: normalizedMessage, condition, provider });
         setActiveRun(run);
         setActiveTab("evidence");
         await Promise.all([refreshHistory(), refreshSources()]);
@@ -93,12 +111,14 @@ export function useResearchApp(): ResearchAppState {
         throw cause;
       } finally {
         setIsRunning(false);
+        setPendingQuestion(null);
       }
     },
     [refreshHistory, refreshSources],
   );
 
   const selectRun = useCallback(async (runId: string) => {
+    setPendingQuestion(null);
     setError(null);
     try {
       setActiveRun(await api.getRun(runId));
@@ -130,6 +150,7 @@ export function useResearchApp(): ResearchAppState {
     sources,
     history,
     activeRun,
+    pendingQuestion,
     activeTab,
     isBooting,
     isRunning,
@@ -139,6 +160,7 @@ export function useResearchApp(): ResearchAppState {
     setActiveTab,
     startNewRun: () => {
       setActiveRun(null);
+      setPendingQuestion(null);
       setError(null);
       setSourceNotice(null);
     },
