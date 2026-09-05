@@ -43,3 +43,15 @@ rules apply to agents and maintainers working in the repository.
 - Keep credentials out of client code, logs, commits, and artifacts. Do not
   modify production code as part of governance-only work unless separately
   authorized.
+
+## Sprint delivery guidance
+
+- Read `docs/NCKH_6_SPRINT_5_MEMBERS.md` whenever sprint or member ownership
+  mapping matters, and read `docs/STUDENT_RESEARCH_CODE_STANDARD.md` for every
+  coding task.
+- Keep changes explicit, clean, student-readable, and narrowly scoped; avoid
+  over-engineering.
+- Report `INPUT`, `OUTPUT`, `FILES`, `TESTS`, `COMMIT`, and `BLOCKERS` when a
+  task completes.
+- When creating routine workers and the task API supports the choice, request
+  `gpt-5.6-luna` with the highest available reasoning level.
