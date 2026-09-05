@@ -1,0 +1,7 @@
+{
+  "sqlite_path": "storage/metadata.sqlite3",
+  "vector_backend": "qdrant",
+  "qdrant_path": "storage/qdrant",
+  "qdrant_collection": "domain",
+  "vector_size": 768
+}
