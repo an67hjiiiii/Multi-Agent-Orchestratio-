@@ -1,0 +1,13 @@
+﻿case_id,query,expected_evidence,expected_source,status,citations,citation_sources,locator_valid,evidence_behavior_ok,source_match,llm_calls,input_tokens,output_tokens,retrieval_latency_ms,e2e_latency_ms,peak_rss_mb,gpu_memory_mb,run_id,manual_correctness,manual_faithfulness
+M0-01,Authentication verifies what in this system?,present,demo_security.md,COMPLETE,src_ecad6843b8fcb99b_c0000,demo_security.md,True,True,True,1,128,39,1,33,98.5,,run_64294bbd5277,UNSCORED,UNSCORED
+M0-02,What does authorization check before an action is allowed?,present,demo_security.md,COMPLETE,src_ecad6843b8fcb99b_c0000,demo_security.md,True,True,True,1,132,39,0,11,98.5,,run_a1d01bd6cd03,UNSCORED,UNSCORED
+M0-03,Can JWT claims replace server-side authorization policy?,present,demo_security.md,COMPLETE,src_ecad6843b8fcb99b_c0000,demo_security.md,True,True,True,1,131,39,0,11,98.5,,run_5f053f89b195,UNSCORED,UNSCORED
+M0-04,Where are user records stored?,present,demo_database.md,COMPLETE,src_1055b8f580d99531_c0000;src_ecad6843b8fcb99b_c0000,demo_database.md;demo_security.md,True,True,True,1,197,46,0,11,98.5,,run_7a99b86d8b27,UNSCORED,UNSCORED
+M0-05,Which database queries should be reviewed for indexes?,present,demo_database.md,COMPLETE,src_1055b8f580d99531_c0000,demo_database.md,True,True,True,1,120,39,0,11,98.5,,run_67744b0edfdc,UNSCORED,UNSCORED
+M0-06,When are transaction boundaries required?,present,demo_database.md,COMPLETE,src_1055b8f580d99531_c0000;src_c7f92b35e6b484c5_c0000,demo_database.md;demo_api.md,True,True,True,1,192,46,0,11,98.51,,run_8302a80f7f0a,UNSCORED,UNSCORED
+M0-07,What kind of endpoints does the service expose?,present,demo_api.md,COMPLETE,src_c7f92b35e6b484c5_c0000,demo_api.md,True,True,True,1,122,39,0,11,98.51,,run_8515dd52eac3,UNSCORED,UNSCORED
+M0-08,What should API contracts define?,present,demo_api.md,COMPLETE,src_c7f92b35e6b484c5_c0000,demo_api.md,True,True,True,1,118,39,0,11,98.52,,run_c58c7541ef8f,UNSCORED,UNSCORED
+M0-09,When should architectural dependencies be explicit?,present,demo_api.md,COMPLETE,src_c7f92b35e6b484c5_c0000,demo_api.md,True,True,True,1,123,39,0,11,98.52,,run_c203a1a8484f,UNSCORED,UNSCORED
+M0-10,What is the production deployment region?,missing,,NO_EVIDENCE,,,True,True,True,0,0,0,0,1,98.53,,run_91296d95a023,UNSCORED,UNSCORED
+M0-11,What is the user's password minimum length?,missing,,NO_EVIDENCE,,,True,True,True,0,0,0,0,0,98.53,,run_77d3cd34e5ee,UNSCORED,UNSCORED
+M0-12,What is the monthly SLA percentage?,missing,,NO_EVIDENCE,,,True,True,True,0,0,0,0,0,98.53,,run_9cd0dcb1954f,UNSCORED,UNSCORED

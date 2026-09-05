@@ -1,0 +1,14 @@
+[
+  {"id":"M0-01","query":"Authentication verifies what in this system?","expected_source":"demo_security.md","expected_evidence":"present"},
+  {"id":"M0-02","query":"What does authorization check before an action is allowed?","expected_source":"demo_security.md","expected_evidence":"present"},
+  {"id":"M0-03","query":"Can JWT claims replace server-side authorization policy?","expected_source":"demo_security.md","expected_evidence":"present"},
+  {"id":"M0-04","query":"Where are user records stored?","expected_source":"demo_database.md","expected_evidence":"present"},
+  {"id":"M0-05","query":"Which database queries should be reviewed for indexes?","expected_source":"demo_database.md","expected_evidence":"present"},
+  {"id":"M0-06","query":"When are transaction boundaries required?","expected_source":"demo_database.md","expected_evidence":"present"},
+  {"id":"M0-07","query":"What kind of endpoints does the service expose?","expected_source":"demo_api.md","expected_evidence":"present"},
+  {"id":"M0-08","query":"What should API contracts define?","expected_source":"demo_api.md","expected_evidence":"present"},
+  {"id":"M0-09","query":"When should architectural dependencies be explicit?","expected_source":"demo_api.md","expected_evidence":"present"},
+  {"id":"M0-10","query":"What is the production deployment region?","expected_source":null,"expected_evidence":"missing"},
+  {"id":"M0-11","query":"What is the user's password minimum length?","expected_source":null,"expected_evidence":"missing"},
+  {"id":"M0-12","query":"What is the monthly SLA percentage?","expected_source":null,"expected_evidence":"missing"}
+]

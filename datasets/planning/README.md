@@ -1,0 +1,1 @@
+Planning KB starter. S0 currently loads a small built-in planning pattern set from `app/research/planning_retrieval.py` so the wiring stays deterministic. Move calibrated planning patterns here before M1 freeze.
