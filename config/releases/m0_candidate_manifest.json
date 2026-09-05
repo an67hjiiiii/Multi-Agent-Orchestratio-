@@ -1,6 +1,6 @@
 {
   "manifest_schema": "m0-release-v1",
-  "created_at": "2026-09-05T17:37:59.965358+00:00",
+  "created_at": "2026-09-05T17:40:15.388952+00:00",
   "milestone": "M0",
   "claim_status": "CANDIDATE_ONLY_UNTIL_LOCAL_GATE_PASSES",
   "allowed_conditions": [
@@ -27,8 +27,8 @@
   "python": "3.12.14 (main, Aug 25 2026, 14:01:42) [MSC v.1944 64 bit (AMD64)]",
   "platform": "Windows-11-10.0.22631-SP0",
   "git": {
-    "commit": "16f24d973873de2aaa623033d89725fcf467873d",
-    "dirty": true
+    "commit": "5b552de2d804012d6b82c38b1d163cdd2aa2aa4d",
+    "dirty": false
   },
   "corpus_snapshot_id": "corpus_e3b0c44298fc1c14",
   "corpus": {
