@@ -9,15 +9,28 @@ import json
 from app.providers.ollama import OllamaProvider
 
 
-async def main():
-    provider = OllamaProvider()
+def emit(payload: dict) -> None:
+    print(json.dumps(payload, ensure_ascii=False, sort_keys=True))
+
+
+async def main() -> int:
     try:
+        provider = OllamaProvider()
         health = await provider.health()
-        print({
+        emit({
             "ok": bool(health.get("ok")),
+            "provider": health.get("provider", provider.name),
+            "base_url": health.get("base_url", provider.base_url),
+            "ollama_reachable": bool(health.get("ollama_reachable")),
             "configured_model": health.get("configured_model"),
+            "model_available": bool(health.get("model_available")),
+            "model_digest": health.get("model_digest"),
             "configured_model_info": health.get("configured_model_info"),
         })
+        if not health.get("ok") or not health.get("model_available"):
+            raise RuntimeError(
+                f"Configured local model is unavailable: {provider.model}"
+            )
 
         # Use the same contract the M0 pipeline relies on: non-streaming,
         # think=false, JSON-formatted output for a structured answerer marker.
@@ -26,20 +39,23 @@ async def main():
             user='Return exactly this JSON object: {"status":"ok","message":"local llm working"}',
         )
         parsed = json.loads(result.text)
-        if parsed.get("status") != "ok" or parsed.get("message") != "local llm working":
+        if not isinstance(parsed, dict) or parsed.get("status") != "ok" or parsed.get("message") != "local llm working":
             raise RuntimeError(f"Unexpected structured output: {parsed!r}")
 
-        print({
+        emit({
             "ok": True,
+            "provider": provider.name,
             "model": result.model,
             "json_mode": True,
             "think_disabled": True,
             "text": result.text,
             "tokens": result.usage.total_tokens,
         })
+        return 0
     except Exception as exc:
-        print({"ok": False, "error": str(exc)})
-        raise SystemExit(1)
+        emit({"ok": False, "error_type": type(exc).__name__, "error": str(exc)})
+        return 1
 
 
-asyncio.run(main())
+if __name__ == "__main__":
+    raise SystemExit(asyncio.run(main()))
