@@ -1,15 +1,48 @@
 from __future__ import annotations
+
+from collections.abc import Iterable
+
 from app.core.types import SourceChunk
 
 
-def validate_citations(citation_ids: list[str], available: list[SourceChunk]) -> tuple[list[str], list[str]]:
-    allowed = {c.chunk_id for c in available}
+def validate_citations(
+    citation_ids: Iterable[object] | None,
+    available: Iterable[SourceChunk],
+) -> tuple[list[str], list[str]]:
+    """Keep only unique citation IDs that resolve to supplied evidence.
+
+    The selected evidence packet is the authority for M0 locators. Empty,
+    non-string, and unknown values are returned as invalid instead of being
+    allowed to become source references by string coercion.
+    """
+    allowed = {
+        chunk.chunk_id
+        for chunk in available
+        if isinstance(chunk, SourceChunk)
+        and isinstance(chunk.chunk_id, str)
+        and chunk.chunk_id
+    }
     valid: list[str] = []
     invalid: list[str] = []
     seen: set[str] = set()
-    for cid in citation_ids:
-        cid = str(cid).strip()
-        if not cid or cid in seen:
+
+    if isinstance(citation_ids, (str, bytes)):
+        citation_ids = (citation_ids,)
+
+    for raw_citation in citation_ids or ():
+        if not isinstance(raw_citation, str):
+            marker = f"<{type(raw_citation).__name__}>"
+            if marker not in seen:
+                invalid.append(marker)
+                seen.add(marker)
+            continue
+        cid = raw_citation.strip()
+        if not cid:
+            if "" not in seen:
+                invalid.append("")
+                seen.add("")
+            continue
+        if cid in seen:
             continue
         seen.add(cid)
         if cid in allowed:
