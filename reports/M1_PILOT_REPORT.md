@@ -527,3 +527,34 @@ BLOCKERS: Owner direction is required before any later fresh Phase 1 gate run.
 No full pilot, M2, ablation, or human semantic grading was performed.
 
 DECISION: M1_PILOT_PARTIAL
+
+## Current canonical delta — live status-contract verification
+
+STATUS_FIX_COMMIT: `3efab4a fix(m1): record reason for unexplained partial worker output`.
+
+TARGETED_LIVE_VERIFY: PASS — immutable namespace
+`m1-03-c-status-contract-v1`, C/M1-03, serial local Ollama/qwen3:4b run.
+Terminal and worker status were `PARTIAL`; this is accepted because the
+status-contract reason was persisted.
+
+STATUS_REASON: `WORKER_PARTIAL_WITHOUT_REASON`; `missing_information=[]`.
+
+CITATION_VALIDITY: `1.0`; rendered
+`[src_1055b8f580d99531_c0000]` resolves to selected task evidence, with no raw
+locator leak.
+
+TRACE_CHECK: PASS — Planning Retrieval precedes decomposition; normalization
+and overlap-summary are present; O is enabled, selected
+`src_1055b8f580d99531_c0000`, and dropped no evidence. The run used 3 LLM
+calls and took 33,734 ms.
+
+FULL_PYTEST: `132 passed, 3 warnings` before this live verification.
+
+FRESH_PHASE1_READY: YES. This reconciliation task does not run the new
+9-record Phase 1 gate.
+
+BLOCKERS: None for targeted status-contract verification. Fresh Phase 1 and
+all larger M1 work remain subject to their separate authorization and hard
+stops. No human correctness/faithfulness score was assigned.
+
+DECISION: M1_PILOT_PARTIAL
