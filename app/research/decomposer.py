@@ -12,7 +12,7 @@ from app.core.types import RunMetrics
 try:
     # The schema track is integrated separately; use its canonical types when
     # it is available while keeping this focused commit independently runnable.
-    from app.research.task_schema import DecompositionResult, TaskItem
+    from app.research.task_schema import DecompositionResult, TaskItem, TaskPlan
 except ModuleNotFoundError as exc:
     if exc.name != "app.research.task_schema":
         raise
@@ -35,6 +35,10 @@ except ModuleNotFoundError as exc:
         status: str = "FAILED"
         warnings: list[str] = field(default_factory=list)
 
+    @dataclass
+    class TaskPlan:
+        tasks: list[TaskItem] = field(default_factory=list)
+
 
 _PLANNING_ID_PATTERN = re.compile(r"\[([A-Za-z0-9_.:/-]+)\]")
 _ORDERED_OBLIGATIONS_PATTERN = re.compile(
@@ -56,6 +60,28 @@ _TASK_SCHEMA = (
     '"domain":"declared domain",'
     '"role_profile":"declared role profile",'
     '"depends_on":[]}]}'
+)
+PROMPT_VERSION = "p-lite-decomposer-v2"
+STRUCTURED_OUTPUT_CONFIG_VERSION = "ollama-task-plan-schema-v1"
+PLANNER_TEMPERATURE = 0.0
+TASK_PLAN_JSON_SCHEMA = TaskPlan.model_json_schema()
+_SYSTEM_PROMPT = (
+    "TASK_DECOMPOSER. Follow the structured task-decomposition protocol in the "
+    "user message. Do not invent requirements."
+)
+_STATIC_PROMPT_PREFIX = (
+    f"PROMPT VERSION: {PROMPT_VERSION}\n"
+    "OUTPUT PROTOCOL:\n"
+    "Return exactly one JSON object and no markdown or explanation.\n"
+    f"Schema: {_TASK_SCHEMA}\n\n"
+    "PLANNER RULES:\n"
+    "Decompose only obligations stated or directly implied by the request. "
+    "Planning evidence is guidance only; do not add N/O, execution, retrieval, "
+    "answer evidence, or unstated requirements. Identify distinct obligations "
+    "before writing tasks. For explicitly ordered or dependent obligations, emit "
+    "separate tasks with separate expected outputs and put the predecessor task "
+    "ID in depends_on. Every task must include every schema field; use depends_on: [] "
+    "when it has no predecessor. Never emit blank placeholder tasks."
 )
 
 
@@ -178,53 +204,43 @@ def _validate_obligation_coverage(request: str, tasks: list[TaskItem]) -> None:
         )
 
 
-def _supports_think_false(provider: object) -> bool:
+def _supports_generation_keyword(provider: object, keyword: str) -> bool:
     try:
         parameters = inspect.signature(provider.generate).parameters.values()
     except (AttributeError, TypeError, ValueError):
         return False
     return any(
-        parameter.name == "think" or parameter.kind == inspect.Parameter.VAR_KEYWORD
+        parameter.name == keyword or parameter.kind == inspect.Parameter.VAR_KEYWORD
         for parameter in parameters
     )
 
 
 async def _generate_structured(provider: object, system: str, user: str):
     kwargs: dict[str, object] = {"system": system, "user": user}
-    if _supports_think_false(provider):
+    if _supports_generation_keyword(provider, "think"):
         kwargs["think"] = False
+    if _supports_generation_keyword(provider, "format"):
+        kwargs["format"] = TASK_PLAN_JSON_SCHEMA
+    if _supports_generation_keyword(provider, "temperature"):
+        kwargs["temperature"] = PLANNER_TEMPERATURE
     return await provider.generate(**kwargs)
 
 
 def _prompt(query: str, planning_context: str, retry_reason: str | None = None) -> str:
     retry_note = ""
     if retry_reason:
-        ordered_repair = ""
-        if "explicitly ordered obligations" in retry_reason:
-            ordered_repair = (
-                " The repaired response must contain at least two tasks, and the "
-                "later task must depend on the predecessor task ID."
-            )
         retry_note = (
-            "\n\nThe previous response failed structural validation because "
-            f"{retry_reason}.{ordered_repair} Return a corrected object only."
+            "\n\nREPAIR DATA:\n"
+            f"Previous validation failure: {retry_reason}. Correct the invalid "
+            "fields while preserving every distinct obligation and required "
+            "dependency from the planner rules. Return a corrected JSON object only."
         )
     return (
-        f"USER REQUEST:\n{query}\n\n"
-        "BOUNDED PLANNING CONTEXT (guidance only; not answer evidence):\n"
-        f"{planning_context}\n\n"
-        "Decompose only obligations stated or directly implied by the user request. "
-        "Use the planning context only to clarify task boundaries. Do not add N/O, "
-        "execution, retrieval, answer-domain evidence, or unstated requirements. "
-        "Identify each distinct user obligation before writing tasks. When one "
-        "obligation is ordered after, depends on, or consumes the result of another, "
-        "emit separate tasks with separate expected outputs and put the predecessor "
-        "task ID in depends_on; do not merge those obligations into one task. "
-        "For every explicit ordered obligation, count and emit a separate task. "
-        "Every task must include every schema field, including depends_on as [] "
-        "when it has no predecessor; never omit a required field or emit a blank "
-        "placeholder task. "
-        f"Return exactly one JSON object matching this schema: {_TASK_SCHEMA}."
+        f"{_STATIC_PROMPT_PREFIX}\n\n"
+        "CURRENT REQUEST:\n"
+        f"{query}\n\n"
+        "PLANNING EVIDENCE (guidance only; not answer evidence):\n"
+        f"{planning_context}"
         f"{retry_note}"
     )
 
@@ -269,11 +285,7 @@ async def decompose(
 
     request = query
     planning_evidence_ids = _extract_planning_evidence_ids(planning_context)
-    system = (
-        "TASK_DECOMPOSER. Return JSON only. Preserve atomic obligations and "
-        "dependencies. Do not invent requirements. Use the supplied planning "
-        "context only as bounded planning guidance."
-    )
+    system = _SYSTEM_PROMPT
     retry_reason: str | None = None
 
     for attempt in range(2):

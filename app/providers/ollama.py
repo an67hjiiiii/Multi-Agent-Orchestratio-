@@ -4,6 +4,7 @@ import math
 import os
 import uuid
 from ipaddress import ip_address
+from typing import Any
 from urllib.parse import urlsplit
 
 import httpx
@@ -19,6 +20,7 @@ DEFAULT_HEALTH_TIMEOUT_SECONDS = 5.0
 DEFAULT_TEMPERATURE = 0.1
 DEFAULT_MAX_OUTPUT_TOKENS = 700
 MIN_OUTPUT_TOKENS = 64
+STRUCTURED_OUTPUT_CONFIG_VERSION = "ollama-json-schema-v1"
 
 _LOCAL_HOSTNAMES = frozenset({"localhost"})
 _MODEL_FIELDS = ("name", "model", "digest", "size", "modified_at")
@@ -61,7 +63,14 @@ class OllamaProvider(Provider):
             self._positive_int(max_output_tokens, "MAX_OUTPUT_TOKENS"),
         )
 
-    async def generate(self, *, system: str, user: str) -> ProviderResult:
+    async def generate(
+        self,
+        *,
+        system: str,
+        user: str,
+        format: dict[str, Any] | str | None = None,
+        temperature: float | None = None,
+    ) -> ProviderResult:
         marker = system.upper()
         payload = {
             "model": self.model,
@@ -75,11 +84,13 @@ class OllamaProvider(Provider):
                 {"role": "user", "content": user},
             ],
             "options": {
-                "temperature": self.temperature,
+                "temperature": self.temperature if temperature is None else temperature,
                 "num_predict": self.max_output_tokens,
             },
         }
-        if any(value in marker for value in _STRUCTURED_MARKERS):
+        if format is not None:
+            payload["format"] = format
+        elif any(value in marker for value in _STRUCTURED_MARKERS):
             payload["format"] = "json"
 
         async with httpx.AsyncClient(timeout=self.timeout) as client:
@@ -143,6 +154,7 @@ class OllamaProvider(Provider):
                 "stream": False,
                 "think": False,
                 "structured_format": "json",
+                "structured_output_config_version": STRUCTURED_OUTPUT_CONFIG_VERSION,
                 "temperature": self.temperature,
                 "max_output_tokens": self.max_output_tokens,
             },

@@ -2,7 +2,13 @@ import asyncio
 import json
 
 from app.core.types import ProviderResult, RunMetrics, Usage
-from app.research.decomposer import DecompositionResult, TaskItem, decompose
+from app.research.decomposer import (
+    PLANNER_TEMPERATURE,
+    TASK_PLAN_JSON_SCHEMA,
+    DecompositionResult,
+    TaskItem,
+    decompose,
+)
 
 
 class _Provider:
@@ -21,6 +27,15 @@ class _Provider:
 class _ThinkAwareProvider(_Provider):
     async def generate(self, *, system, user, think):
         self.calls.append({"system": system, "user": user, "think": think})
+        response = self.responses.pop(0)
+        return ProviderResult(response, Usage(input_tokens=3, output_tokens=2))
+
+
+class _StructuredProvider(_Provider):
+    async def generate(self, *, system, user, format, temperature):
+        self.calls.append(
+            {"system": system, "user": user, "format": format, "temperature": temperature}
+        )
         response = self.responses.pop(0)
         return ProviderResult(response, Usage(input_tokens=3, output_tokens=2))
 
@@ -92,10 +107,22 @@ def test_decompose_prompt_preserves_distinct_dependent_obligations():
 
     assert result.status == "COMPLETE"
     prompt = provider.calls[0]["user"]
+    assert "PROMPT VERSION: p-lite-decomposer-v2" in prompt
+    assert prompt.index("OUTPUT PROTOCOL") < prompt.index("CURRENT REQUEST")
+    assert prompt.index("PLANNER RULES") < prompt.index("PLANNING EVIDENCE")
     assert "separate tasks" in prompt
     assert "depends_on" in prompt
-    assert "count and emit a separate task" in prompt
     assert "Every task must include every schema field" in prompt
+
+
+def test_decompose_uses_exact_task_plan_schema_and_zero_temperature_when_supported():
+    provider = _StructuredProvider([_valid_response()])
+
+    result = asyncio.run(decompose(provider, "Review auth.", "", RunMetrics()))
+
+    assert result.status == "COMPLETE"
+    assert provider.calls[0]["format"] == TASK_PLAN_JSON_SCHEMA
+    assert provider.calls[0]["temperature"] == PLANNER_TEMPERATURE == 0.0
 
 
 def test_decompose_retries_a_collapsed_explicitly_ordered_plan():
@@ -130,7 +157,7 @@ def test_decompose_retries_a_collapsed_explicitly_ordered_plan():
     assert result.tasks[1].depends_on == ["T1"]
     assert len(provider.calls) == 2
     assert "explicitly ordered obligations" in provider.calls[1]["user"]
-    assert "at least two tasks" in provider.calls[1]["user"]
+    assert "preserving every distinct obligation" in provider.calls[1]["user"]
 
 
 def test_decompose_allows_one_structured_retry_and_counts_usage():
@@ -143,7 +170,7 @@ def test_decompose_allows_one_structured_retry_and_counts_usage():
     assert len(result.tasks) == 2
     assert len(provider.calls) == 2
     assert metrics.llm_calls == 2
-    assert "corrected object" in provider.calls[1]["user"]
+    assert "corrected JSON object only" in provider.calls[1]["user"]
 
 
 def test_decompose_rejects_invalid_dependency_after_single_retry():

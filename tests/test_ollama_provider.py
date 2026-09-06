@@ -89,6 +89,24 @@ def test_ollama_structured_calls_disable_thinking(monkeypatch):
     assert json.loads(result.text)["status"] == "ok"
 
 
+def test_ollama_accepts_direct_json_schema_and_temperature_override(monkeypatch):
+    monkeypatch.setattr("app.providers.ollama.httpx.AsyncClient", _FakeClient)
+    provider = OllamaProvider(model="qwen3:4b")
+    schema = {"type": "object", "required": ["tasks"], "properties": {"tasks": {"type": "array"}}}
+
+    asyncio.run(
+        provider.generate(
+            system="TASK_DECOMPOSER return JSON",
+            user="test",
+            format=schema,
+            temperature=0.0,
+        )
+    )
+
+    assert _FakeClient.last_json["format"] == schema
+    assert _FakeClient.last_json["options"] == {"temperature": 0.0, "num_predict": 700}
+
+
 def test_ollama_health_reports_model_readiness_and_digest(monkeypatch):
     monkeypatch.setattr("app.providers.ollama.httpx.AsyncClient", _FakeTagsClient)
     provider = OllamaProvider(model="qwen3:4b")
@@ -106,6 +124,7 @@ def test_ollama_health_reports_model_readiness_and_digest(monkeypatch):
         "stream": False,
         "think": False,
         "structured_format": "json",
+        "structured_output_config_version": "ollama-json-schema-v1",
         "temperature": 0.1,
         "max_output_tokens": 700,
     }

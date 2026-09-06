@@ -28,6 +28,12 @@ class TaskItem(BaseModel):
     depends_on: list[str]
 
 
+class TaskPlan(BaseModel):
+    """The exact JSON object emitted by the P-lite planner."""
+
+    tasks: list[TaskItem]
+
+
 def validate_task_dependencies(tasks: list[TaskItem]) -> None:
     task_ids = [task.task_id for task in tasks]
     if len(task_ids) != len(set(task_ids)):
