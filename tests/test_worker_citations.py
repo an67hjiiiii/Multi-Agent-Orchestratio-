@@ -54,13 +54,33 @@ def test_worker_rejects_unselected_evidence_key_and_no_evidence_is_citation_free
 
 
 def test_synthesizer_preserves_multiple_task_citations():
-    provider = StubProvider("Combined answer")
+    provider = StubProvider({"answer": "Combined answer", "citations": ["E1", "E2"]})
     results = [
-        TaskResult("T1", "security", "COMPLETE", "auth", citations=["chunk-1"]),
-        TaskResult("T2", "api_architecture", "COMPLETE", "api", citations=["chunk-2"]),
+        TaskResult("T1", "security", "COMPLETE", "auth", evidence_ids=["chunk-1"], citations=["chunk-1"]),
+        TaskResult("T2", "api_architecture", "COMPLETE", "api", evidence_ids=["chunk-2"], citations=["chunk-2"]),
     ]
 
     answer = asyncio.run(synthesize(provider, "Review both", results, RunMetrics()))
 
     assert "[chunk-1]" in answer
     assert "[chunk-2]" in answer
+
+
+def test_synthesis_drops_malformed_or_unselected_locator_from_final_answer():
+    provider = StubProvider({"answer": "Combined", "citations": ["chunk-1:0000", "E2"]})
+    results = [TaskResult("T1", "security", "COMPLETE", "auth", evidence_ids=["chunk-1"], citations=["chunk-1"])]
+
+    answer = asyncio.run(synthesize(provider, "Review", results, RunMetrics()))
+
+    assert "[chunk-1]" in answer
+    assert "chunk-1:0000" not in answer
+    assert "E2" not in answer
+
+
+def test_synthesis_no_evidence_stays_citation_free():
+    provider = StubProvider({"answer": "No evidence", "citations": ["E1"]})
+    results = [TaskResult("T1", "security", "NO_EVIDENCE", "No evidence")]
+
+    answer = asyncio.run(synthesize(provider, "Review", results, RunMetrics()))
+
+    assert "Nguồn:" not in answer

@@ -68,6 +68,68 @@ HEAD: `8b046a5` (state authorization checkpoint).
 
 DECISION: M1_PILOT_PARTIAL
 
+## Final citation gate delta
+
+HARDENING_COMMIT: `6dea3f6 fix(m1): harden task retrieval and worker citations`.
+Only the verified M1 hardening set was committed: worker evidence keys and
+deterministic mapping, bounded retrieval fallback, immutable ledger/runner,
+frozen manifest, focused tests, and the existing M1 report. Historical raw
+attempts were not staged or modified.
+
+SYNTHESIS_CITATION_ROOT_CAUSE: The former synthesis pass treated any canonical
+ID occurring anywhere in model text—including `available_evidence`—as proof
+that a final citation had been rendered. A malformed model locator could
+therefore remain in the final answer while the worker metric was valid.
+
+SYNTHESIS_CITATION_FIX: The final boundary now requires JSON synthesis output
+with `E1`-style evidence keys. Application code resolves keys only against the
+task-result evidence IDs, rejects unknown/malformed values, and constructs the
+final `Nguồn` list exclusively from canonical worker and validated synthesis
+IDs. A non-JSON synthesis response falls back to structured task answers,
+not untrusted raw locator text. This shares the existing M0 deterministic
+citation contract; it adds no second citation system.
+
+FOCUSED_TESTS: PASS — `20 passed` for synthesis evidence-key resolution,
+canonical final serialization, malformed/unselected citation rejection,
+worker-citation preservation, NO_EVIDENCE citation-freedom, and multiple-task
+attribution.
+
+FULL_PYTEST: BLOCKED — `129 passed, 1 failed, 2 warnings`. The sole failure is
+`tests/test_pipeline.py::test_a_b_c_fake_dev_profile`: the currently
+uncommitted P/N/O/decomposer worktree path emits an empty decomposed task list
+for FakeProvider, so the pipeline answer is empty. The same failure was
+observed before this synthesis change. It is outside the final-synthesis-only
+scope and was not modified.
+
+LIVE_RECHECK_V3: NOT RUN. The required full regression gate is not clean, so
+the authorized maximum three qwen3:4b attempts were deliberately not spent.
+
+FINAL_RENDERED_CITATION_CHECK: Unit contract PASS; live verification is
+pending the clean full regression gate.
+
+JUSTIFIED_PARTIAL_REASON: The earlier M1-03/B partial remains evidence that
+the corpus lacks the requested specific query/identifier detail; it had a
+valid canonical worker citation after hardening. No new live assessment was
+made in this delta.
+
+PHASE1_FRESH: NOT RUN.
+
+PHASE1_TECHNICAL_GATE: BLOCKED.
+
+FULL_PILOT: NOT STARTED.
+
+COMMITS: `6dea3f6`.
+
+BLOCKERS: `WORKTREE_CONFLICT` — the existing uncommitted P/N/O/decomposer
+changes fail the shared Fake pipeline regression. Owner direction or an
+authorized integration of that separate track is required before the final
+citation delta can enter live recheck. No retrieval/P/N/O code was changed in
+this delta, and no M2/ablation/push was performed.
+
+HEAD: `6dea3f6`.
+
+DECISION: M1_PILOT_PARTIAL
+
 The empirical-validation state remains pending. This report does not claim M1
 done, research-MVP pass, or comparative A/B/C effectiveness.
 

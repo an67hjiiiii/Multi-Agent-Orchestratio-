@@ -86,3 +86,17 @@ def resolve_citations(
         else:
             resolved.append(value)
     return validate_citations(resolved, evidence)
+
+
+def resolve_citation_ids(
+    citation_ids: Iterable[object] | None,
+    allowed_ids: Iterable[str],
+) -> tuple[list[str], list[str]]:
+    """Resolve E-keys against application-owned canonical evidence IDs."""
+
+    canonical = [item for item in allowed_ids if isinstance(item, str) and item]
+    keys = {f"E{index}": item for index, item in enumerate(canonical, start=1)}
+    chunks = [SourceChunk(item, "", "", "", index) for index, item in enumerate(canonical)]
+    values = citation_ids if not isinstance(citation_ids, (str, bytes)) else (citation_ids,)
+    resolved = [keys.get(value.strip(), value) if isinstance(value, str) else value for value in values or ()]
+    return validate_citations(resolved, chunks)
