@@ -3,11 +3,12 @@ profile_kind: mutable-project-state
 source_base_commit: d7fb275
 
 milestone:
-  current_label: M0-code-candidate
-  M0: NOT_DONE
+  current_label: Sprint3-P-lite-active
+  M0: TECHNICAL_PASS
+  M0_HUMAN_GATE: HUMAN_REVIEW_PENDING
   M1: PLANNED
   M2: PLANNED
-  evidence_boundary: "Plans, static checks, screens, unit tests, and FakeProvider runs do not promote a milestone."
+  evidence_boundary: "M0 technical gates passed; Human correctness/faithfulness review remains pending. Plans, static checks, screens, unit tests, and FakeProvider runs do not promote a milestone."
 
 foundation:
   governance_review: PENDING_HUMAN_REVIEW
