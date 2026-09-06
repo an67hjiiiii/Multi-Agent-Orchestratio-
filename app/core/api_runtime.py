@@ -22,7 +22,8 @@ class PLitePipelineService:
     pipeline: PLitePipeline
 
     async def __call__(self, request: str, provider_name: str | None = None) -> Any:
-        return await self.pipeline.run(request, get_provider(provider_name))
+        result = await self.pipeline.run(request, get_provider(provider_name))
+        return result.to_dict()
 
 
 @dataclass
