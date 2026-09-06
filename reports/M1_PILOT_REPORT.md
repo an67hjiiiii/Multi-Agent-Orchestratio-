@@ -558,3 +558,70 @@ all larger M1 work remain subject to their separate authorization and hard
 stops. No human correctness/faithfulness score was assigned.
 
 DECISION: M1_PILOT_PARTIAL
+
+## Current canonical delta — final fresh M1 Phase 1
+
+FRESH_PHASE1_NAMESPACE: `m1-phase1-final-v2` (new immutable local-only
+Ollama/qwen3:4b namespace; no historical artifact was overwritten).
+
+RUN_COUNT: 9/9 unique canonical terminal records. Preflight confirmed
+`127.0.0.1:11434`, local `qwen3:4b`, local health generation, and no active
+runner lock. The completion lock was released and ledger-derived JSON report
+was written.
+
+A_RESULTS: 3 `COMPLETE`, 0 `PARTIAL`, 0 `NO_EVIDENCE`, 0 `FAILED`; Vanilla
+RAG only, 3 total LLM calls.
+
+B_RESULTS: 2 `COMPLETE`, 1 `PARTIAL` (M1-03), 0 `NO_EVIDENCE`, 0 `FAILED`;
+decomposition plus task-specific retrieval, with P/N/O off, 9 total LLM calls.
+
+C_RESULTS: 2 `COMPLETE`, 1 `PARTIAL` (M1-03), 0 `NO_EVIDENCE`, 0 `FAILED`;
+Planning Retrieval before decomposition, normalization and overlap-summary on
+every record, 9 total LLM calls.
+
+PARTIALS: B/M1-03 and C/M1-03 only.
+
+PARTIAL_REASONS: B/M1-03 records missing information about the specific
+unindexed queries. C/M1-03 records
+`status_reason=WORKER_PARTIAL_WITHOUT_REASON`. Both are technically valid
+status-contract outcomes, not pipeline defects.
+
+NO_EVIDENCE: None.
+
+FAILED: None; no runtime or pipeline failure occurred.
+
+CONDITION_TRACE_CHECK: PASS. A has only vanilla retrieval and no
+decomposition/P/N/O. B has decomposition and task-specific retrieval with all
+three flags off. C has Planning Retrieval before decomposition, N invocation,
+O invocation and overlap summary. O selected the necessary evidence and
+dropped none in the three C records.
+
+CITATION_VALIDITY: PASS — 9/9 evidence-bearing records are `1.0`.
+
+FINAL_LOCATOR_CHECK: PASS — every rendered locator is canonical, belongs to
+selected task evidence, and no raw locator leaked.
+
+TASK_DEPENDENCY_CHECK: PASS — each record has valid `T1` only with no invalid
+dependency reference or cycle.
+
+TRACE_LEDGER_CHECK: PASS — 9 unique ledger keys, 9 canonical rows, immutable
+effective config/source snapshot/config hash, deterministic report present,
+and lock released.
+
+M0_REGRESSION: PASS — the three A records completed via Vanilla RAG without
+decomposition or P/N/O.
+
+OLLAMA_RUNTIME: PASS — local-only `qwen3:4b`, digest
+`359d7dd4bcdab3d86b87d73ac27966f4dbb9f5efdfcc75d34a8764a09474fae7`.
+
+PHASE1_TECHNICAL_GATE: PASS.
+
+FULL_M1_PILOT_READY: YES.
+
+HEAD: `8ff842a` (execution head).
+
+BLOCKERS: None for the Fresh Phase 1 technical gate. This result does not
+grade human correctness/faithfulness and does not complete empirical M1
+validation.
+
+DECISION: M1_PILOT_PASS
