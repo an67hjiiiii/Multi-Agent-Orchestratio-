@@ -1,6 +1,6 @@
 from __future__ import annotations
 import json
-from app.core.citations import validate_citations
+from app.core.citations import resolve_citations
 from app.core.types import RunMetrics, SourceChunk, TaskResult
 
 
@@ -75,25 +75,31 @@ async def answer_vanilla(provider, query: str, evidence: list[SourceChunk], metr
             missing_information=["relevant evidence"],
         )
 
-    evidence_text = "\n\n".join(f"[{c.chunk_id}] {c.text}" for c in evidence)
+    # Keep generated references short and stable; the application owns the
+    # mapping from each evidence key to the canonical source/chunk locator.
+    evidence_text = "\n\n".join(
+        f"[E{index}] [{chunk.chunk_id}] {chunk.text}"
+        for index, chunk in enumerate(evidence, start=1)
+    )
     system = (
         "VANILLA_RAG_ANSWERER. Use only supplied evidence. Return JSON only with the schema "
         '{"status":"COMPLETE|PARTIAL|NO_EVIDENCE","answer":"...",'
-        '"citations":["exact chunk_id"],"missing_information":["..."]}. '
-        "Every factual claim from the corpus must be grounded by one or more exact supplied chunk IDs. "
+        '"citations":["evidence_key"],"missing_information":["..."]}. '
+        "Every factual claim from the corpus must be grounded by one or more supplied evidence keys. "
+        "Citations must contain only the exact keys E1, E2, etc. Never output source IDs or chunk IDs. "
         "Use COMPLETE only for a fully supported answer, PARTIAL when information or validation is incomplete, "
         "and NO_EVIDENCE when the supplied evidence cannot answer the request. Never invent citations."
     )
     user = (
         f"USER REQUEST:\n{query}\n\nEVIDENCE:\n{evidence_text}\n\n"
         'Schema: {"status":"COMPLETE|PARTIAL|NO_EVIDENCE","answer":"...",'
-        '"citations":["chunk_id"],"missing_information":[]}'
+        '"citations":["E1"],"missing_information":[]}'
     )
     result = await provider.generate(system=system, user=user)
     metrics.add_usage(result.usage)
     obj = _extract_json(result.text)
     raw_citations, citations_shape_ok = _string_values(obj.get("citations"))
-    valid, invalid = validate_citations(raw_citations, evidence)
+    valid, invalid = resolve_citations(raw_citations, evidence)
     metrics.add_citations(valid, invalid)
 
     raw_status = obj.get("status")

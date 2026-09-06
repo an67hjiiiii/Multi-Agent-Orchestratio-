@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 
-from app.core.citations import validate_citations
-from app.core.types import SourceChunk
+from app.core.citations import resolve_citations, validate_citations
+from app.core.types import ProviderResult, RunMetrics, SourceChunk, Usage
 from app.retrieval.text import (
     apply_token_budget,
     estimate_tokens,
@@ -90,3 +92,64 @@ def test_citation_validation_is_limited_to_selected_evidence():
         [],
         ["c1"],
     )
+
+
+def test_evidence_key_resolves_to_canonical_locator():
+    chunk = _chunk("src_0123456789abcdef_c0000", "first")
+
+    assert resolve_citations(["E1"], [chunk]) == (
+        [chunk.chunk_id],
+        [],
+    )
+
+
+def test_malformed_and_truncated_locators_are_rejected():
+    chunk = _chunk("src_0123456789abcdef_c0000", "first")
+
+    assert resolve_citations(
+        ["src_0123456789abc:0000", "src_0123456789abcdef_c00", "E2"],
+        [chunk],
+    ) == (
+        [],
+        ["src_0123456789abc:0000", "src_0123456789abcdef_c00", "E2"],
+    )
+
+
+def test_vanilla_answer_maps_key_and_keeps_invalid_citation_out():
+    chunk = _chunk("src_0123456789abcdef_c0000", "first")
+
+    class Provider:
+        model = "test"
+
+        async def generate(self, *, system: str, user: str) -> ProviderResult:
+            assert "[E1]" in user
+            assert f"[{chunk.chunk_id}]" in user
+            assert '"citations":["evidence_key"]' in system
+            return ProviderResult(
+                text='{"status":"COMPLETE","answer":"supported","citations":["E1"],"missing_information":[]}',
+                usage=Usage(1, 1),
+                model=self.model,
+            )
+
+    from app.research.vanilla import answer_vanilla
+
+    result = asyncio.run(answer_vanilla(Provider(), "question", [chunk], RunMetrics()))
+
+    assert result.status == "COMPLETE"
+    assert result.citations == [chunk.chunk_id]
+    assert result.invalid_citations == []
+    assert chunk.chunk_id in result.answer
+
+
+def test_vanilla_no_evidence_remains_citation_free():
+    class UnexpectedProvider:
+        async def generate(self, **_kwargs):
+            raise AssertionError("NO_EVIDENCE must not call the provider")
+
+    from app.research.vanilla import answer_vanilla
+
+    result = asyncio.run(answer_vanilla(UnexpectedProvider(), "question", [], RunMetrics()))
+
+    assert result.status == "NO_EVIDENCE"
+    assert result.citations == []
+    assert result.invalid_citations == []

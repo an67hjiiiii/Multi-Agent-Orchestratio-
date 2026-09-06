@@ -50,3 +50,39 @@ def validate_citations(
         else:
             invalid.append(cid)
     return valid, invalid
+
+
+def resolve_citations(
+    citation_ids: Iterable[object] | None,
+    available: Iterable[SourceChunk],
+) -> tuple[list[str], list[str]]:
+    """Resolve short evidence keys to canonical source/chunk locators.
+
+    Evidence keys are application-owned labels such as ``E1`` and ``E2``.
+    Exact canonical chunk IDs remain accepted for backward compatibility, but
+    unknown, malformed, and truncated values still go through validation and
+    are rejected.
+    """
+    evidence = list(available)
+    evidence_keys = {
+        f"E{index}": chunk.chunk_id
+        for index, chunk in enumerate(evidence, start=1)
+        if (
+            isinstance(chunk, SourceChunk)
+            and isinstance(chunk.chunk_id, str)
+            and chunk.chunk_id
+        )
+    }
+    if isinstance(citation_ids, (str, bytes)):
+        values = (citation_ids,)
+    else:
+        values = citation_ids or ()
+
+    resolved: list[object] = []
+    for value in values:
+        if isinstance(value, str):
+            key = value.strip()
+            resolved.append(evidence_keys.get(key, value))
+        else:
+            resolved.append(value)
+    return validate_citations(resolved, evidence)
