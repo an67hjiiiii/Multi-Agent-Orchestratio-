@@ -64,3 +64,27 @@ def test_task_retrieval_falls_back_to_user_request_only_after_task_query_miss():
 
     assert [item.chunk_id for item in selected] == ["db-1"]
     assert reason == "task_query_no_results_fallback_to_user_request"
+
+
+def test_failed_decomposition_is_explicit_not_an_empty_partial(tmp_path: Path, monkeypatch):
+    from app.research import pipeline as pipeline_module
+    from app.research.task_schema import DecompositionResult
+
+    async def failed_decompose(*_args):
+        return DecompositionResult(
+            request="Review authentication",
+            tasks=[],
+            planning_evidence_ids=[],
+            status="FAILED",
+            warnings=["invalid task schema"],
+        )
+
+    monkeypatch.setenv("IMPLEMENTATION_PROFILE", "dev")
+    monkeypatch.setattr(pipeline_module, "decompose", failed_decompose)
+    run = asyncio.run(ResearchPipeline(SourceStore(str(tmp_path / "data")), RunStore(str(tmp_path / "runs"))).run(
+        "Review authentication", "B", "fake"
+    ))
+
+    assert run["status"] == "FAILED"
+    assert run["tasks"] == []
+    assert any(event["stage"] == "decomposition_failed" for event in run["events"])

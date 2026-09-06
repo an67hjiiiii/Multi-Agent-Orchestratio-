@@ -126,6 +126,17 @@ class ResearchPipeline:
                 tasks = _runtime_tasks(decomposition)
                 metrics.generation_latency_ms += int((time.perf_counter() - g0) * 1000)
                 event("decomposition", tasks=[asdict(t) for t in tasks])
+                if getattr(decomposition, "status", "COMPLETE") != "COMPLETE" or not tasks:
+                    event(
+                        "decomposition_failed",
+                        warnings=list(getattr(decomposition, "warnings", [])),
+                    )
+                    return finalize(
+                        "FAILED",
+                        "Pipeline failed: decomposer returned no valid tasks",
+                        [],
+                        [],
+                    )
                 if flags["N"]:
                     tasks, removed = normalize_tasks(tasks)
                     metrics.duplicate_tasks_removed += removed

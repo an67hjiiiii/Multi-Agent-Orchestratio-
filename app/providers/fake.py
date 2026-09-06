@@ -42,14 +42,26 @@ class FakeProvider(Provider):
     def _tasks(self, user: str) -> list[dict]:
         low = user.lower()
         tasks: list[dict] = []
+        def add(goal: str, domain: str, evidence_needs: list[str]) -> None:
+            task_id = f"T{len(tasks) + 1}"
+            tasks.append({
+                "task_id": task_id,
+                "title": goal,
+                "objective": goal,
+                "expected_output": f"Grounded {domain} findings.",
+                "domain": domain,
+                "role_profile": f"{domain} reviewer",
+                "depends_on": [],
+                "evidence_needs": evidence_needs,
+            })
         if any(x in low for x in ["security", "auth", "jwt", "đăng nhập", "phân quyền", "authorization"]):
-            tasks.append({"id":"T1","goal":"Review authentication and authorization requirements","domain":"security","depends_on":[],"evidence_needs":["authentication","authorization","JWT"]})
+            add("Review authentication and authorization requirements", "security", ["authentication", "authorization", "JWT"])
         if any(x in low for x in ["database", "sql", "query", "dữ liệu", "truy vấn"]):
-            tasks.append({"id":f"T{len(tasks)+1}","goal":"Review database and query concerns","domain":"database","depends_on":[],"evidence_needs":["database","query"]})
+            add("Review database and query concerns", "database", ["database", "query"])
         if any(x in low for x in ["api", "architecture", "kiến trúc", "endpoint"]):
-            tasks.append({"id":f"T{len(tasks)+1}","goal":"Review API and architecture concerns","domain":"api_architecture","depends_on":[],"evidence_needs":["API","architecture"]})
+            add("Review API and architecture concerns", "api_architecture", ["API", "architecture"])
         if not tasks:
-            tasks.append({"id":"T1","goal":"Answer the user's request from available evidence","domain":"api_architecture","depends_on":[],"evidence_needs":["user request"]})
+            add("Answer the user's request from available evidence", "api_architecture", ["user request"])
         return tasks
 
     @staticmethod
