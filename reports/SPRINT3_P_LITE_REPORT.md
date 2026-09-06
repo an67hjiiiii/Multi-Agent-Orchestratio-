@@ -47,10 +47,10 @@ Domain verification client IDs: `92fbe707`, `57a3f83d`, `57cd6394`,
 ## COMMITS
 
 The worker commits listed in **BASE** contain the P-lite implementation. Final
-integration additionally wires `ApiRuntime` to resolve the selected local
-provider before invoking `PLitePipeline`; this prevents the default API path
-from returning `PLITE_UNAVAILABLE` solely because the runtime service was not
-registered.
+integration commits `1d57be7`, `21533e2`, and `a48baad` wire `ApiRuntime` to
+resolve the selected local provider, serialize the inspection payload at the
+HTTP boundary, and expose the Plan inspector only for P-lite profiles. The
+locked M0 inspector does not expose that action or tab.
 
 ## TESTS
 
