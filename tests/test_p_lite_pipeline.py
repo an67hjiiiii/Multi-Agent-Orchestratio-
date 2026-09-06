@@ -72,6 +72,9 @@ def test_p_lite_bounds_planning_context_and_records_telemetry():
     assert metrics.output_tokens == 5
     assert result.latency_ms >= 0
     assert result.to_dict()["planning"]["item_ids"] == result.planning_evidence_ids
+    assert result.planning.snapshot_id.startswith("planning_")
+    assert result.planning.selected_item_ids == result.planning_evidence_ids
+    assert result.planning.dropped_item_ids == ["P2", "P3"]
 
 
 class RepairingDecomposer:
@@ -239,3 +242,21 @@ def test_p_lite_serializes_canonical_pydantic_tasks():
         "role_profile": "reviewer",
         "depends_on": [],
     }]
+
+
+def test_p_lite_off_skips_retrieval_and_logs_fallback_flag():
+    retriever = RecordingRetriever([_source_chunk("P1", "unused", 1.0)])
+    pipeline = PLitePipeline(planning_retriever=retriever, decomposer=_contract_decomposer, planning_enabled=False)
+    result = asyncio.run(pipeline.run("Inspect this request", FakeProvider()))
+    assert result.status == "COMPLETE"
+    assert retriever.calls == []
+    assert result.planning.enabled is False
+    assert result.planning.fallback_reason == "P_DISABLED"
+    assert result.planning_context == ""
+
+
+def test_p_lite_relevance_fallback_is_explicit():
+    pipeline = PLitePipeline(planning_retriever=RecordingRetriever([]), decomposer=_contract_decomposer)
+    result = asyncio.run(pipeline.run("Inspect this request", FakeProvider()))
+    assert result.planning.enabled is True
+    assert result.planning.fallback_reason == "NO_RELEVANT_PLANNING_EVIDENCE"

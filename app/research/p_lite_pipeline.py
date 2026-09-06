@@ -7,6 +7,7 @@ and overlap-aware context allocation.
 from __future__ import annotations
 
 import inspect
+import hashlib
 import math
 import time
 from dataclasses import asdict, dataclass, field, is_dataclass
@@ -34,6 +35,11 @@ class PlanningRetrievalResult:
     item_ids: list[str]
     scores: list[float] | None
     context: str
+    enabled: bool = True
+    snapshot_id: str = "UNAVAILABLE"
+    selected_item_ids: list[str] = field(default_factory=list)
+    dropped_item_ids: list[str] = field(default_factory=list)
+    fallback_reason: str | None = None
 
 
 @dataclass
@@ -95,6 +101,7 @@ class PLitePipeline:
         max_items: int = 3,
         max_context_tokens: int = 1_200,
         retry_limit: int = 1,
+        planning_enabled: bool = True,
     ) -> None:
         self.planning_retriever = (
             planning_retriever if planning_retriever is not None else PlanningRetriever()
@@ -111,6 +118,9 @@ class PLitePipeline:
         if invalid_retry:
             raise ValueError("retry_limit must be 0 or 1 for P-lite")
         self.retry_limit = retry_limit
+        if not isinstance(planning_enabled, bool):
+            raise ValueError("planning_enabled must be a boolean")
+        self.planning_enabled = planning_enabled
 
     async def run(
         self,
@@ -126,7 +136,10 @@ class PLitePipeline:
         warnings: list[str] = []
 
         try:
-            planning, retrieval_warnings = await self._retrieve_planning(request, metrics)
+            if self.planning_enabled:
+                planning, retrieval_warnings = await self._retrieve_planning(request, metrics)
+            else:
+                planning, retrieval_warnings = _empty_planning(request, enabled=False, fallback_reason="P_DISABLED"), ["P-lite planning retrieval disabled by feature flag"]
             warnings.extend(retrieval_warnings)
         except Exception as exc:
             warnings.append(f"planning retrieval failed: {type(exc).__name__}")
@@ -223,11 +236,15 @@ class PLitePipeline:
             if not context:
                 warnings.append("planning context is empty")
             return (
-                PlanningRetrievalResult(
-                    request=request,
-                    item_ids=[item.item_id for item in selected],
-                    scores=_scores(selected),
-                    context=context,
+            PlanningRetrievalResult(
+                request=request,
+                item_ids=[item.item_id for item in selected],
+                scores=_scores(selected),
+                context=context,
+                snapshot_id=_snapshot_id(candidates),
+                selected_item_ids=[item.item_id for item in selected],
+                dropped_item_ids=[item.item_id for item in candidates if item.item_id not in {chosen.item_id for chosen in selected}],
+                fallback_reason=None if context else "NO_RELEVANT_PLANNING_EVIDENCE",
                 ),
                 warnings,
             )
@@ -247,6 +264,9 @@ class PLitePipeline:
                 item_ids=item_ids,
                 scores=_bounded_scores(supplied_scores, len(item_ids)),
                 context=context,
+                snapshot_id=_context_snapshot_id(context),
+                selected_item_ids=item_ids,
+                fallback_reason=None if context else "NO_RELEVANT_PLANNING_EVIDENCE",
             ),
             warnings,
         )
@@ -452,8 +472,17 @@ def _bounded_scores(values: Any, count: int) -> list[float] | None:
     return scores or None
 
 
-def _empty_planning(request: str) -> PlanningRetrievalResult:
-    return PlanningRetrievalResult(request=request, item_ids=[], scores=None, context="")
+def _empty_planning(request: str, *, enabled: bool = True, fallback_reason: str | None = "NO_RELEVANT_PLANNING_EVIDENCE") -> PlanningRetrievalResult:
+    return PlanningRetrievalResult(request=request, item_ids=[], scores=[], context="", enabled=enabled, fallback_reason=fallback_reason)
+
+
+def _snapshot_id(items: list[_PlanningItem]) -> str:
+    material = "\n".join(f"{item.item_id}|{item.provenance}|{item.content}" for item in items)
+    return "planning_" + hashlib.sha256(material.encode("utf-8")).hexdigest()[:16]
+
+
+def _context_snapshot_id(context: str) -> str:
+    return "planning_" + hashlib.sha256(context.encode("utf-8")).hexdigest()[:16]
 
 
 def _unpack_decomposition(value: Any) -> tuple[list[Any], str, list[str]]:
