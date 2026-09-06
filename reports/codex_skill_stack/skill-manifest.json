@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "scope": "project-local skill stack only",
+  "runtime": { "codex_cli": "0.153.4", "global_path_changed": false },
+  "installed": [
+    { "name": "systematic-debugging", "source": "obra/superpowers", "ref": "b36e0829c6d0140e93cfef2ca599b1b07d4a7797", "license": "MIT" },
+    { "name": "verification-before-completion", "source": "obra/superpowers", "ref": "b36e0829c6d0140e93cfef2ca599b1b07d4a7797", "license": "MIT" },
+    { "name": "requesting-code-review", "source": "obra/superpowers", "ref": "b36e0829c6d0140e93cfef2ca599b1b07d4a7797", "license": "MIT" },
+    { "name": "dispatching-parallel-agents", "source": "obra/superpowers", "ref": "b36e0829c6d0140e93cfef2ca599b1b07d4a7797", "license": "MIT" },
+    { "name": "writing-skills", "source": "obra/superpowers", "ref": "b36e0829c6d0140e93cfef2ca599b1b07d4a7797", "license": "MIT" },
+    { "name": "agent-architecture-analysis", "source": "existential-birds/beagle", "ref": "d1a74899fbfec74974d1818e4cac7c3d54d44b65", "license": "Apache-2.0" },
+    { "name": "rag-retrieval", "source": "yonatangross/orchestkit", "ref": "4d4f547a799ce2c77b38ac65940cb23dbb24f837", "license": "MIT" },
+    { "name": "local-mrag-governance", "source": "project", "version": "1.0.0" }
+  ],
+  "conditional_or_skipped": [
+    { "name": "mcp-cli", "status": "SKIPPED", "reason": "mcp CLI unavailable; dependency install is out of scope" },
+    { "name": "test-driven-development", "status": "CONDITIONAL", "reason": "authorized production behavior changes only" },
+    { "name": "finding-duplicate-functions", "status": "CONDITIONAL", "reason": "audit, pre-freeze, or refactor only" }
+  ]
+}
