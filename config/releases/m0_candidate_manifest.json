@@ -1,6 +1,6 @@
 {
   "manifest_schema": "m0-release-v1",
-  "created_at": "2026-09-05T17:40:15.388952+00:00",
+  "created_at": "2026-09-06T00:31:04.546148+00:00",
   "milestone": "M0",
   "claim_status": "CANDIDATE_ONLY_UNTIL_LOCAL_GATE_PASSES",
   "allowed_conditions": [
@@ -8,7 +8,7 @@
   ],
   "runtime_config": {
     "implementation_profile": "m0",
-    "provider": "fake",
+    "provider": "ollama",
     "local_model": "qwen3:4b",
     "task_top_k": 6,
     "planning_top_k": 3,
@@ -18,22 +18,22 @@
     "retry_limit": 1,
     "retrieval_min_score": 0.18
   },
-  "config_hash": "d11d6be5f99abc5b",
+  "config_hash": "0732341dbc931c1e",
   "model": {
     "tag": "qwen3:4b",
     "status": "calibration-candidate",
     "research_frozen": false
   },
-  "python": "3.12.14 (main, Aug 25 2026, 14:01:42) [MSC v.1944 64 bit (AMD64)]",
+  "python": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
   "platform": "Windows-11-10.0.22631-SP0",
   "git": {
-    "commit": "5b552de2d804012d6b82c38b1d163cdd2aa2aa4d",
-    "dirty": false
+    "commit": "7a598222f6935a62a8c75024d1c0f466387b119c",
+    "dirty": true
   },
-  "corpus_snapshot_id": "corpus_e3b0c44298fc1c14",
+  "corpus_snapshot_id": "corpus_ecf5fd8b529c02d5",
   "corpus": {
-    "store_file_present": false,
-    "chunk_count": 0
+    "store_file_present": true,
+    "chunk_count": 3
   },
   "files": {
     "requirements.txt": "fb1adf106dae5e1ec39ff5ae5ac33f924d1fd38587de115347fca483c8415f45",
@@ -41,17 +41,17 @@
     ".project/framework-ref.yaml": "5c8a809f5810c43d633fcfb1769b158104dd20c1aff04942d9e1682f591c6745",
     "config/conditions.json": "c65be26acca2f3576bfcbf0fc4ac27ab6219a9691d258804d0e467a4b63a69aa",
     "datasets/calibration/m0_cases.json": "c8184eb69656e12f6b7a6adf9a3f8ed6c96c4348b7251d2d73dda0d6e32302d9",
-    "app/core/config.py": "d3dbf876312916f7a4cad38e126defbc26ef0558275a8248cd5db5a766840819",
+    "app/core/config.py": "3a6e90e3537dd108847df79275dae4a291a7ea82e2f6b8f6b7c0c28c41574abd",
     "app/core/telemetry.py": "9c2445ffe5f83b5b56d093e2bf454f48c79e49e47c1e4af00cb46c364610703a",
     "app/core/types.py": "d9692777d5d4186e3cdb1ed290ba5b2aa8c00304ccf1f2b147a99a4dc4f0094d",
-    "app/providers/factory.py": "7edf7cec77b21316614bb0d3204505d57bc515e4fdb97d330227a555cf485d4b",
+    "app/providers/factory.py": "8de6ea1ea28b6189b09468f4f1392f4cf0d800321423cbbe6c85271c9e367920",
     "app/providers/fake.py": "f82f5e3aa87fad3f73398bef9319713c5220ede8e74cf47a74656bd93ace229d",
-    "app/providers/ollama.py": "77e76b896ac3fcb44556bc6c42f5a89a7be4c1800e4f759dfc077c38803bd5b2",
+    "app/providers/ollama.py": "9e88614d4004fa9a0066497d6ff6be7cf15b2314eb55435439d863b3e4b4e55b",
     "app/research/pipeline.py": "5f04dda9563cc7a352eb265a1df9f13eeba585de2cd3f403a973a46f0db28b51",
-    "app/research/vanilla.py": "e64fe5a537c993590ee67be6783702df1e7fb713d8a6994b042fbda72d48bb79",
-    "app/retrieval/text.py": "2ccd5d0f73496d8e154ae3f9d04cd7e262f6163b78943b4112cd06606e0c4dab",
-    "app/storage/source_store.py": "fcd64ff2998126b921c68f6ff0eb0e48412c0d7dadbaad16fbdf7e12056b2c59",
-    "scripts/run_m0_calibration.py": "fc98058d5100394ac8159c5c42b156a063273eb84048175095e18647f38c37f4",
+    "app/research/vanilla.py": "001e4a729ea13aad011a15bbd820733594f2e7183a3560352e7343f270acc1ec",
+    "app/retrieval/text.py": "9695cc9b74614aef812c3ab53c7343e97b4bf2bab3b883c1cc01b0d96d485a03",
+    "app/storage/source_store.py": "4b365fb7ccc068ba12960af568cb2119ea0fa36405a6ec34822c39565f8a17e0",
+    "scripts/run_m0_calibration.py": "114139f240ae175d4613660bc7d232f7dc1c33d6a3eeba4bd3d662599de11cf1",
     "scripts/create_m0_manifest.py": "409e9c8d4fea8adbf0ea20be8fbe156b0955e9b8f67110091c0c583694f11580",
     "docs/M0_STATUS.md": "b9db8797f7dedda10acafaac188d6165831cfcaa2661e9a3432d99a4fcd3b69a",
     "docs/M0_TRACE_METRICS.md": "d29a04f771e874674b0d61ff97ce792156cc337e9dcd1401df64ebf74ad006a2"

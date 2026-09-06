@@ -1,0 +1,101 @@
+{
+  "run_id": "run_354da3b5e2ef",
+  "created_at": "2026-09-06T00:26:40.597290+00:00",
+  "condition": "A",
+  "implementation_profile": "m0",
+  "provider": "ollama",
+  "model": "qwen3:4b",
+  "query": "What is the monthly SLA percentage?",
+  "status": "NO_EVIDENCE",
+  "answer": "Không tìm thấy bằng chứng phù hợp trong nguồn đã nạp để trả lời yêu cầu này.",
+  "source_snapshot_id": "corpus_ecf5fd8b529c02d5",
+  "config_hash": "0732341dbc931c1e",
+  "tasks": [
+    {
+      "task_id": "T1",
+      "goal": "What is the monthly SLA percentage?",
+      "domain": "general",
+      "depends_on": [],
+      "evidence_needs": []
+    }
+  ],
+  "task_results": [
+    {
+      "task_id": "T1",
+      "domain": "general",
+      "status": "NO_EVIDENCE",
+      "answer": "Không tìm thấy bằng chứng phù hợp trong nguồn đã nạp để trả lời yêu cầu này.",
+      "evidence_ids": [],
+      "citations": [],
+      "invalid_citations": [],
+      "missing_information": [
+        "relevant evidence"
+      ]
+    }
+  ],
+  "metrics": {
+    "llm_calls": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "context_tokens_est": 0,
+    "context_chars": 0,
+    "retrieved_chunks": 0,
+    "selected_chunks": 0,
+    "dropped_chunks": 0,
+    "duplicate_tasks_removed": 0,
+    "citations_emitted": 0,
+    "citations_valid": 0,
+    "retrieval_latency_ms": 0,
+    "generation_latency_ms": 0,
+    "latency_ms": 40,
+    "peak_rss_mb": 41.52,
+    "gpu_memory_mb": 2323.0,
+    "total_tokens": 0,
+    "citation_locator_validity": null
+  },
+  "events": [
+    {
+      "stage": "run_started",
+      "ts": "2026-09-06T00:26:40.555386+00:00",
+      "condition": "A",
+      "provider": "ollama",
+      "model": "qwen3:4b",
+      "implementation_profile": "m0",
+      "source_snapshot_id": "corpus_ecf5fd8b529c02d5",
+      "config_hash": "0732341dbc931c1e",
+      "flags": {
+        "P": false,
+        "N": false,
+        "O": false
+      }
+    },
+    {
+      "stage": "vanilla_retrieval",
+      "ts": "2026-09-06T00:26:40.555386+00:00",
+      "candidates": [],
+      "selected": [],
+      "dropped": []
+    },
+    {
+      "stage": "run_finished",
+      "ts": "2026-09-06T00:26:40.555386+00:00",
+      "status": "NO_EVIDENCE"
+    }
+  ],
+  "effective_config": {
+    "condition": "A",
+    "implementation_profile": "m0",
+    "flags": {
+      "P": false,
+      "N": false,
+      "O": false
+    },
+    "task_top_k": 6,
+    "planning_top_k": 3,
+    "max_context_tokens": 3000,
+    "max_output_tokens": 700,
+    "max_run_tokens": 12000,
+    "retry_limit": 1,
+    "retrieval_min_score": 0.18
+  }
+}

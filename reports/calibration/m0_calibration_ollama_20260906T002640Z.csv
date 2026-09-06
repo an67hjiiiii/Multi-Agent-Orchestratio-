@@ -1,0 +1,31 @@
+﻿case_id,query,expected_evidence,expected_source,status,answer,model,citations,citation_sources,citation_count,invalid_citation_count,citation_locator_validity,locator_valid,evidence_behavior_ok,status_behavior_ok,source_match,condition_ok,profile_ok,automated_pass,llm_calls,input_tokens,output_tokens,total_tokens,retrieval_latency_ms,generation_latency_ms,e2e_latency_ms,peak_rss_mb,gpu_memory_mb,implementation_profile,config_hash,corpus_snapshot,run_id,failure_type,manual_correctness,manual_correctness_reason,manual_faithfulness,manual_faithfulness_reason
+M0-01,Authentication verifies what in this system?,present,demo_security.md,COMPLETE,"identity
+
+Nguồn: [src_ecad6843b8fcb99b_c0000]",qwen3:4b,src_ecad6843b8fcb99b_c0000,demo_security.md,1,0,1.0,True,True,True,True,True,True,True,1,255,32,287,0,1964,2039,38.27,2323.0,m0,0732341dbc931c1e,corpus_ecf5fd8b529c02d5,run_87341c8b0a82,,UNSCORED,,UNSCORED,
+M0-02,What does authorization check before an action is allowed?,present,demo_security.md,COMPLETE,"Authorization checks whether the authenticated user has permission to perform an action.
+
+Nguồn: [src_ecad6843b8fcb99b_c0000]",qwen3:4b,src_ecad6843b8fcb99b_c0000,demo_security.md,1,0,1.0,True,True,True,True,True,True,True,1,258,43,301,0,1845,1886,38.96,2323.0,m0,0732341dbc931c1e,corpus_ecf5fd8b529c02d5,run_063d0a853c8b,,UNSCORED,,UNSCORED,
+M0-03,Can JWT claims replace server-side authorization policy?,present,demo_security.md,COMPLETE,"No, JWT claims cannot replace server-side authorization policy. The evidence explicitly states that JWT claims must not be treated as a substitute for server: authorization policy.
+
+Nguồn: [src_ecad6843b8fcb99b_c0000]",qwen3:4b,src_ecad6843b8fcb99b_c0000,demo_security.md,1,0,1.0,True,True,True,True,True,True,True,1,257,61,318,0,2441,2485,39.77,2323.0,m0,0732341dbc931c1e,corpus_ecf5fd8b529c02d5,run_87f55f74714d,,UNSCORED,,UNSCORED,
+M0-04,Where are user records stored?,present,demo_database.md,COMPLETE,"User records are stored in the relational database
+
+Nguồn: [src_1055b8f580d99531_c0000]",qwen3:4b,src_1055b8f580d99531_c0000,demo_database.md,1,0,1.0,True,True,True,True,True,True,True,1,323,39,362,0,1754,1805,40.47,2323.0,m0,0732341dbc931c1e,corpus_ecf5fd8b529c02d5,run_2e40f22ea1bc,,UNSCORED,,UNSCORED,
+M0-05,Which database queries should be reviewed for indexes?,present,demo_database.md,COMPLETE,"Queries that filter by frequently used identifiers should be reviewed for appropriate indexes
+
+Nguồn: [src_1055b8f580d99531_c0000]",qwen3:4b,src_1055b8f580d99531_c0000,demo_database.md,1,0,1.0,True,True,True,True,True,True,True,1,256,44,300,0,1867,1910,40.53,2323.0,m0,0732341dbc931c1e,corpus_ecf5fd8b529c02d5,run_d8a0d9185061,,UNSCORED,,UNSCORED,
+M0-06,When are transaction boundaries required?,present,demo_database.md,COMPLETE,"Transaction boundaries are required for multi-step writes that must remain consistent.
+
+Nguồn: [src_1055b8f580d99531_c0000]",qwen3:4b,src_1055b8f580d99531_c0000,demo_database.md,1,0,1.0,True,True,True,True,True,True,True,1,322,43,365,0,1904,1954,39.94,2323.0,m0,0732341dbc931c1e,corpus_ecf5fd8b529c02d5,run_9c6b253ab6f5,,UNSCORED,,UNSCORED,
+M0-07,What kind of endpoints does the service expose?,present,demo_api.md,COMPLETE,"REST endpoints
+
+Nguồn: [src_c7f92b35e6b484c5_c0000]",qwen3:4b,src_c7f92b35e6b484c5_c0000,demo_api.md,1,0,1.0,True,True,True,True,True,True,True,1,256,33,289,0,1513,1558,40.27,2323.0,m0,0732341dbc931c1e,corpus_ecf5fd8b529c02d5,run_a0d6e597b343,,UNSCORED,,UNSCORED,
+M0-08,What should API contracts define?,present,demo_api.md,COMPLETE,"API contracts should define request validation, error responses, and authorization requirements. Architectural dependencies should be explicitly defined when one task requires output produced by another task.
+
+Nguồn: [src_c7f92b35e6b484c5_c0000]",qwen3:4b,src_c7f92b35e6b484c5_c0000,demo_api.md,1,0,1.0,True,True,True,True,True,True,True,1,253,61,314,0,2413,2460,40.84,2323.0,m0,0732341dbc931c1e,corpus_ecf5fd8b529c02d5,run_9ba4c37eda14,,UNSCORED,,UNSCORED,
+M0-09,When should architectural dependencies be explicit?,present,demo_api.md,COMPLETE,"Architectural dependencies should be explicit when one task requires output produced by another task.
+
+Nguồn: [src_c7f92b35e6b484c5_c0000]",qwen3:4b,src_c7f92b35e6b484c5_c0000,demo_api.md,1,0,1.0,True,True,True,True,True,True,True,1,254,47,301,0,1984,2032,41.42,2323.0,m0,0732341dbc931c1e,corpus_ecf5fd8b529c02d5,run_db62e41093fb,,UNSCORED,,UNSCORED,
+M0-10,What is the production deployment region?,missing,,NO_EVIDENCE,Không tìm thấy bằng chứng phù hợp trong nguồn đã nạp để trả lời yêu cầu này.,qwen3:4b,,,0,0,,True,True,True,True,True,True,True,0,0,0,0,0,0,50,41.45,2323.0,m0,0732341dbc931c1e,corpus_ecf5fd8b529c02d5,run_f89fdc9b3ddb,,UNSCORED,,UNSCORED,
+M0-11,What is the user's password minimum length?,missing,,NO_EVIDENCE,Không tìm thấy bằng chứng phù hợp trong nguồn đã nạp để trả lời yêu cầu này.,qwen3:4b,,,0,0,,True,True,True,True,True,True,True,0,0,0,0,0,0,42,41.46,2323.0,m0,0732341dbc931c1e,corpus_ecf5fd8b529c02d5,run_dfe17580c45f,,UNSCORED,,UNSCORED,
+M0-12,What is the monthly SLA percentage?,missing,,NO_EVIDENCE,Không tìm thấy bằng chứng phù hợp trong nguồn đã nạp để trả lời yêu cầu này.,qwen3:4b,,,0,0,,True,True,True,True,True,True,True,0,0,0,0,0,0,40,41.52,2323.0,m0,0732341dbc931c1e,corpus_ecf5fd8b529c02d5,run_354da3b5e2ef,,UNSCORED,,UNSCORED,

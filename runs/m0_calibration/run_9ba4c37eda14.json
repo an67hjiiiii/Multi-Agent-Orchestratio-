@@ -1,0 +1,107 @@
+{
+  "run_id": "run_9ba4c37eda14",
+  "created_at": "2026-09-06T00:26:38.244867+00:00",
+  "condition": "A",
+  "implementation_profile": "m0",
+  "provider": "ollama",
+  "model": "qwen3:4b",
+  "query": "What should API contracts define?",
+  "status": "COMPLETE",
+  "answer": "API contracts should define request validation, error responses, and authorization requirements. Architectural dependencies should be explicitly defined when one task requires output produced by another task.\n\nNguồn: [src_c7f92b35e6b484c5_c0000]",
+  "source_snapshot_id": "corpus_ecf5fd8b529c02d5",
+  "config_hash": "0732341dbc931c1e",
+  "tasks": [
+    {
+      "task_id": "T1",
+      "goal": "What should API contracts define?",
+      "domain": "general",
+      "depends_on": [],
+      "evidence_needs": []
+    }
+  ],
+  "task_results": [
+    {
+      "task_id": "T1",
+      "domain": "general",
+      "status": "COMPLETE",
+      "answer": "API contracts should define request validation, error responses, and authorization requirements. Architectural dependencies should be explicitly defined when one task requires output produced by another task.\n\nNguồn: [src_c7f92b35e6b484c5_c0000]",
+      "evidence_ids": [
+        "src_c7f92b35e6b484c5_c0000"
+      ],
+      "citations": [
+        "src_c7f92b35e6b484c5_c0000"
+      ],
+      "invalid_citations": [],
+      "missing_information": []
+    }
+  ],
+  "metrics": {
+    "llm_calls": 1,
+    "input_tokens": 253,
+    "output_tokens": 61,
+    "context_tokens_est": 90,
+    "context_chars": 270,
+    "retrieved_chunks": 1,
+    "selected_chunks": 1,
+    "dropped_chunks": 0,
+    "duplicate_tasks_removed": 0,
+    "citations_emitted": 1,
+    "citations_valid": 1,
+    "retrieval_latency_ms": 0,
+    "generation_latency_ms": 2413,
+    "latency_ms": 2460,
+    "peak_rss_mb": 40.84,
+    "gpu_memory_mb": 2323.0,
+    "total_tokens": 314,
+    "citation_locator_validity": 1.0
+  },
+  "events": [
+    {
+      "stage": "run_started",
+      "ts": "2026-09-06T00:26:35.778577+00:00",
+      "condition": "A",
+      "provider": "ollama",
+      "model": "qwen3:4b",
+      "implementation_profile": "m0",
+      "source_snapshot_id": "corpus_ecf5fd8b529c02d5",
+      "config_hash": "0732341dbc931c1e",
+      "flags": {
+        "P": false,
+        "N": false,
+        "O": false
+      }
+    },
+    {
+      "stage": "vanilla_retrieval",
+      "ts": "2026-09-06T00:26:35.778577+00:00",
+      "candidates": [
+        "src_c7f92b35e6b484c5_c0000"
+      ],
+      "selected": [
+        "src_c7f92b35e6b484c5_c0000"
+      ],
+      "dropped": []
+    },
+    {
+      "stage": "run_finished",
+      "ts": "2026-09-06T00:26:38.196018+00:00",
+      "status": "COMPLETE"
+    }
+  ],
+  "effective_config": {
+    "condition": "A",
+    "implementation_profile": "m0",
+    "flags": {
+      "P": false,
+      "N": false,
+      "O": false
+    },
+    "task_top_k": 6,
+    "planning_top_k": 3,
+    "max_context_tokens": 3000,
+    "max_output_tokens": 700,
+    "max_run_tokens": 12000,
+    "retry_limit": 1,
+    "retrieval_min_score": 0.18
+  }
+}
