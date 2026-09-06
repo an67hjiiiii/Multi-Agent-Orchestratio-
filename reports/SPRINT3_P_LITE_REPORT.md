@@ -56,37 +56,71 @@ locked M0 inspector does not expose that action or tab.
 
 | Check | Result |
 |---|---|
-| Python AST parse | PASS — 65 `app`/`tests` Python files |
+| Environment root cause | PASS — all four missing packages were already declared; environments had not been restored |
+| Dependencies restored | PASS — local `.venv` from `requirements.txt`; `npm ci` from `frontend/package-lock.json` using an isolated temporary npm cache |
+| Manifest changes | NONE |
 | Git whitespace check | PASS |
 | Git object integrity | PASS |
 | P-lite scope scan | PASS — no normalizer, O allocator, scheduler, executor, or synthesis import in the P-lite pipeline |
-| Backend `pytest -q` | BLOCKED — active Python environment lacks `pytest` |
-| P-lite runtime smoke | BLOCKED — active Python environment lacks `httpx` |
-| Frontend `npm test` | BLOCKED — `vitest` is unavailable |
-| Frontend `npm run build` | BLOCKED — `tsc` is unavailable |
+| Backend `pytest -q` | FAIL — 103 passed, 2 failed, 2 warnings |
+| Frontend `npm test` | PASS — 6 files, 21 tests |
+| Frontend `npm run build` | PASS — `tsc -b` and Vite production build |
+| Typecheck | PASS — included in `npm run build` (`tsc -b`) |
+| Focused planning/decomposer/pilot/Ollama contract tests | PASS — 31 passed |
+| FastAPI P-lite smoke | PASS at HTTP boundary — `m1` `/api/tasks/decompose` returned HTTP 200; Fake structured output is not semantic evidence |
+| M0 FastAPI regression | PASS — Fake local smoke: health 200, source import 200, A chat `COMPLETE`, B rejected 400 |
+
+## VERIFICATION_RECORD
+
+- `ENVIRONMENT_ROOT_CAUSE`: declared project dependencies were absent from the active local environments.
+- `DEPENDENCIES_RESTORED`: local `.venv` installed from `requirements.txt`; frontend installed with lockfile-based `npm ci`.
+- `MANIFEST_CHANGES`: `NONE`.
+- `PYTEST`: `FAIL` — 103 passed, 2 failed, 2 warnings.
+- `FRONTEND_TEST`: `PASS` — 21 tests.
+- `FRONTEND_BUILD`: `PASS`.
+- `TYPECHECK`: `PASS` through `tsc -b`.
+- `FASTAPI_SMOKE`: `PASS` for M0 Fake local smoke.
+- `P_LITE_RUNTIME`: `PARTIAL` — local Ollama runtime completes requests but the frozen pilot contains one structural mismatch.
+- `PILOT`: `PARTIAL` — PLITE-02 did not match its required task-graph shape.
+- `TASK_COVERAGE`: `NOT_SCORED` by frozen pilot design.
+- `M0_REGRESSION`: `PASS`.
+- `HEAD`: `883ee33` at verification start.
 
 ## PILOT_RESULTS
 
-`UNVERIFIED` locally. The structural pilot contract includes simple, chained,
-partially independent, ambiguous, and weak/no-planning-evidence cases, but it
-was not executed because the project test/runtime dependencies are unavailable.
+`PARTIAL`. The frozen cases ran serially against the existing local-only Ollama
+adapter and `qwen3:4b` (`config_hash: 22a44fda37815fb2`). `PLITE-01`,
+`PLITE-03`, `PLITE-04`, and `PLITE-05` emitted `COMPLETE`; `PLITE-02` emitted
+one task instead of the required two-task chain. The pilot therefore does not
+meet its structural acceptance contract.
+
+Observed P-lite runtime metrics: PLITE-01 14,846 ms/1 call; PLITE-02 4,262
+ms/1 call; PLITE-03 10,268 ms/1 call; PLITE-04 8,724 ms/2 calls; PLITE-05
+3,903 ms/1 call. PLITE-04 recorded an empty planning context warning, which
+is an allowed observation for its ambiguous case.
 
 ## TASK_COVERAGE
 
-Metric implementation is present; runtime value is `UNVERIFIED` until the pilot
-can be executed in an environment with project dependencies installed.
+`NOT_SCORED`, as required by the frozen structural-only pilot: no approved
+obligation annotations were supplied. The Task Coverage implementation and
+focused tests are present; no score was inferred from task count or titles.
 
 ## LATENCY
 
-`UNVERIFIED` locally. The P-lite pipeline records latency and LLM calls, but no
-live calibration or local-model run was performed for this report.
+Recorded for the serial local P-lite pilot above. These are bounded structural
+pilot measurements, not a calibration or cross-hardware comparison.
 
 ## BLOCKERS
 
-The current checkout's executable environments do not provide the repository
-dependencies: `pytest`, `httpx`, frontend `vitest`, and frontend `tsc`.
-Existing Windows locks/cache errors mean this integration did not force-delete
-or replace dependency directories.
+1. `tests/test_p_lite_pipeline.py::test_p_lite_rejects_non_local_provider_names`
+   expects the local-provider policy wording but a raw provider name reaches
+   the generic adapter-object error path.
+2. `tests/test_pipeline.py::test_a_b_c_fake_dev_profile` fails in the existing
+   B/dev path because `asdict()` receives a non-dataclass task object.
+3. Live `PLITE-02` did not meet its frozen two-task-chain shape contract.
+
+These are backend/P-lite follow-ups, not environment or dependency blockers.
+No production code was changed to suppress them.
 
 ## DECISION
 
@@ -94,7 +128,7 @@ or replace dependency directories.
 
 ## NEXT
 
-Stop at the Sprint 3 gate. In a dependency-ready local environment, rerun the
-required backend/frontend gates and the bounded P-lite pilot, then update the
-decision from evidence only. Do not start N, O, Sprint 4, a multi-agent
-executor, or a final benchmark from this report.
+Stop at the Sprint 3 gate. Reuse the existing Backend, Planning Retrieval,
+Decomposer, and QA domain work before rerunning the failed backend regression
+and frozen pilot. Do not start N, O, Sprint 4, a multi-agent executor, or a
+final benchmark from this report.
