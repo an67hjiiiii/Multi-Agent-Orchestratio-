@@ -16,6 +16,34 @@ rules apply to agents and maintainers working in the repository.
   do not silently fall back.
 - `qwen3:4b` is a calibration candidate, not a research-frozen model.
 
+## Project contract
+
+- P is Retrieval-Guided Task Decomposition; N is Task Normalization; O is
+  Overlap-Aware Context Allocation. Do not redesign this architecture or add
+  research modules without explicit authorization.
+- Preserve A/B/C experimental comparability. Do not change model, provider,
+  prompt budget, or frozen test cases merely to make a condition pass.
+- Do not bypass a failed gate, advance to Sprint 4 while Sprint 3 is
+  `PARTIAL`, or implement N/O in the current P-lite scope. Do not push.
+- Keep each change small, traced, tested, and compatible with the Last Known
+  Good path. A failed run remains evidence; do not overwrite or fabricate it.
+
+## Prompt construction policy
+
+Keep prompts versioned and cache-friendly. Prompt caching is a runtime
+optimization, not a research contribution.
+
+1. **STATIC COMMON PREFIX**: global rules, evidence rules, output protocol.
+2. **STATIC ROLE/PROMPT RULES**: planner role, schema rules, stable
+   constraints.
+3. **DYNAMIC SUFFIX**: current request, planning evidence, task IDs, and
+   dependency or runtime data.
+
+Never place timestamps, run IDs, dynamic paths, task IDs, or retrieved evidence
+before the reusable static prefix. Keep dynamic data at the end, avoid repeated
+instructions, and record a prompt version whenever prompt content or ordering
+changes.
+
 ## Routing and safety
 
 - Inference is local-only through the allowlisted Ollama adapter; FakeProvider
