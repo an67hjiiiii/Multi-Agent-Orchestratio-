@@ -122,7 +122,8 @@ class ResearchPipeline:
                     planning_context = "\n\n".join(f"[{c.chunk_id}] {c.text}" for c in planning_hits)
                     event("planning_retrieval", selected=[c.chunk_id for c in planning_hits])
                 g0 = time.perf_counter()
-                tasks = await decompose(provider, query, planning_context, metrics)
+                decomposition = await decompose(provider, query, planning_context, metrics)
+                tasks = _runtime_tasks(decomposition)
                 metrics.generation_latency_ms += int((time.perf_counter() - g0) * 1000)
                 event("decomposition", tasks=[asdict(t) for t in tasks])
                 if flags["N"]:
@@ -188,3 +189,30 @@ class ResearchPipeline:
         if condition == "C":
             return {"P": True, "N": True, "O": True}
         return {"P": condition != "C-P", "N": condition != "C-N", "O": condition != "C-O"}
+
+
+def _runtime_tasks(decomposition: object) -> list[Task]:
+    """Adapt the decomposer's locked schema to the legacy execution contract."""
+
+    raw_tasks = getattr(decomposition, "tasks", decomposition)
+    if not isinstance(raw_tasks, list):
+        raise TypeError("decomposition must provide a task list")
+
+    tasks: list[Task] = []
+    for item in raw_tasks:
+        if isinstance(item, Task):
+            tasks.append(item)
+            continue
+        model_dump = getattr(item, "model_dump", None)
+        if not callable(model_dump):
+            raise TypeError("decomposition task must use the canonical task schema")
+        values = model_dump()
+        tasks.append(
+            Task(
+                task_id=values["task_id"],
+                goal=values["objective"],
+                domain=values["domain"],
+                depends_on=list(values["depends_on"]),
+            )
+        )
+    return tasks

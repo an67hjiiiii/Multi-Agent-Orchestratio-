@@ -78,6 +78,61 @@ def test_decompose_returns_locked_contract_and_uses_bounded_context():
     assert metrics.llm_calls == 1
 
 
+def test_decompose_prompt_preserves_distinct_dependent_obligations():
+    provider = _ThinkAwareProvider([_valid_response()])
+
+    result = asyncio.run(
+        decompose(
+            provider,
+            "Review the data model first, then check the query access path.",
+            "[plan_database] Keep model and query responsibilities separate.",
+            RunMetrics(),
+        )
+    )
+
+    assert result.status == "COMPLETE"
+    prompt = provider.calls[0]["user"]
+    assert "separate tasks" in prompt
+    assert "depends_on" in prompt
+    assert "count and emit a separate task" in prompt
+    assert "Every task must include every schema field" in prompt
+
+
+def test_decompose_retries_a_collapsed_explicitly_ordered_plan():
+    collapsed = json.dumps(
+        {
+            "tasks": [
+                {
+                    "task_id": "T1",
+                    "title": "Review the model and query",
+                    "objective": "Check both obligations together.",
+                    "expected_output": "One combined review.",
+                    "domain": "database",
+                    "role_profile": "reviewer",
+                    "depends_on": [],
+                }
+            ]
+        }
+    )
+    provider = _Provider([collapsed, _valid_response()])
+
+    result = asyncio.run(
+        decompose(
+            provider,
+            "Review the data model first, then check the query access path.",
+            "[plan_database] Keep responsibilities separate.",
+            RunMetrics(),
+        )
+    )
+
+    assert result.status == "COMPLETE"
+    assert [task.task_id for task in result.tasks] == ["T1", "T2"]
+    assert result.tasks[1].depends_on == ["T1"]
+    assert len(provider.calls) == 2
+    assert "explicitly ordered obligations" in provider.calls[1]["user"]
+    assert "at least two tasks" in provider.calls[1]["user"]
+
+
 def test_decompose_allows_one_structured_retry_and_counts_usage():
     provider = _Provider(["not json", _valid_response()])
     metrics = RunMetrics()

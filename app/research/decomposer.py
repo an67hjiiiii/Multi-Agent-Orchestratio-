@@ -37,6 +37,10 @@ except ModuleNotFoundError as exc:
 
 
 _PLANNING_ID_PATTERN = re.compile(r"\[([A-Za-z0-9_.:/-]+)\]")
+_ORDERED_OBLIGATIONS_PATTERN = re.compile(
+    r"\b(?:first|before)\b.+\b(?:then|after|next|subsequently)\b",
+    re.IGNORECASE | re.DOTALL,
+)
 _REQUIRED_TASK_FIELDS = (
     "task_id",
     "title",
@@ -159,6 +163,21 @@ def _validate_dependencies(tasks: list[TaskItem]) -> None:
         raise _DecompositionOutputError("task dependency graph contains a cycle")
 
 
+def _validate_obligation_coverage(request: str, tasks: list[TaskItem]) -> None:
+    """Reject a collapsed plan when the user states an explicit ordered chain."""
+
+    if not _ORDERED_OBLIGATIONS_PATTERN.search(request):
+        return
+    if len(tasks) < 2:
+        raise _DecompositionOutputError(
+            "explicitly ordered obligations require separate tasks"
+        )
+    if not any(task.depends_on for task in tasks):
+        raise _DecompositionOutputError(
+            "explicitly ordered obligations require a dependency"
+        )
+
+
 def _supports_think_false(provider: object) -> bool:
     try:
         parameters = inspect.signature(provider.generate).parameters.values()
@@ -180,9 +199,15 @@ async def _generate_structured(provider: object, system: str, user: str):
 def _prompt(query: str, planning_context: str, retry_reason: str | None = None) -> str:
     retry_note = ""
     if retry_reason:
+        ordered_repair = ""
+        if "explicitly ordered obligations" in retry_reason:
+            ordered_repair = (
+                " The repaired response must contain at least two tasks, and the "
+                "later task must depend on the predecessor task ID."
+            )
         retry_note = (
             "\n\nThe previous response failed structural validation because "
-            f"{retry_reason}. Return a corrected object only."
+            f"{retry_reason}.{ordered_repair} Return a corrected object only."
         )
     return (
         f"USER REQUEST:\n{query}\n\n"
@@ -191,6 +216,14 @@ def _prompt(query: str, planning_context: str, retry_reason: str | None = None) 
         "Decompose only obligations stated or directly implied by the user request. "
         "Use the planning context only to clarify task boundaries. Do not add N/O, "
         "execution, retrieval, answer-domain evidence, or unstated requirements. "
+        "Identify each distinct user obligation before writing tasks. When one "
+        "obligation is ordered after, depends on, or consumes the result of another, "
+        "emit separate tasks with separate expected outputs and put the predecessor "
+        "task ID in depends_on; do not merge those obligations into one task. "
+        "For every explicit ordered obligation, count and emit a separate task. "
+        "Every task must include every schema field, including depends_on as [] "
+        "when it has no predecessor; never omit a required field or emit a blank "
+        "placeholder task. "
         f"Return exactly one JSON object matching this schema: {_TASK_SCHEMA}."
         f"{retry_note}"
     )
@@ -252,6 +285,7 @@ async def decompose(
             )
             metrics.add_usage(result.usage)
             tasks = _parse_tasks(_extract_json(result.text))
+            _validate_obligation_coverage(request, tasks)
             return DecompositionResult(
                 request=request,
                 tasks=tasks,

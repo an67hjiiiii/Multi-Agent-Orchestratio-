@@ -15,6 +15,7 @@ from typing import Any, Callable
 
 from app.core.graph import validate_tasks as validate_graph
 from app.core.types import RunMetrics, Usage
+from app.providers.factory import get_provider
 from app.research.decomposer import decompose as default_decompose
 from app.research.planning_retrieval import PlanningRetriever
 from app.retrieval.text import estimate_tokens, normalize_text
@@ -118,7 +119,7 @@ class PLitePipeline:
         metrics: RunMetrics | None = None,
     ) -> PLiteInspectionResult:
         request = _required_request(request)
-        _local_provider(provider)
+        provider = _local_provider(provider)
         metrics = metrics if metrics is not None else RunMetrics()
         started = time.perf_counter()
         initial_calls = metrics.llm_calls
@@ -135,7 +136,11 @@ class PLitePipeline:
             )
 
         decomposition_warnings: list[str] = []
-        for attempt in range(self.retry_limit + 1):
+        # The built-in decomposer owns its one structured repair attempt. A
+        # second wrapper retry would multiply local model calls and exceed the
+        # P-lite contract; injected decomposers retain the explicit retry cap.
+        attempts = 1 if self.decomposer is default_decompose else self.retry_limit + 1
+        for attempt in range(attempts):
             try:
                 calls_before = metrics.llm_calls
                 generation_started = time.perf_counter()
@@ -157,7 +162,7 @@ class PLitePipeline:
                     metrics, initial_calls, started,
                 )
             except (TypeError, ValueError) as exc:
-                if attempt < self.retry_limit:
+                if attempt < attempts - 1:
                     continue
                 warnings.append(f"decomposition validation failed: {type(exc).__name__}")
                 return self._result(
@@ -298,12 +303,15 @@ def _required_request(request: object) -> str:
     return request.strip()
 
 
-def _local_provider(provider: Any) -> None:
+def _local_provider(provider: Any) -> Any:
+    if isinstance(provider, str):
+        provider = get_provider(provider)
     if provider is None or not callable(getattr(provider, "generate", None)):
         raise ValueError("P-lite requires the local provider adapter")
     name = str(getattr(provider, "name", "")).strip().casefold()
     if name and name not in {"ollama", "local", "fake", "base"}:
         raise ValueError("Only fake and local Ollama providers are allowed")
+    return provider
 
 
 async def _maybe_await(value: Any) -> Any:
@@ -535,4 +543,7 @@ def _serialize_task(task: Any) -> Any:
         return dict(task)
     if is_dataclass(task):
         return asdict(task)
+    model_dump = getattr(task, "model_dump", None)
+    if callable(model_dump):
+        return model_dump()
     return task

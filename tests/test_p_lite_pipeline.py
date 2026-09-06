@@ -133,6 +133,32 @@ def test_p_lite_returns_explicit_failure_after_retry_budget_is_exhausted():
     assert any("decomposition validation failed" in warning for warning in result.warnings)
 
 
+def test_p_lite_does_not_add_a_wrapper_retry_to_the_default_decomposer(monkeypatch):
+    from app.research import p_lite_pipeline
+    from app.research.task_schema import DecompositionResult
+
+    calls = 0
+
+    async def failed_default(*_args):
+        nonlocal calls
+        calls += 1
+        return DecompositionResult(
+            request="Split the request",
+            tasks=[],
+            planning_evidence_ids=[],
+            status="FAILED",
+            warnings=["structured output remained invalid"],
+        )
+
+    monkeypatch.setattr(p_lite_pipeline, "default_decompose", failed_default)
+    pipeline = p_lite_pipeline.PLitePipeline(planning_retriever=RecordingRetriever([]))
+
+    result = asyncio.run(pipeline.run("Split the request", FakeProvider()))
+
+    assert result.status == "FAILED"
+    assert calls == 1
+
+
 async def _contract_decomposer(provider, request, planning_context, metrics):
     assert planning_context == ""
     metrics.add_usage(Usage(input_tokens=3, output_tokens=2))
@@ -171,3 +197,45 @@ def test_p_lite_rejects_non_local_provider_names():
 
     with pytest.raises(ValueError, match="fake and local Ollama"):
         asyncio.run(pipeline.run("Split the request", "openai"))
+
+
+def test_p_lite_resolves_an_explicit_local_provider_name():
+    pipeline = PLitePipeline(
+        planning_retriever=RecordingRetriever([]),
+        decomposer=_contract_decomposer,
+    )
+
+    result = asyncio.run(pipeline.run("Inspect this request", "fake"))
+
+    assert result.status == "COMPLETE"
+
+
+def test_p_lite_serializes_canonical_pydantic_tasks():
+    from app.research.task_schema import TaskItem
+
+    pipeline = PLitePipeline(
+        planning_retriever=RecordingRetriever([]),
+        decomposer=lambda *_args: [
+            TaskItem(
+                task_id="T1",
+                title="Inspect the contract",
+                objective="Validate the task schema.",
+                expected_output="Inspection result",
+                domain="api_architecture",
+                role_profile="reviewer",
+                depends_on=[],
+            )
+        ],
+    )
+
+    payload = asyncio.run(pipeline.run("Inspect this request", FakeProvider())).to_dict()
+
+    assert payload["tasks"] == [{
+        "task_id": "T1",
+        "title": "Inspect the contract",
+        "objective": "Validate the task schema.",
+        "expected_output": "Inspection result",
+        "domain": "api_architecture",
+        "role_profile": "reviewer",
+        "depends_on": [],
+    }]
