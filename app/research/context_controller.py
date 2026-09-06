@@ -3,6 +3,34 @@ import hashlib
 from app.core.types import SourceChunk
 from app.retrieval.text import estimate_tokens, normalize_text
 
+
+class OverlapTracker:
+    """Record cross-task evidence reuse without globally removing evidence."""
+
+    def __init__(self) -> None:
+        self._selected_by_id: dict[str, list[str]] = {}
+
+    def observe(self, task_id: str, selected: list[SourceChunk]) -> dict[str, object]:
+        shared: dict[str, list[str]] = {}
+        for chunk in selected:
+            previous = self._selected_by_id.setdefault(chunk.chunk_id, [])
+            if previous:
+                shared[chunk.chunk_id] = list(previous)
+            previous.append(task_id)
+        return {
+            "shared_evidence_ids": sorted(shared),
+            "reused_from_task_ids": shared,
+            "reuse_count": len(shared),
+        }
+
+    def summary(self) -> dict[str, object]:
+        shared = {
+            chunk_id: task_ids
+            for chunk_id, task_ids in self._selected_by_id.items()
+            if len(task_ids) > 1
+        }
+        return {"shared_evidence_ids": sorted(shared), "reuse_by_evidence_id": shared}
+
 class ContextController:
     """Select deterministic evidence without exceeding a configured budget.
 
@@ -88,6 +116,33 @@ class ContextController:
 
             dropped.append(self._drop_record(chunk, "budget_exceeded", cost))
         return selected, dropped
+
+    def select_for_task(self, candidates: list[SourceChunk], *, task_terms: set[str], max_tokens: int) -> tuple[list[SourceChunk], list[dict], list[dict]]:
+        """M1 O-lite: task relevance, exact/span de-duplication, and hard cap."""
+        retained: list[SourceChunk] = []
+        dropped: list[dict] = []
+        for chunk in sorted(candidates, key=lambda item: (-item.score, item.chunk_id)):
+            terms = set(normalize_text(chunk.text).casefold().split())
+            if chunk.score <= 0 or (task_terms and not task_terms.intersection(terms)):
+                dropped.append(self._drop_record(chunk, "low_relevance", estimate_tokens(chunk.text)))
+            else:
+                retained.append(chunk)
+        without_overlap: list[SourceChunk] = []
+        for chunk in retained:
+            clean = normalize_text(chunk.text)
+            if any(existing.source_id == chunk.source_id and (clean in normalize_text(existing.text) or normalize_text(existing.text) in clean) for existing in without_overlap):
+                dropped.append(self._drop_record(chunk, "overlapping_span", estimate_tokens(chunk.text)))
+            else:
+                without_overlap.append(chunk)
+        selected, cap_drops = self.select_with_token_budget(without_overlap, max_tokens)
+        dropped.extend(cap_drops)
+        by_id = {item.chunk_id: item for item in candidates}
+        for record in dropped:
+            chunk = by_id.get(record["chunk_id"])
+            if chunk is not None:
+                record.update({"source_id": chunk.source_id, "locator": chunk.index})
+        selected_log = [{"chunk_id": item.chunk_id, "source_id": item.source_id, "locator": item.index, "score": item.score, "reason": "retained_shared"} for item in selected]
+        return selected, dropped, selected_log
 
     @staticmethod
     def _digest(text: str) -> str:

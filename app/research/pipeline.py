@@ -3,14 +3,14 @@ import time
 import uuid
 from dataclasses import asdict
 from datetime import datetime, timezone
-from app.core.config import RuntimeConfig
+from app.core.config import CONDITION_DEFINITIONS, RuntimeConfig
 from app.core.graph import topological_order, validate_tasks
 from app.core.telemetry import process_rss_mb, gpu_memory_mb
 from app.core.types import SourceChunk, Task, TaskResult, RunMetrics
 from app.providers.factory import get_provider
-from app.research.context_controller import ContextController
+from app.research.context_controller import ContextController, OverlapTracker
 from app.research.decomposer import decompose
-from app.research.normalizer import normalize_tasks
+from app.research.normalizer import normalize_tasks_with_trace
 from app.research.planning_retrieval import PlanningRetriever
 from app.research.worker import execute_task
 from app.research.synthesizer import synthesize
@@ -138,15 +138,18 @@ class ResearchPipeline:
                         [],
                     )
                 if flags["N"]:
-                    tasks, removed = normalize_tasks(tasks)
+                    task_count_before_normalization = len(tasks)
+                    tasks, normalization_trace = normalize_tasks_with_trace(tasks)
+                    removed = task_count_before_normalization - len(tasks)
                     metrics.duplicate_tasks_removed += removed
-                    event("normalization", removed=removed, tasks=[asdict(t) for t in tasks])
+                    event("normalization", removed=removed, trace=normalization_trace, tasks=[asdict(t) for t in tasks])
                 validate_tasks(tasks)
                 ordered = topological_order(tasks)
                 task_results = []
                 completed: dict[str, TaskResult] = {}
                 per_task_budget = max(256, cfg.max_context_tokens // max(1, len(tasks)))
                 controller = ContextController(max_chars=per_task_budget * 3)
+                overlap_tracker = OverlapTracker() if flags["O"] else None
                 for task in ordered:
                     dependency_context = " ".join(completed[d].answer for d in task.depends_on if d in completed)
                     retrieval_query = f"{task.goal} {' '.join(task.evidence_needs)} {dependency_context}".strip()
@@ -161,15 +164,23 @@ class ResearchPipeline:
                     metrics.retrieval_latency_ms += int((time.perf_counter() - r0) * 1000)
                     metrics.retrieved_chunks += len(candidates)
                     if flags["O"]:
-                        selected, dropped = controller.select(candidates)
+                        selected, dropped, selected_log = controller.select_for_task(
+                            candidates,
+                            task_terms=set(task.goal.casefold().split()),
+                            max_tokens=per_task_budget,
+                        )
                     else:
-                        selected, dropped = candidates, []
-                    selected, hard_dropped = apply_token_budget(selected, per_task_budget)
-                    dropped = [*dropped, *hard_dropped]
+                        # O-off baseline retains only invariant dedup/cap guards.
+                        selected, dropped = ContextController(max_tokens=per_task_budget).select(candidates)
+                        selected_log = []
                     metrics.selected_chunks += len(selected)
                     metrics.dropped_chunks += len(dropped)
+                    context_tokens = sum(estimate_tokens(c.text) for c in selected)
                     metrics.context_chars += sum(len(c.text) for c in selected)
-                    metrics.context_tokens_est += sum(estimate_tokens(c.text) for c in selected)
+                    metrics.context_tokens_est += context_tokens
+                    overlap = overlap_tracker.observe(task.task_id, selected) if overlap_tracker else {
+                        "shared_evidence_ids": [], "reused_from_task_ids": {}, "reuse_count": 0
+                    }
                     event(
                         "task_retrieval",
                         task_id=task.task_id,
@@ -177,6 +188,12 @@ class ResearchPipeline:
                         retrieval_fallback_reason=retrieval_fallback_reason,
                         selected=[c.chunk_id for c in selected],
                         dropped=dropped,
+                        selected_evidence=selected_log,
+                        o_enabled=flags["O"],
+                        shared_evidence_ids=overlap["shared_evidence_ids"],
+                        reused_from_task_ids=overlap["reused_from_task_ids"],
+                        context_tokens=context_tokens,
+                        total_context_tokens=metrics.context_tokens_est,
                     )
                     g0 = time.perf_counter()
                     result = await execute_task(provider, task, selected, metrics)
@@ -187,6 +204,8 @@ class ResearchPipeline:
                     if metrics.input_tokens + metrics.output_tokens > cfg.max_run_tokens:
                         event("run_budget_exceeded", total_tokens=metrics.input_tokens + metrics.output_tokens)
                         break
+                if overlap_tracker:
+                    event("overlap_summary", o_enabled=True, **overlap_tracker.summary())
                 g0 = time.perf_counter()
                 answer = await synthesize(provider, query, task_results, metrics)
                 metrics.generation_latency_ms += int((time.perf_counter() - g0) * 1000)
@@ -202,11 +221,10 @@ class ResearchPipeline:
 
     @staticmethod
     def _flags(condition: str) -> dict[str, bool]:
-        if condition in {"A", "B"}:
-            return {"P": False, "N": False, "O": False}
-        if condition == "C":
-            return {"P": True, "N": True, "O": True}
-        return {"P": condition != "C-P", "N": condition != "C-N", "O": condition != "C-O"}
+        definition = CONDITION_DEFINITIONS.get(condition)
+        if definition is None:
+            raise ValueError(f"Unknown condition {condition}")
+        return {flag: bool(definition[flag]) for flag in ("P", "N", "O")}
 
 
 def _runtime_tasks(decomposition: object) -> list[Task]:

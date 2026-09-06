@@ -34,6 +34,11 @@ class Task:
     domain: str = "api_architecture"
     depends_on: list[str] = field(default_factory=list)
     evidence_needs: list[str] = field(default_factory=list)
+    object: str = ""
+    action: str = ""
+    deliverable: str = ""
+    requirement_ids: list[str] = field(default_factory=list)
+    constraints: list[str] = field(default_factory=list)
 
 @dataclass
 class TaskResult:
