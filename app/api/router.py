@@ -1,12 +1,21 @@
 from __future__ import annotations
 
+import inspect
 import os
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 from fastapi import APIRouter, Depends, File, UploadFile
+from pydantic import ValidationError
 
 from app.api.dependencies import get_api_runtime
 from app.api.errors import ApiError
-from app.api.schemas import ChatRequest, SourceTextRequest
+from app.api.schemas import (
+    DECOMPOSITION_RESPONSE_MODEL,
+    ChatRequest,
+    DecompositionRequest,
+    SourceTextRequest,
+)
 from app.core.api_runtime import ApiRuntime
 from app.core.config import RuntimeConfig
 from app.providers.ollama import OllamaProvider
@@ -14,6 +23,8 @@ from app.providers.ollama import OllamaProvider
 
 router = APIRouter(prefix="/api")
 MAX_SOURCE_BYTES = 2_000_000
+PLITE_PROFILES = frozenset({"dev", "m1", "m2"})
+PLiteCallable = Callable[[str, str | None], Awaitable[Any] | Any]
 
 
 def _runtime_config() -> RuntimeConfig:
@@ -40,6 +51,88 @@ def _pipeline_value_error(exc: ValueError) -> ApiError:
     return ApiError(400, code, detail or "Request could not be processed")
 
 
+def _assert_plite_profile() -> None:
+    cfg = _runtime_config()
+    if cfg.implementation_profile not in PLITE_PROFILES:
+        raise ApiError(
+            400,
+            "UNSUPPORTED_IMPLEMENTATION",
+            f"P-lite is not available in profile {cfg.implementation_profile}",
+        )
+
+
+def get_p_lite_pipeline(
+    runtime: ApiRuntime = Depends(get_api_runtime),
+) -> PLiteCallable:
+    """Resolve the separately wired P-lite callable without touching M0.
+
+    The integration boundary installs ``p_lite_pipeline`` on ``ApiRuntime``.
+    Keeping resolution here lets the API be tested with a dependency override
+    and prevents a missing future implementation from falling back to M0 chat.
+    """
+
+    _assert_plite_profile()
+    pipeline = getattr(runtime, "p_lite_pipeline", None)
+    if pipeline is None:
+        raise ApiError(
+            503,
+            "PLITE_UNAVAILABLE",
+            "P-lite pipeline is unavailable",
+            retryable=True,
+        )
+
+    if callable(pipeline):
+        return pipeline
+
+    run = getattr(pipeline, "run", None)
+    if callable(run):
+        return run
+
+    raise ApiError(
+        503,
+        "PLITE_UNAVAILABLE",
+        "P-lite pipeline is unavailable",
+        retryable=True,
+    )
+
+
+def _validate_decomposition_result(value: Any) -> Any:
+    """Validate the pipeline output with the locked research contract.
+
+    The schema worker is integrated in a later commit than this API worker, so
+    the import is intentionally deferred. Once present, no API-local task
+    shape is accepted in place of ``DecompositionResult``.
+    """
+
+    if DECOMPOSITION_RESPONSE_MODEL is None:
+        return value
+
+    if isinstance(value, DECOMPOSITION_RESPONSE_MODEL):
+        return value
+
+    try:
+        return DECOMPOSITION_RESPONSE_MODEL.model_validate(value)
+    except (TypeError, ValueError, ValidationError) as exc:
+        raise ApiError(
+            500,
+            "INVALID_DECOMPOSITION",
+            "P-lite pipeline returned an invalid decomposition",
+        ) from exc
+
+
+def _planning_value_error(exc: ValueError) -> ApiError:
+    detail = str(exc).strip()
+    if detail.startswith("Only fake and local Ollama providers"):
+        return _pipeline_value_error(exc)
+    if detail.startswith("Condition ") or detail.startswith("Unknown condition"):
+        return _pipeline_value_error(exc)
+    return ApiError(
+        400,
+        "INVALID_DECOMPOSITION",
+        detail or "P-lite request could not be processed",
+    )
+
+
 @router.get("/health")
 def health(runtime: ApiRuntime = Depends(get_api_runtime)):
     cfg = _runtime_config()
@@ -63,6 +156,35 @@ def config():
         "allowed_conditions": cfg.allowed_conditions(),
         "config_hash": cfg.config_hash(),
     }
+
+
+@router.post("/tasks/decompose", response_model=DECOMPOSITION_RESPONSE_MODEL)
+async def decompose_tasks(
+    body: DecompositionRequest,
+    pipeline: PLiteCallable = Depends(get_p_lite_pipeline),
+) -> Any:
+    """Return the bounded P-lite task plan for inspection."""
+
+    _assert_plite_profile()
+    request = body.request.strip()
+    if not request:
+        raise ApiError(400, "REQUEST_REQUIRED", "request is required")
+
+    try:
+        value = pipeline(request) if body.provider is None else pipeline(request, body.provider)
+        if inspect.isawaitable(value):
+            value = await value
+        return _validate_decomposition_result(value)
+    except ApiError:
+        raise
+    except ValueError as exc:
+        raise _planning_value_error(exc) from exc
+    except Exception as exc:
+        raise ApiError(
+            500,
+            "PLITE_FAILED",
+            "P-lite pipeline failed",
+        ) from exc
 
 
 @router.get("/local-model/health")
