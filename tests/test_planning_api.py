@@ -112,25 +112,16 @@ def test_decomposition_endpoint_rejects_plite_in_m0_without_fallback(
     assert calls == []
 
 
-def test_decomposition_endpoint_reports_missing_pipeline_without_m0_changes(
+def test_runtime_exposes_p_lite_pipeline_without_changing_m0(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
     application = make_app(tmp_path, monkeypatch)
 
+    assert callable(application.state.api_runtime.p_lite_pipeline)
+
     with TestClient(application) as client:
-        response = client.post(
-            "/api/tasks/decompose",
-            json={"request": "Review the API contract."},
-        )
         health = client.get("/api/health")
 
-    assert response.status_code == 503
-    assert response.json() == {
-        "detail": "P-lite pipeline is unavailable",
-        "code": "PLITE_UNAVAILABLE",
-        "message": "P-lite pipeline is unavailable",
-        "retryable": True,
-    }
     assert health.status_code == 200
     assert health.json()["allowed_conditions"] == ["A", "B", "C"]
