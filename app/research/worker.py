@@ -1,7 +1,7 @@
 from __future__ import annotations
 import json
 import re
-from app.core.citations import validate_citations
+from app.core.citations import resolve_citations
 from app.core.types import Task, TaskResult, SourceChunk, RunMetrics
 from app.research.registry import profile
 
@@ -25,22 +25,27 @@ async def execute_task(provider, task: Task, evidence: list[SourceChunk], metric
             missing_information=["relevant evidence"],
         )
     p = profile(task.domain)
-    evidence_text = "\n\n".join(f"[{c.chunk_id}] {c.text}" for c in evidence)
+    # The application owns the stable E1/E2 mapping, as it does for Vanilla
+    # RAG. Short keys prevent the local model from truncating a canonical ID.
+    evidence_text = "\n\n".join(
+        f"[E{index}] [{chunk.chunk_id}] {chunk.text}"
+        for index, chunk in enumerate(evidence, start=1)
+    )
     system = (
         f"WORKER. Role={p['name']}. Scope={p['scope']}. Exclusions={p['exclusions']}. "
         "Use only supplied evidence; if insufficient, return NO_EVIDENCE or PARTIAL. "
-        "Return JSON only and cite only exact supplied chunk IDs."
+        "Return JSON only and cite only exact supplied evidence keys E1, E2, etc."
     )
     user = (
         f"[DOMAIN]{task.domain}[/DOMAIN]\n[TASK]{task.goal}[/TASK]\n[EVIDENCE]{evidence_text}[/EVIDENCE]\n"
         'Schema: {"status":"COMPLETE|PARTIAL|NO_EVIDENCE","answer":"...",'
-        '"citations":["chunk_id"],"missing_information":[]}'
+        '"citations":["E1"],"missing_information":[]}'
     )
     result = await provider.generate(system=system, user=user)
     metrics.add_usage(result.usage)
     obj = _extract_json(result.text)
-    raw_citations = [str(x) for x in obj.get("citations") or []]
-    valid, invalid = validate_citations(raw_citations, evidence)
+    raw_citations = obj.get("citations")
+    valid, invalid = resolve_citations(raw_citations, evidence)
     metrics.add_citations(valid, invalid)
     status = str(obj.get("status") or "PARTIAL").upper()
     missing = [str(x) for x in obj.get("missing_information") or []]

@@ -2,6 +2,8 @@ import asyncio
 import os
 from pathlib import Path
 from app.research.pipeline import ResearchPipeline
+from app.research.pipeline import _retrieve_task_candidates
+from app.core.types import SourceChunk
 from app.storage.source_store import SourceStore
 from app.storage.run_store import RunStore
 
@@ -47,3 +49,18 @@ def test_m0_a_has_valid_citation_and_no_evidence_state(tmp_path: Path, monkeypat
     missing=asyncio.run(pipe.run('What is the production deployment region?','A','fake'))
     assert missing['status']=='NO_EVIDENCE'
     assert not missing['task_results'][0]['citations']
+
+
+def test_task_retrieval_falls_back_to_user_request_only_after_task_query_miss():
+    chunk = SourceChunk("db-1", "db", "db.md", "Queries need indexes for frequent identifiers.", 0)
+
+    selected, reason = _retrieve_task_candidates(
+        "Determine performance optimization candidates",
+        "Which database queries need indexes?",
+        [chunk],
+        top_k=6,
+        min_score=0.18,
+    )
+
+    assert [item.chunk_id for item in selected] == ["db-1"]
+    assert reason == "task_query_no_results_fallback_to_user_request"

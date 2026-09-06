@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from app.core.config import RuntimeConfig
 from app.core.graph import topological_order, validate_tasks
 from app.core.telemetry import process_rss_mb, gpu_memory_mb
-from app.core.types import Task, TaskResult, RunMetrics
+from app.core.types import SourceChunk, Task, TaskResult, RunMetrics
 from app.providers.factory import get_provider
 from app.research.context_controller import ContextController
 from app.research.decomposer import decompose
@@ -140,7 +140,13 @@ class ResearchPipeline:
                     dependency_context = " ".join(completed[d].answer for d in task.depends_on if d in completed)
                     retrieval_query = f"{task.goal} {' '.join(task.evidence_needs)} {dependency_context}".strip()
                     r0 = time.perf_counter()
-                    candidates = retrieve(retrieval_query, all_chunks, top_k=cfg.task_top_k, min_score=cfg.retrieval_min_score)
+                    candidates, retrieval_fallback_reason = _retrieve_task_candidates(
+                        retrieval_query,
+                        query,
+                        all_chunks,
+                        top_k=cfg.task_top_k,
+                        min_score=cfg.retrieval_min_score,
+                    )
                     metrics.retrieval_latency_ms += int((time.perf_counter() - r0) * 1000)
                     metrics.retrieved_chunks += len(candidates)
                     if flags["O"]:
@@ -157,6 +163,7 @@ class ResearchPipeline:
                         "task_retrieval",
                         task_id=task.task_id,
                         candidates=[c.chunk_id for c in candidates],
+                        retrieval_fallback_reason=retrieval_fallback_reason,
                         selected=[c.chunk_id for c in selected],
                         dropped=dropped,
                     )
@@ -216,3 +223,23 @@ def _runtime_tasks(decomposition: object) -> list[Task]:
             )
         )
     return tasks
+
+
+def _retrieve_task_candidates(
+    task_query: str,
+    original_request: str,
+    chunks: list[SourceChunk],
+    *,
+    top_k: int,
+    min_score: float,
+) -> tuple[list[SourceChunk], str | None]:
+    """Keep the original user obligation as a bounded fallback only on a miss."""
+
+    candidates = retrieve(task_query, chunks, top_k=top_k, min_score=min_score)
+    if candidates:
+        return candidates, None
+
+    fallback = retrieve(original_request, chunks, top_k=top_k, min_score=min_score)
+    if fallback:
+        return fallback, "task_query_no_results_fallback_to_user_request"
+    return [], None

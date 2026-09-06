@@ -1,0 +1,22 @@
+{
+  "schema_version": "m1-dev-pilot-v1",
+  "split": "development_validation",
+  "frozen_before_execution": true,
+  "cases": [
+    {"id":"M1-01","kind":"single_domain","query":"What does authentication verify?"},
+    {"id":"M1-02","kind":"single_domain","query":"What does authorization check?"},
+    {"id":"M1-03","kind":"single_domain","query":"Which database queries need indexes?"},
+    {"id":"M1-04","kind":"single_domain","query":"When are transaction boundaries required?"},
+    {"id":"M1-05","kind":"single_domain","query":"What should an API contract define?"},
+    {"id":"M1-06","kind":"independent_multi_domain","query":"Review authentication and database index requirements."},
+    {"id":"M1-07","kind":"independent_multi_domain","query":"Review authorization requirements and API error responses."},
+    {"id":"M1-08","kind":"dependency_chain","query":"Review the data model first, then check whether query access follows that model."},
+    {"id":"M1-09","kind":"dependency_chain","query":"Review identity handling first, then review authorization requirements that depend on it."},
+    {"id":"M1-10","kind":"overlap_repeated_evidence","query":"Review authentication evidence and repeat the authorization evidence check."},
+    {"id":"M1-11","kind":"overlap_repeated_evidence","query":"Review API validation and API error responses using the shared API contract evidence."},
+    {"id":"M1-12","kind":"missing_evidence","query":"What is the production deployment region?"},
+    {"id":"M1-13","kind":"missing_evidence","query":"What is the password minimum length?"},
+    {"id":"M1-14","kind":"mixed","query":"Review JWT policy, database transactions, and API authorization requirements."},
+    {"id":"M1-15","kind":"mixed","query":"Review the service evidence and identify any missing SLA information."}
+  ]
+}
