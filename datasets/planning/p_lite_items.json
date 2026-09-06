@@ -1,0 +1,30 @@
+[
+  {
+    "id": "p-lite.security.v1",
+    "domain": "security",
+    "title": "Keep distinct security obligations atomic",
+    "content": "When a request names authentication, authorization, identity, or access control as distinct concerns, keep them as separate planning obligations. Preserve dependencies stated by the requester and do not merge related concerns only because they share security terminology.",
+    "provenance": "datasets/planning/p_lite_items.json#p-lite.security.v1"
+  },
+  {
+    "id": "p-lite.database.v1",
+    "domain": "database",
+    "title": "Split requested database review concerns",
+    "content": "A database request may separate schema or data model, query or access, transaction or consistency, and performance obligations when the requester asks for them. Do not invent a database task for a generic software request.",
+    "provenance": "datasets/planning/p_lite_items.json#p-lite.database.v1"
+  },
+  {
+    "id": "p-lite.api.v1",
+    "domain": "api_architecture",
+    "title": "Preserve API boundaries and dependencies",
+    "content": "API and architecture requests may separate endpoint contract, error handling, integration boundary, dependency, and architecture decisions. Preserve explicit dependencies from the request when forming the plan.",
+    "provenance": "datasets/planning/p_lite_items.json#p-lite.api.v1"
+  },
+  {
+    "id": "p-lite.multi-domain.v1",
+    "domain": "multi_domain",
+    "title": "Plan one task per independent obligation",
+    "content": "For a request spanning multiple domains, create one planning task per independent requested obligation, preserve stated dependencies, avoid merging merely similar obligations, and do not add unrequested tasks.",
+    "provenance": "datasets/planning/p_lite_items.json#p-lite.multi-domain.v1"
+  }
+]
