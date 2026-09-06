@@ -1,0 +1,199 @@
+case_id,category,question,gold_expected_points,retrieved_evidence,model_answer,citation_locator,technical_status,manual_correctness,manual_faithfulness,reviewer_note
+M0-01,general,Authentication verifies what in this system?,"expected_evidence: present
+expected_source: demo_security.md
+gold answer points: NOT_AVAILABLE_IN_ARTIFACT","[src_ecad6843b8fcb99b_c0000]
+source: demo_security.md
+text:
+# Authentication and authorization demo evidence
+The application uses bearer access tokens. Authentication verifies identity. Authorization checks whether the authenticated user has permission to perform an action. JWT claims must not be treated as a substitute for server-side authorization policy.","identity
+
+Nguồn: [src_ecad6843b8fcb99b_c0000]","valid: src_ecad6843b8fcb99b_c0000
+invalid: none","terminal_state: COMPLETE
+citation_locator_valid: true
+invalid_citation_count: 0
+NO_EVIDENCE expected: false
+NO_EVIDENCE actual: false
+run_id: run_87341c8b0a82
+source_snapshot_id: corpus_ecf5fd8b529c02d5
+config_hash: 0732341dbc931c1e",,,
+M0-02,general,What does authorization check before an action is allowed?,"expected_evidence: present
+expected_source: demo_security.md
+gold answer points: NOT_AVAILABLE_IN_ARTIFACT","[src_ecad6843b8fcb99b_c0000]
+source: demo_security.md
+text:
+# Authentication and authorization demo evidence
+The application uses bearer access tokens. Authentication verifies identity. Authorization checks whether the authenticated user has permission to perform an action. JWT claims must not be treated as a substitute for server-side authorization policy.","Authorization checks whether the authenticated user has permission to perform an action.
+
+Nguồn: [src_ecad6843b8fcb99b_c0000]","valid: src_ecad6843b8fcb99b_c0000
+invalid: none","terminal_state: COMPLETE
+citation_locator_valid: true
+invalid_citation_count: 0
+NO_EVIDENCE expected: false
+NO_EVIDENCE actual: false
+run_id: run_063d0a853c8b
+source_snapshot_id: corpus_ecf5fd8b529c02d5
+config_hash: 0732341dbc931c1e",,,
+M0-03,general,Can JWT claims replace server-side authorization policy?,"expected_evidence: present
+expected_source: demo_security.md
+gold answer points: NOT_AVAILABLE_IN_ARTIFACT","[src_ecad6843b8fcb99b_c0000]
+source: demo_security.md
+text:
+# Authentication and authorization demo evidence
+The application uses bearer access tokens. Authentication verifies identity. Authorization checks whether the authenticated user has permission to perform an action. JWT claims must not be treated as a substitute for server-side authorization policy.","No, JWT claims cannot replace server-side authorization policy. The evidence explicitly states that JWT claims must not be treated as a substitute for server: authorization policy.
+
+Nguồn: [src_ecad6843b8fcb99b_c0000]","valid: src_ecad6843b8fcb99b_c0000
+invalid: none","terminal_state: COMPLETE
+citation_locator_valid: true
+invalid_citation_count: 0
+NO_EVIDENCE expected: false
+NO_EVIDENCE actual: false
+run_id: run_87f55f74714d
+source_snapshot_id: corpus_ecf5fd8b529c02d5
+config_hash: 0732341dbc931c1e",,,
+M0-04,general,Where are user records stored?,"expected_evidence: present
+expected_source: demo_database.md
+gold answer points: NOT_AVAILABLE_IN_ARTIFACT","[src_1055b8f580d99531_c0000]
+source: demo_database.md
+text:
+# Database demo evidence
+User records are stored in the relational database. Queries that filter by frequently used identifiers should be reviewed for appropriate indexes. Transaction boundaries are required for multi-step writes that must remain consistent.
+
+[src_ecad6843b8fcb99b_c0000]
+source: demo_security.md
+text:
+# Authentication and authorization demo evidence
+The application uses bearer access tokens. Authentication verifies identity. Authorization checks whether the authenticated user has permission to perform an action. JWT claims must not be treated as a substitute for server-side authorization policy.","User records are stored in the relational database
+
+Nguồn: [src_1055b8f580d99531_c0000]","valid: src_1055b8f580d99531_c0000
+invalid: none","terminal_state: COMPLETE
+citation_locator_valid: true
+invalid_citation_count: 0
+NO_EVIDENCE expected: false
+NO_EVIDENCE actual: false
+run_id: run_2e40f22ea1bc
+source_snapshot_id: corpus_ecf5fd8b529c02d5
+config_hash: 0732341dbc931c1e",,,
+M0-05,general,Which database queries should be reviewed for indexes?,"expected_evidence: present
+expected_source: demo_database.md
+gold answer points: NOT_AVAILABLE_IN_ARTIFACT","[src_1055b8f580d99531_c0000]
+source: demo_database.md
+text:
+# Database demo evidence
+User records are stored in the relational database. Queries that filter by frequently used identifiers should be reviewed for appropriate indexes. Transaction boundaries are required for multi-step writes that must remain consistent.","Queries that filter by frequently used identifiers should be reviewed for appropriate indexes
+
+Nguồn: [src_1055b8f580d99531_c0000]","valid: src_1055b8f580d99531_c0000
+invalid: none","terminal_state: COMPLETE
+citation_locator_valid: true
+invalid_citation_count: 0
+NO_EVIDENCE expected: false
+NO_EVIDENCE actual: false
+run_id: run_d8a0d9185061
+source_snapshot_id: corpus_ecf5fd8b529c02d5
+config_hash: 0732341dbc931c1e",,,
+M0-06,general,When are transaction boundaries required?,"expected_evidence: present
+expected_source: demo_database.md
+gold answer points: NOT_AVAILABLE_IN_ARTIFACT","[src_1055b8f580d99531_c0000]
+source: demo_database.md
+text:
+# Database demo evidence
+User records are stored in the relational database. Queries that filter by frequently used identifiers should be reviewed for appropriate indexes. Transaction boundaries are required for multi-step writes that must remain consistent.
+
+[src_c7f92b35e6b484c5_c0000]
+source: demo_api.md
+text:
+# API and architecture demo evidence
+The service exposes REST endpoints. API contracts should define request validation, error responses and authorization requirements. Architectural dependencies should be explicit when one task requires output produced by another task.","Transaction boundaries are required for multi-step writes that must remain consistent.
+
+Nguồn: [src_1055b8f580d99531_c0000]","valid: src_1055b8f580d99531_c0000
+invalid: none","terminal_state: COMPLETE
+citation_locator_valid: true
+invalid_citation_count: 0
+NO_EVIDENCE expected: false
+NO_EVIDENCE actual: false
+run_id: run_9c6b253ab6f5
+source_snapshot_id: corpus_ecf5fd8b529c02d5
+config_hash: 0732341dbc931c1e",,,
+M0-07,general,What kind of endpoints does the service expose?,"expected_evidence: present
+expected_source: demo_api.md
+gold answer points: NOT_AVAILABLE_IN_ARTIFACT","[src_c7f92b35e6b484c5_c0000]
+source: demo_api.md
+text:
+# API and architecture demo evidence
+The service exposes REST endpoints. API contracts should define request validation, error responses and authorization requirements. Architectural dependencies should be explicit when one task requires output produced by another task.","REST endpoints
+
+Nguồn: [src_c7f92b35e6b484c5_c0000]","valid: src_c7f92b35e6b484c5_c0000
+invalid: none","terminal_state: COMPLETE
+citation_locator_valid: true
+invalid_citation_count: 0
+NO_EVIDENCE expected: false
+NO_EVIDENCE actual: false
+run_id: run_a0d6e597b343
+source_snapshot_id: corpus_ecf5fd8b529c02d5
+config_hash: 0732341dbc931c1e",,,
+M0-08,general,What should API contracts define?,"expected_evidence: present
+expected_source: demo_api.md
+gold answer points: NOT_AVAILABLE_IN_ARTIFACT","[src_c7f92b35e6b484c5_c0000]
+source: demo_api.md
+text:
+# API and architecture demo evidence
+The service exposes REST endpoints. API contracts should define request validation, error responses and authorization requirements. Architectural dependencies should be explicit when one task requires output produced by another task.","API contracts should define request validation, error responses, and authorization requirements. Architectural dependencies should be explicitly defined when one task requires output produced by another task.
+
+Nguồn: [src_c7f92b35e6b484c5_c0000]","valid: src_c7f92b35e6b484c5_c0000
+invalid: none","terminal_state: COMPLETE
+citation_locator_valid: true
+invalid_citation_count: 0
+NO_EVIDENCE expected: false
+NO_EVIDENCE actual: false
+run_id: run_9ba4c37eda14
+source_snapshot_id: corpus_ecf5fd8b529c02d5
+config_hash: 0732341dbc931c1e",,,
+M0-09,general,When should architectural dependencies be explicit?,"expected_evidence: present
+expected_source: demo_api.md
+gold answer points: NOT_AVAILABLE_IN_ARTIFACT","[src_c7f92b35e6b484c5_c0000]
+source: demo_api.md
+text:
+# API and architecture demo evidence
+The service exposes REST endpoints. API contracts should define request validation, error responses and authorization requirements. Architectural dependencies should be explicit when one task requires output produced by another task.","Architectural dependencies should be explicit when one task requires output produced by another task.
+
+Nguồn: [src_c7f92b35e6b484c5_c0000]","valid: src_c7f92b35e6b484c5_c0000
+invalid: none","terminal_state: COMPLETE
+citation_locator_valid: true
+invalid_citation_count: 0
+NO_EVIDENCE expected: false
+NO_EVIDENCE actual: false
+run_id: run_db62e41093fb
+source_snapshot_id: corpus_ecf5fd8b529c02d5
+config_hash: 0732341dbc931c1e",,,
+M0-10,general,What is the production deployment region?,"expected_evidence: missing
+expected_source: none
+gold answer points: NOT_AVAILABLE_IN_ARTIFACT",evidence_ids: [],Không tìm thấy bằng chứng phù hợp trong nguồn đã nạp để trả lời yêu cầu này.,"valid: none
+invalid: none","terminal_state: NO_EVIDENCE
+citation_locator_valid: true
+invalid_citation_count: 0
+NO_EVIDENCE expected: true
+NO_EVIDENCE actual: true
+run_id: run_f89fdc9b3ddb
+source_snapshot_id: corpus_ecf5fd8b529c02d5
+config_hash: 0732341dbc931c1e",,,
+M0-11,general,What is the user's password minimum length?,"expected_evidence: missing
+expected_source: none
+gold answer points: NOT_AVAILABLE_IN_ARTIFACT",evidence_ids: [],Không tìm thấy bằng chứng phù hợp trong nguồn đã nạp để trả lời yêu cầu này.,"valid: none
+invalid: none","terminal_state: NO_EVIDENCE
+citation_locator_valid: true
+invalid_citation_count: 0
+NO_EVIDENCE expected: true
+NO_EVIDENCE actual: true
+run_id: run_dfe17580c45f
+source_snapshot_id: corpus_ecf5fd8b529c02d5
+config_hash: 0732341dbc931c1e",,,
+M0-12,general,What is the monthly SLA percentage?,"expected_evidence: missing
+expected_source: none
+gold answer points: NOT_AVAILABLE_IN_ARTIFACT",evidence_ids: [],Không tìm thấy bằng chứng phù hợp trong nguồn đã nạp để trả lời yêu cầu này.,"valid: none
+invalid: none","terminal_state: NO_EVIDENCE
+citation_locator_valid: true
+invalid_citation_count: 0
+NO_EVIDENCE expected: true
+NO_EVIDENCE actual: true
+run_id: run_354da3b5e2ef
+source_snapshot_id: corpus_ecf5fd8b529c02d5
+config_hash: 0732341dbc931c1e",,,
