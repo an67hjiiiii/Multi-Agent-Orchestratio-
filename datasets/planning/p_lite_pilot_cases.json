@@ -1,0 +1,213 @@
+{
+  "schema_version": "sprint3-p-lite-pilot-v1",
+  "title": "Sprint 3 P-lite structural pilot cases",
+  "scope": {
+    "milestone": "Sprint3-P-lite",
+    "execution_boundary": "planning_retrieval_and_structured_decomposition",
+    "evidence_mode": "structural_only",
+    "inference_boundary": "local_ollama_only",
+    "fake_provider_role": "test_only",
+    "live_calibration": false,
+    "semantic_answer_scoring": "not_in_scope"
+  },
+  "collection_requirements": {
+    "run_identity_fields": [
+      "run_id",
+      "case_id",
+      "created_at",
+      "provider",
+      "model",
+      "config_hash",
+      "effective_config",
+      "status"
+    ],
+    "terminal_statuses": [
+      "COMPLETE",
+      "PARTIAL",
+      "NO_EVIDENCE",
+      "FAILED"
+    ],
+    "planning_evidence_ids": {
+      "retrieval_field": "PlanningRetrievalResult.item_ids",
+      "decomposition_field": "DecompositionResult.planning_evidence_ids",
+      "value_type": "list[string]",
+      "stable_item_id_only": true,
+      "preserve_retrieval_order": true,
+      "deduplicate_at_decomposition_boundary": true,
+      "answer_evidence_is_separate": true,
+      "max_items": 3
+    },
+    "latency": {
+      "required_fields": [
+        "metrics.latency_ms",
+        "metrics.retrieval_latency_ms",
+        "metrics.generation_latency_ms"
+      ],
+      "unit": "milliseconds",
+      "clock": "monotonic",
+      "scope": "run_started_to_terminal_state",
+      "unavailable_value": null
+    },
+    "llm_calls": {
+      "field": "metrics.llm_calls",
+      "counting_rule": "one provider result equals one call",
+      "decomposition_retry_limit": 1,
+      "decomposition_call_upper_bound": 2,
+      "record_stage_breakdown": true,
+      "unavailable_value": null
+    },
+    "dependency_validation": {
+      "required_checks": [
+        "unique_task_ids",
+        "known_dependency_ids",
+        "no_self_dependency",
+        "acyclic_graph"
+      ],
+      "invalid_graph_action": "reject_structured_output",
+      "silent_dependency_drop": false
+    },
+    "task_coverage": {
+      "pilot_value": "NOT_SCORED",
+      "required_record_fields": [
+        "status",
+        "numerator",
+        "denominator",
+        "definition_version",
+        "reason"
+      ],
+      "numeric_values_when_unavailable": null,
+      "do_not_use_proxies": [
+        "task_count",
+        "task_id",
+        "exact_task_title"
+      ],
+      "future_scoring_requires": "separately approved obligation annotations"
+    }
+  },
+  "cases": [
+    {
+      "case_id": "PLITE-01",
+      "label": "one_task",
+      "request": "Review the API health endpoint contract for this local service.",
+      "planning_evidence_expectation": "matched_api_pattern",
+      "expected_structure": {
+        "task_count": {
+          "exact": 1
+        },
+        "dependency_graph": {
+          "shape": "single_node",
+          "edge_count": {
+            "exact": 0
+          },
+          "acyclic": true
+        },
+        "planning_evidence_ids": {
+          "presence": "at_least_one",
+          "max_items": 3,
+          "unique": true
+        }
+      }
+    },
+    {
+      "case_id": "PLITE-02",
+      "label": "chained",
+      "request": "Review the data model first, then check whether the query and access path follows that model.",
+      "planning_evidence_expectation": "matched_database_pattern",
+      "expected_structure": {
+        "task_count": {
+          "exact": 2
+        },
+        "dependency_graph": {
+          "shape": "single_chain",
+          "edge_count": {
+            "exact": 1
+          },
+          "max_chain_depth": 2,
+          "acyclic": true
+        },
+        "planning_evidence_ids": {
+          "presence": "at_least_one",
+          "max_items": 3,
+          "unique": true
+        }
+      }
+    },
+    {
+      "case_id": "PLITE-03",
+      "label": "partially_independent",
+      "request": "Review login authentication, then review authorization rules that depend on the identity check; independently review the API error-response contract.",
+      "planning_evidence_expectation": "matched_multi_domain_patterns",
+      "expected_structure": {
+        "task_count": {
+          "exact": 3
+        },
+        "dependency_graph": {
+          "shape": "chain_plus_isolated_node",
+          "edge_count": {
+            "exact": 1
+          },
+          "components": 2,
+          "isolated_nodes": 1,
+          "max_chain_depth": 2,
+          "acyclic": true
+        },
+        "planning_evidence_ids": {
+          "presence": "at_least_one",
+          "max_items": 3,
+          "unique": true
+        }
+      }
+    },
+    {
+      "case_id": "PLITE-04",
+      "label": "ambiguous",
+      "request": "Review this service and suggest what should be improved.",
+      "planning_evidence_expectation": "weak_or_mixed",
+      "expected_structure": {
+        "task_count": {
+          "min": 1,
+          "max": 3
+        },
+        "dependency_graph": {
+          "shape": "valid_acyclic_graph",
+          "edge_count": {
+            "min": 0,
+            "max": 2
+          },
+          "acyclic": true
+        },
+        "planning_evidence_ids": {
+          "presence": "zero_or_more",
+          "max_items": 3,
+          "unique": true
+        }
+      }
+    },
+    {
+      "case_id": "PLITE-05",
+      "label": "weak_no_planning_evidence",
+      "request": "Review the naming consistency of the internal Aurora status badge in this local service.",
+      "planning_evidence_expectation": "weak_or_empty",
+      "expected_structure": {
+        "task_count": {
+          "min": 1,
+          "max": 2
+        },
+        "dependency_graph": {
+          "shape": "valid_acyclic_graph",
+          "edge_count": {
+            "min": 0,
+            "max": 1
+          },
+          "acyclic": true
+        },
+        "planning_evidence_ids": {
+          "presence": "zero_or_more",
+          "max_items": 3,
+          "unique": true,
+          "fallback_ids_allowed": true
+        }
+      }
+    }
+  ]
+}
