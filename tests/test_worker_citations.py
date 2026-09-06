@@ -53,6 +53,16 @@ def test_worker_rejects_unselected_evidence_key_and_no_evidence_is_citation_free
     assert empty.citations == []
 
 
+def test_worker_partial_without_missing_information_has_deterministic_reason():
+    provider = StubProvider({"status": "PARTIAL", "answer": "bounded answer", "citations": ["E1"], "missing_information": []})
+
+    result = asyncio.run(execute_task(provider, _task(), _evidence(), RunMetrics()))
+
+    assert result.status == "PARTIAL"
+    assert result.missing_information == []
+    assert result.status_reason == "WORKER_PARTIAL_WITHOUT_REASON"
+
+
 def test_synthesizer_preserves_multiple_task_citations():
     provider = StubProvider({"answer": "Combined answer", "citations": ["E1", "E2"]})
     results = [

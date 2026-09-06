@@ -50,6 +50,7 @@ class TaskResult:
     citations: list[str] = field(default_factory=list)
     invalid_citations: list[str] = field(default_factory=list)
     missing_information: list[str] = field(default_factory=list)
+    status_reason: str = ""
 
 @dataclass
 class RunMetrics:

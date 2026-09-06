@@ -49,12 +49,17 @@ async def execute_task(provider, task: Task, evidence: list[SourceChunk], metric
     metrics.add_citations(valid, invalid)
     status = str(obj.get("status") or "PARTIAL").upper()
     missing = [str(x) for x in obj.get("missing_information") or []]
+    status_reason = ""
     if invalid:
         status = "PARTIAL"
         missing.append("invalid citation locator(s) removed")
+        status_reason = "INVALID_CITATION_LOCATOR"
     if status == "COMPLETE" and not valid:
         status = "PARTIAL"
         missing.append("worker answer has no valid citation")
+        status_reason = "NO_VALID_CITATION"
+    if status == "PARTIAL" and not missing:
+        status_reason = "WORKER_PARTIAL_WITHOUT_REASON"
     return TaskResult(
         task_id=task.task_id,
         domain=task.domain,
@@ -64,4 +69,5 @@ async def execute_task(provider, task: Task, evidence: list[SourceChunk], metric
         citations=valid,
         invalid_citations=invalid,
         missing_information=missing,
+        status_reason=status_reason,
     )
