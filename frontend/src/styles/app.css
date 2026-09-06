@@ -159,9 +159,11 @@ button:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3p
 .send-button:disabled { cursor: not-allowed; opacity: .45; }
 
 .inspector { display: flex; min-height: 100vh; flex-direction: column; border-left: 1px solid var(--line); background: #fbfcfc; }
-.inspector-header { display: flex; align-items: flex-start; justify-content: space-between; padding: 29px 22px 21px; border-bottom: 1px solid var(--line); }
+.inspector-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 29px 22px 21px; border-bottom: 1px solid var(--line); }
 .inspector-header .eyebrow { margin-bottom: 7px; }
 .inspector-header h2 { font-size: 17px; font-weight: 730; }
+.inspector-header-actions { display: grid; justify-items: end; gap: 9px; }
+.inspector-plan-action { font-size: 9px; }
 .inspector-tabs { display: flex; gap: 2px; padding: 10px 12px 0; border-bottom: 1px solid var(--line); }
 .inspector-tab { padding: 10px 9px 11px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--ink-faint); cursor: pointer; font-size: 11px; font-weight: 700; }
 .inspector-tab:hover { color: var(--ink); }

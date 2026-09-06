@@ -81,7 +81,21 @@ export function App() {
           onImport={async (file) => { await research.importSource(file); }}
         />
       </div>
-      <Inspector run={research.activeRun} sources={research.sources} activeTab={research.activeTab} onTabChange={research.setActiveTab} />
+      <Inspector
+        run={research.activeRun}
+        sources={research.sources}
+        activeTab={research.activeTab}
+        onTabChange={research.setActiveTab}
+        planningInspection={research.planningInspection}
+        planningError={research.planningError}
+        canInspectPlan={research.canInspectPlan}
+        isInspectingPlan={research.isInspectingPlan}
+        onInspectPlan={() => {
+          const request = research.activeRun?.query ?? "";
+          const runProvider = research.activeRun?.provider ?? provider;
+          void research.inspectPlan(request, runProvider);
+        }}
+      />
     </div>
   );
 }

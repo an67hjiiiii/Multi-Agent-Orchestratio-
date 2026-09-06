@@ -1,26 +1,36 @@
 import { useState } from "react";
 import type { InspectorTab } from "../app/useResearchApp";
 import type {
+  PLiteInspectionResponse,
+  PlanningRetrievalResult,
   RunRecord,
   SourceChunk,
   SourceDetail,
   SourceSummary,
 } from "../types/api";
 import { api } from "../lib/api";
+import { PlanningEvidencePanel } from "./PlanningEvidencePanel";
 import { StatusBadge } from "./StatusBadge";
+import { TaskResultPanel } from "./TaskResultPanel";
 
 interface InspectorProps {
   run: RunRecord | null;
   sources: SourceSummary[];
   activeTab: InspectorTab;
   onTabChange: (tab: InspectorTab) => void;
+  planningInspection?: PLiteInspectionResponse | null;
+  planningError?: string | null;
+  canInspectPlan?: boolean;
+  isInspectingPlan?: boolean;
+  onInspectPlan?: () => void;
 }
 
-const tabs: Array<{ id: InspectorTab; label: string }> = [
+const baseTabs: Array<{ id: InspectorTab; label: string }> = [
   { id: "evidence", label: "Evidence" },
   { id: "sources", label: "Sources" },
   { id: "metrics", label: "Metrics" },
 ];
+const planTab: { id: InspectorTab; label: string } = { id: "plan", label: "Plan" };
 
 function unique(values: string[]) {
   return [...new Set(values.filter(Boolean))];
@@ -45,6 +55,18 @@ export function getRunCitations(run: RunRecord | null) {
     invalid: unique(
       (run?.task_results ?? []).flatMap((result) => result.invalid_citations ?? []),
     ),
+  };
+}
+
+export function getPlanningInspectionResult(
+  result: PLiteInspectionResponse | null | undefined,
+): PlanningRetrievalResult | null {
+  if (!result) return null;
+  return result.planning ?? {
+    request: result.request,
+    item_ids: result.planning_evidence_ids,
+    scores: null,
+    context: result.planning_context ?? null,
   };
 }
 
@@ -384,11 +406,46 @@ function MetricsPanel({ run }: { run: RunRecord | null }) {
   );
 }
 
+function PlanPanel({
+  result,
+  error,
+  isLoading,
+}: {
+  result: PLiteInspectionResponse | null;
+  error: string | null;
+  isLoading: boolean;
+}) {
+  return (
+    <div className="inspector-list" aria-busy={isLoading}>
+      {isLoading && (
+        <div className="inspector-empty" role="status">
+          <strong>Inspecting P-lite plan</strong>
+          <span>Retrieving bounded planning guidance and validating the task schema…</span>
+        </div>
+      )}
+      <PlanningEvidencePanel result={getPlanningInspectionResult(result)} />
+      <TaskResultPanel result={result} error={error} />
+    </div>
+  );
+}
+
 function EmptyPanel({ title, copy }: { title: string; copy: string }) {
   return <div className="inspector-empty"><strong>{title}</strong><span>{copy}</span></div>;
 }
 
-export function Inspector({ run, sources, activeTab, onTabChange }: InspectorProps) {
+export function Inspector({
+  run,
+  sources,
+  activeTab,
+  onTabChange,
+  planningInspection = null,
+  planningError = null,
+  canInspectPlan = false,
+  isInspectingPlan = false,
+  onInspectPlan = () => undefined,
+}: InspectorProps) {
+  const tabs = canInspectPlan ? [...baseTabs, planTab] : baseTabs;
+
   return (
     <aside className="inspector" aria-label="Run inspector">
       <div className="inspector-header">
@@ -396,7 +453,23 @@ export function Inspector({ run, sources, activeTab, onTabChange }: InspectorPro
           <p className="eyebrow">Inspector</p>
           <h2>{run ? `Run ${run.run_id.slice(-6)}` : "No active run"}</h2>
         </div>
-        <StatusBadge status={run?.status} />
+        <div className="inspector-header-actions">
+          <StatusBadge status={run?.status} />
+          {canInspectPlan && run?.query && (
+            <button
+              className="text-button inspector-plan-action"
+              type="button"
+              onClick={onInspectPlan}
+              disabled={isInspectingPlan}
+            >
+              {isInspectingPlan
+                ? "Inspecting…"
+                : planningInspection
+                  ? "Refresh P-lite plan"
+                  : "Inspect P-lite plan"}
+            </button>
+          )}
+        </div>
       </div>
       <div className="inspector-tabs" role="tablist" aria-label="Run details">
         {tabs.map((tab) => (
@@ -416,6 +489,13 @@ export function Inspector({ run, sources, activeTab, onTabChange }: InspectorPro
         {activeTab === "evidence" && <EvidencePanel run={run} />}
         {activeTab === "sources" && <SourcesPanel sources={sources} />}
         {activeTab === "metrics" && <MetricsPanel run={run} />}
+        {activeTab === "plan" && canInspectPlan && (
+          <PlanPanel
+            result={planningInspection}
+            error={planningError}
+            isLoading={isInspectingPlan}
+          />
+        )}
       </div>
       {run && (
         <div className="inspector-footer">

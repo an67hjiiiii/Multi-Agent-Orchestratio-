@@ -51,6 +51,44 @@ export interface SourceTextRequest {
   text: string;
 }
 
+export interface PlanningRetrievalResult {
+  request?: string;
+  item_ids: string[];
+  scores?: Array<number | null> | null;
+  context?: string | null;
+}
+
+export interface DecompositionTask {
+  task_id: string;
+  title: string;
+  objective: string;
+  expected_output: string;
+  domain: string;
+  role_profile: string;
+  depends_on: string[];
+}
+
+export interface DecompositionResult {
+  request: string;
+  tasks: DecompositionTask[];
+  planning_evidence_ids: string[];
+  status: string;
+  warnings: string[];
+}
+
+export interface PLiteInspectionResponse extends DecompositionResult {
+  planning?: PlanningRetrievalResult | null;
+  planning_context?: string | null;
+  latency_ms?: number;
+  llm_calls?: number;
+  metrics?: RunMetrics;
+}
+
+export interface DecompositionRequest {
+  request: string;
+  provider?: string | null;
+}
+
 export interface Task {
   task_id: string;
   goal: string;

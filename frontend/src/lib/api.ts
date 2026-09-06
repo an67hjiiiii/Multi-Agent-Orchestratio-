@@ -1,7 +1,9 @@
 import type {
   ApiErrorPayload,
   ChatRequest,
+  DecompositionRequest,
   HealthResponse,
+  PLiteInspectionResponse,
   RunListItem,
   RunRecord,
   SourceChunk,
@@ -75,4 +77,10 @@ export const api = {
       body,
     });
   },
+  decompose: (body: DecompositionRequest) =>
+    request<PLiteInspectionResponse>("/tasks/decompose", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
 };

@@ -2,13 +2,16 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "../lib/api";
 import type {
   HealthResponse,
+  PLiteInspectionResponse,
   RunListItem,
   RunRecord,
   SourceImportResult,
   SourceSummary,
 } from "../types/api";
 
-export type InspectorTab = "evidence" | "sources" | "metrics";
+export type InspectorTab = "evidence" | "sources" | "metrics" | "plan";
+
+const PLITE_PROFILES = new Set(["dev", "m1", "m2"]);
 
 export interface ResearchAppState {
   health: HealthResponse | null;
@@ -20,12 +23,17 @@ export interface ResearchAppState {
   isBooting: boolean;
   isRunning: boolean;
   isImporting: boolean;
+  isInspectingPlan: boolean;
+  canInspectPlan: boolean;
+  planningInspection: PLiteInspectionResponse | null;
+  planningError: string | null;
   error: string | null;
   sourceNotice: string | null;
   setActiveTab: (tab: InspectorTab) => void;
   startNewRun: () => void;
   submitQuestion: (message: string, condition: string, provider: string) => Promise<void>;
   selectRun: (runId: string) => Promise<void>;
+  inspectPlan: (request: string, provider: string) => Promise<void>;
   importSource: (file: File) => Promise<SourceImportResult | null>;
   dismissError: () => void;
 }
@@ -39,6 +47,9 @@ export function useResearchApp(): ResearchAppState {
   const [isBooting, setIsBooting] = useState(true);
   const [isRunning, setIsRunning] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [isInspectingPlan, setIsInspectingPlan] = useState(false);
+  const [planningInspection, setPlanningInspection] = useState<PLiteInspectionResponse | null>(null);
+  const [planningError, setPlanningError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sourceNotice, setSourceNotice] = useState<string | null>(null);
 
@@ -101,6 +112,8 @@ export function useResearchApp(): ResearchAppState {
       setIsRunning(true);
       setPendingQuestion(normalizedMessage);
       setError(null);
+      setPlanningInspection(null);
+      setPlanningError(null);
       try {
         const run = await api.chat({ message: normalizedMessage, condition, provider });
         setActiveRun(run);
@@ -120,6 +133,8 @@ export function useResearchApp(): ResearchAppState {
   const selectRun = useCallback(async (runId: string) => {
     setPendingQuestion(null);
     setError(null);
+    setPlanningInspection(null);
+    setPlanningError(null);
     try {
       setActiveRun(await api.getRun(runId));
       setActiveTab("evidence");
@@ -127,6 +142,31 @@ export function useResearchApp(): ResearchAppState {
       setError(cause instanceof Error ? cause.message : "Unable to load this run");
     }
   }, []);
+
+  const inspectPlan = useCallback(
+    async (request: string, provider: string) => {
+      const normalizedRequest = request.trim();
+      if (!normalizedRequest || !PLITE_PROFILES.has(health?.implementation_profile ?? "")) return;
+
+      setIsInspectingPlan(true);
+      setPlanningInspection(null);
+      setPlanningError(null);
+      try {
+        setPlanningInspection(
+          await api.decompose({ request: normalizedRequest, provider }),
+        );
+        setActiveTab("plan");
+      } catch (cause) {
+        setPlanningError(
+          cause instanceof Error ? cause.message : "Unable to inspect the P-lite task plan",
+        );
+        setActiveTab("plan");
+      } finally {
+        setIsInspectingPlan(false);
+      }
+    },
+    [health?.implementation_profile],
+  );
 
   const importSource = useCallback(async (file: File) => {
     setIsImporting(true);
@@ -163,10 +203,17 @@ export function useResearchApp(): ResearchAppState {
       setPendingQuestion(null);
       setError(null);
       setSourceNotice(null);
+      setPlanningInspection(null);
+      setPlanningError(null);
     },
     submitQuestion,
     selectRun,
+    inspectPlan,
     importSource,
     dismissError: () => setError(null),
+    isInspectingPlan,
+    canInspectPlan: PLITE_PROFILES.has(health?.implementation_profile ?? ""),
+    planningInspection,
+    planningError,
   };
 }

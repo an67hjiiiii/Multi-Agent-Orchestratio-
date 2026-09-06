@@ -13,6 +13,7 @@ const documentedRoutes = new Set([
   "/api/sources/text",
   "/api/chunks",
   "/api/chat",
+  "/api/tasks/decompose",
   "/api/runs",
 ]);
 
