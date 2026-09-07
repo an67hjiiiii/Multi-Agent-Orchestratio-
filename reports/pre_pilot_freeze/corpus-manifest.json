@@ -1,0 +1,1 @@
+{"schema_version":"data-manifest-v1","snapshot_id":"m1-pilot-authorized-v1","items":[{"path":"data/m1-pilot-authorized-v1/sources.json","sha256":"274241507c91aa8ffaf8ca8f5ad9b3568879a4f99a691c9bd98bfe5dd52af265","size_bytes":1445,"chunk_count":3,"provenance":"local M1 source snapshot"}]}

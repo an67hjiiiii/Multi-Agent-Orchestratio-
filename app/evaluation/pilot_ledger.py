@@ -8,9 +8,61 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator
 
+METRIC_SCHEMA_VERSION = "m1-metric-contract-v1"
+
 
 class PilotLockedError(RuntimeError):
     pass
+
+
+def canonical_metric_snapshot(
+    *, status: str, condition: str | None, metrics: dict | None, events: list | None
+) -> dict[str, object]:
+    """Materialize the frozen automated metric contract beside one attempt.
+
+    This captures only structural/provider telemetry. Gold-dependent metrics
+    remain outside the canonical runtime record and are joined after review.
+    """
+
+    raw = metrics if isinstance(metrics, dict) else {}
+    task_events = [item for item in (events or []) if isinstance(item, dict) and item.get("stage") == "task_retrieval"]
+    selected_count = sum(len(item.get("selected", [])) for item in task_events if isinstance(item.get("selected"), list))
+    shared_count = sum(len(item.get("shared_evidence_ids", [])) for item in task_events if isinstance(item.get("shared_evidence_ids"), list))
+    normalization = next((item for item in (events or []) if isinstance(item, dict) and item.get("stage") == "normalization"), None)
+    removed = normalization.get("removed") if isinstance(normalization, dict) else None
+    after = normalization.get("tasks") if isinstance(normalization, dict) else None
+    task_count_after = len(after) if isinstance(after, list) else None
+    failure = next((item for item in (events or []) if isinstance(item, dict) and item.get("stage") in {"run_failed", "runner_failed"}), None)
+    return {
+        "schema_version": METRIC_SCHEMA_VERSION,
+        "terminal_status": status,
+        "llm_calls": raw.get("llm_calls"),
+        "input_tokens": raw.get("input_tokens"),
+        "output_tokens": raw.get("output_tokens"),
+        "total_tokens": raw.get("total_tokens"),
+        "latency_ms": raw.get("latency_ms"),
+        "retrieval_latency_ms": raw.get("retrieval_latency_ms"),
+        "generation_latency_ms": raw.get("generation_latency_ms"),
+        "peak_rss_mb": raw.get("peak_rss_mb"),
+        "gpu_memory_mb": raw.get("gpu_memory_mb"),
+        "context_tokens_est": raw.get("context_tokens_est"),
+        "context_chars": raw.get("context_chars"),
+        "retrieved_chunks": raw.get("retrieved_chunks"),
+        "selected_chunks": raw.get("selected_chunks"),
+        "dropped_chunks": raw.get("dropped_chunks"),
+        "citations_emitted": raw.get("citations_emitted"),
+        "citations_valid": raw.get("citations_valid"),
+        "citation_locator_validity": raw.get("citation_locator_validity"),
+        "duplicate_tasks_removed": removed if condition == "C" else None,
+        "duplicate_task_rate": (
+            removed / (task_count_after + removed)
+            if condition == "C" and isinstance(removed, int) and isinstance(task_count_after, int) and task_count_after + removed > 0
+            else None
+        ),
+        "overlap_reuse_ratio": shared_count / selected_count if condition == "C" and selected_count else None,
+        "failure_stage": failure.get("stage") if failure else None,
+        "retry_count": "NOT_RECORDED",
+    }
 
 
 class PilotLedger:
@@ -33,6 +85,16 @@ class PilotLedger:
         return {item["key"] for item in self.data["attempts"] if item["classification"] == "canonical_attempt"}
 
     def append(self, record: dict[str, object]) -> None:
+        if "metric_snapshot" not in record:
+            record = {
+                **record,
+                "metric_snapshot": canonical_metric_snapshot(
+                    status=str(record.get("status", "")),
+                    condition=record.get("condition") if isinstance(record.get("condition"), str) else None,
+                    metrics=record.get("metrics") if isinstance(record.get("metrics"), dict) else None,
+                    events=record.get("events") if isinstance(record.get("events"), list) else None,
+                ),
+            }
         key = record["key"]
         classification = "duplicate_attempt" if key in self.canonical_keys() else "canonical_attempt"
         self.data["attempts"].append({**record, "classification": classification})

@@ -61,6 +61,7 @@ async def run_pilot(
     phase: str = "smoke",
     conditions: tuple[str, ...] = CONDITIONS,
     experiment_id: str = EXPERIMENT_ID,
+    experiment_freeze_id: str | None = None,
 ) -> dict:
     """Run one serial phase and checkpoint every case-condition-repeat record."""
 
@@ -89,6 +90,7 @@ async def run_pilot(
             "implementation_profile": cfg.implementation_profile,
             "config_hash": cfg.config_hash(),
             "source_snapshot_id": store.snapshot_id(),
+            "experiment_freeze_id": experiment_freeze_id,
         }
         with single_writer_lock(output_dir):
             output_dir.mkdir(parents=True, exist_ok=True)
@@ -116,6 +118,7 @@ async def run_pilot(
                             "answer": run["answer"], "tasks": run["tasks"],
                             "task_results": run["task_results"],
                             "effective_config": run["effective_config"],
+                            "freeze_ids": {"experiment_freeze_id": experiment_freeze_id},
                         }
                         ledger.append(record)
                         _atomic_write_json(output_dir / f"{experiment_id}_{provider}.json", ledger.report())
@@ -133,9 +136,10 @@ if __name__ == "__main__":
     parser.add_argument("--experiment-id", default=EXPERIMENT_ID)
     parser.add_argument("--conditions", nargs="+", choices=CONDITIONS)
     parser.add_argument("--case-ids", nargs="+")
+    parser.add_argument("--experiment-freeze-id")
     args = parser.parse_args()
     selected = set(args.case_ids) if args.case_ids else ({"M1-01", "M1-02", "M1-03"} if args.phase == "smoke" else None)
     repeats = 3 if args.phase == "full" else 1
     output_dir = ROOT / "reports" / "m1_pilot" / args.experiment_id
     runs_dir = ROOT / "runs" / "m1_pilot" / args.experiment_id
-    print(asyncio.run(run_pilot(args.provider, output_dir, runs_dir, selected, repeats, args.phase, tuple(args.conditions or CONDITIONS), args.experiment_id))["path"])
+    print(asyncio.run(run_pilot(args.provider, output_dir, runs_dir, selected, repeats, args.phase, tuple(args.conditions or CONDITIONS), args.experiment_id, args.experiment_freeze_id))["path"])

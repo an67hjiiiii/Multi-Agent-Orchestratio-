@@ -1,0 +1,1 @@
+{"schema_version":"planning-kb-manifest-v1","items":[{"path":"datasets/planning/p_lite_items.json","sha256":"1b93b44b1a822549953c94ab143e7a9582299fed1e8356c6b5dfb90dacd942fe","size_bytes":1798,"item_count":4,"stable_ids":["p-lite.security.v1","p-lite.database.v1","p-lite.api.v1","p-lite.multi-domain.v1"],"provenance":"checked-in separate planning KB"}]}

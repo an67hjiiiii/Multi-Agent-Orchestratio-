@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from app.evaluation.pilot_ledger import PilotLedger, PilotLockedError, propose_raw_mapping, single_writer_lock
+from app.evaluation.pilot_ledger import PilotLedger, PilotLockedError, canonical_metric_snapshot, propose_raw_mapping, single_writer_lock
 
 
 def _record(key: str, status: str = "COMPLETE") -> dict:
@@ -46,3 +46,18 @@ def test_raw_mapping_is_proposal_only_and_never_promotes_historical_runs():
     ])
     assert proposal[0]["proposed_classification"] == "raw_attempt_requires_owner_rule"
     assert proposal[1]["proposed_classification"] == "duplicate_attempt"
+
+
+def test_metric_snapshot_is_condition_aware_and_preserves_missing_data():
+    events = [
+        {"stage": "normalization", "removed": 1, "tasks": [{"task_id": "T1"}]},
+        {"stage": "task_retrieval", "selected": ["c1", "c2"], "shared_evidence_ids": ["c1"]},
+    ]
+    metrics = {"llm_calls": 2, "input_tokens": 4, "output_tokens": 5, "total_tokens": 9}
+    c_snapshot = canonical_metric_snapshot(status="COMPLETE", condition="C", metrics=metrics, events=events)
+    a_snapshot = canonical_metric_snapshot(status="COMPLETE", condition="A", metrics=metrics, events=events)
+    assert c_snapshot["duplicate_task_rate"] == 0.5
+    assert c_snapshot["overlap_reuse_ratio"] == 0.5
+    assert c_snapshot["retry_count"] == "NOT_RECORDED"
+    assert a_snapshot["duplicate_tasks_removed"] is None
+    assert a_snapshot["overlap_reuse_ratio"] is None
