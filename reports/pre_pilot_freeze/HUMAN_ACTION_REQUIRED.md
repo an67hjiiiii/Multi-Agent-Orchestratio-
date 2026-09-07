@@ -1,9 +1,9 @@
 # Human action required
 
-1. Decide whether the 15-case request manifest is the intended full M1 set.
-2. Approve or revise inclusion/exclusion rules without changing accepted runs.
-3. Populate gold obligations/evidence/roles and sign each approved row.
-4. Review Task Coverage, answer sufficiency, faithfulness, and context
+1. The owner has approved the 15-case manifest only as the M1
+   development/validation pilot subset, not as the full M1 benchmark.
+2. Populate gold obligations/evidence/roles and sign each approved row.
+3. Review Task Coverage, answer sufficiency, faithfulness, and context
    relevance only after canonical attempts exist.
 
 Codex/Terra has not assigned any `APPROVED` status.
