@@ -32,7 +32,7 @@ evaluation:
   canonical_attempt_ledger: REQUIRED
   dataset_and_rubric: PRESERVE
   last_known_good: REQUIRED
-  experiment_freeze_id: 532b87f9c0aaadf014b31c52cf0714cdaeea9b5d1940830997327a1c642b6fa1
+  experiment_freeze_id: ce53402ae17731020c4e75330bc6b1f674f60c7e20087353008f3c1e08518e3a
   benchmark_set: HUMAN_APPROVED_DEVELOPMENT_VALIDATION_PILOT_SUBSET
   semantic_gold: HUMAN_APPROVED_DEVELOPMENT_VALIDATION_PILOT_SUBSET
 
