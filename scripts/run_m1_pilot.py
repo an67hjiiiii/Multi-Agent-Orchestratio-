@@ -18,7 +18,7 @@ from scripts.run_m0_calibration import prepare_store
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CASES = ROOT / "datasets" / "pilot" / "m1_dev_cases.json"
 EXPERIMENT_ID = "m1-pilot-authorized-v1"
-CONDITIONS = ("A", "B", "C")
+M1_CONDITIONS = ("A", "B", "C")
 
 
 def load_cases(path: Path = DEFAULT_CASES) -> list[dict]:
@@ -32,9 +32,9 @@ def load_cases(path: Path = DEFAULT_CASES) -> list[dict]:
 
 
 @contextmanager
-def runtime(provider: str):
+def runtime(provider: str, implementation_profile: str = "m1"):
     prior = {key: os.environ.get(key) for key in ("IMPLEMENTATION_PROFILE", "PROVIDER")}
-    os.environ["IMPLEMENTATION_PROFILE"] = "m1"
+    os.environ["IMPLEMENTATION_PROFILE"] = implementation_profile
     os.environ["PROVIDER"] = provider
     try:
         yield
@@ -59,9 +59,10 @@ async def run_pilot(
     selected_case_ids: set[str] | None = None,
     repeats: int = 1,
     phase: str = "smoke",
-    conditions: tuple[str, ...] = CONDITIONS,
+    conditions: tuple[str, ...] = M1_CONDITIONS,
     experiment_id: str = EXPERIMENT_ID,
     experiment_freeze_id: str | None = None,
+    implementation_profile: str = "m1",
 ) -> dict:
     """Run one serial phase and checkpoint every case-condition-repeat record."""
 
@@ -69,8 +70,8 @@ async def run_pilot(
         raise ValueError("provider must be ollama or fake")
     if repeats < 1:
         raise ValueError("repeats must be at least 1")
-    if not conditions or any(condition not in CONDITIONS for condition in conditions):
-        raise ValueError("conditions must be a non-empty subset of A, B, C")
+    if not conditions:
+        raise ValueError("conditions must be non-empty")
 
     cases = load_cases()
     if selected_case_ids is not None:
@@ -80,8 +81,10 @@ async def run_pilot(
 
     store = prepare_store(ROOT / "data" / experiment_id)
     runs = RunStore(str(runs_dir))
-    with runtime(provider):
+    with runtime(provider, implementation_profile):
         cfg = RuntimeConfig.from_env()
+        for condition in conditions:
+            cfg.assert_condition(condition)
         identity = {
             "experiment_id": experiment_id,
             "manifest_sha256": hashlib.sha256(DEFAULT_CASES.read_bytes()).hexdigest(),
@@ -132,14 +135,17 @@ async def run_pilot(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--provider", default="ollama", choices=["ollama", "fake"])
-    parser.add_argument("--phase", choices=["smoke", "full", "recheck"], default="smoke")
+    parser.add_argument("--phase", choices=["smoke", "full", "recheck", "dev"], default="smoke")
     parser.add_argument("--experiment-id", default=EXPERIMENT_ID)
-    parser.add_argument("--conditions", nargs="+", choices=CONDITIONS)
+    parser.add_argument("--conditions", nargs="+")
     parser.add_argument("--case-ids", nargs="+")
     parser.add_argument("--experiment-freeze-id")
+    parser.add_argument("--implementation-profile", choices=["m1", "m2"], default="m1")
+    parser.add_argument("--repeats", type=int)
     args = parser.parse_args()
     selected = set(args.case_ids) if args.case_ids else ({"M1-01", "M1-02", "M1-03"} if args.phase == "smoke" else None)
-    repeats = 3 if args.phase == "full" else 1
+    repeats = args.repeats if args.repeats is not None else (3 if args.phase == "full" else 1)
     output_dir = ROOT / "reports" / "m1_pilot" / args.experiment_id
     runs_dir = ROOT / "runs" / "m1_pilot" / args.experiment_id
-    print(asyncio.run(run_pilot(args.provider, output_dir, runs_dir, selected, repeats, args.phase, tuple(args.conditions or CONDITIONS), args.experiment_id, args.experiment_freeze_id))["path"])
+    conditions = tuple(args.conditions or M1_CONDITIONS)
+    print(asyncio.run(run_pilot(args.provider, output_dir, runs_dir, selected, repeats, args.phase, conditions, args.experiment_id, args.experiment_freeze_id, args.implementation_profile))["path"])

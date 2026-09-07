@@ -51,13 +51,39 @@ def test_raw_mapping_is_proposal_only_and_never_promotes_historical_runs():
 def test_metric_snapshot_is_condition_aware_and_preserves_missing_data():
     events = [
         {"stage": "normalization", "removed": 1, "tasks": [{"task_id": "T1"}]},
-        {"stage": "task_retrieval", "selected": ["c1", "c2"], "shared_evidence_ids": ["c1"]},
+        {"stage": "task_retrieval", "o_enabled": True, "selected": ["c1", "c2"], "shared_evidence_ids": ["c1"]},
     ]
     metrics = {"llm_calls": 2, "input_tokens": 4, "output_tokens": 5, "total_tokens": 9}
     c_snapshot = canonical_metric_snapshot(status="COMPLETE", condition="C", metrics=metrics, events=events)
-    a_snapshot = canonical_metric_snapshot(status="COMPLETE", condition="A", metrics=metrics, events=events)
+    a_snapshot = canonical_metric_snapshot(status="COMPLETE", condition="A", metrics=metrics, events=[])
     assert c_snapshot["duplicate_task_rate"] == 0.5
     assert c_snapshot["overlap_reuse_ratio"] == 0.5
     assert c_snapshot["retry_count"] == "NOT_RECORDED"
     assert a_snapshot["duplicate_tasks_removed"] is None
     assert a_snapshot["overlap_reuse_ratio"] is None
+
+
+def test_metric_snapshot_uses_actual_n_and_o_trace_for_m2_ablations():
+    normalization_events = [
+        {"stage": "normalization", "removed": 1, "tasks": [{"task_id": "T1"}]},
+        {"stage": "task_retrieval", "o_enabled": True, "selected": ["c1", "c2"], "shared_evidence_ids": ["c1"]},
+    ]
+    c_p = canonical_metric_snapshot(status="COMPLETE", condition="C-P", metrics={}, events=normalization_events)
+    c_n = canonical_metric_snapshot(
+        status="COMPLETE",
+        condition="C-N",
+        metrics={},
+        events=[{"stage": "task_retrieval", "o_enabled": True, "selected": ["c1"], "shared_evidence_ids": []}],
+    )
+    c_o = canonical_metric_snapshot(
+        status="COMPLETE",
+        condition="C-O",
+        metrics={},
+        events=[{"stage": "normalization", "removed": 0, "tasks": [{"task_id": "T1"}]}],
+    )
+    assert c_p["duplicate_task_rate"] == 0.5
+    assert c_p["overlap_reuse_ratio"] == 0.5
+    assert c_n["duplicate_tasks_removed"] is None
+    assert c_n["overlap_reuse_ratio"] == 0.0
+    assert c_o["duplicate_task_rate"] == 0.0
+    assert c_o["overlap_reuse_ratio"] is None

@@ -8,6 +8,7 @@ Human owner decision: **APPROVED** as `m1-dev-pilot-v1`, an M1
 development/validation pilot subset. This approval does **not** designate it
 as the full M1 empirical benchmark.
 
-All fifteen case-level semantic-gold decisions are `REVISE`: gold obligations,
-expected role/domain, relevant evidence IDs, and expected answer points remain
-blank. `reviewer_status` stays `PENDING_HUMAN_REVIEW` for every gold row.
+All fifteen case-level semantic-gold decisions are **APPROVED by the human
+owner**. The signed values in `gold-approval-packet/gold-template.csv` are
+evaluation-only, remain tied to the frozen corpus, and must never be consumed
+by generation. This approval is limited to development/validation evidence.

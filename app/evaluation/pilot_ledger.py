@@ -29,6 +29,11 @@ def canonical_metric_snapshot(
     selected_count = sum(len(item.get("selected", [])) for item in task_events if isinstance(item.get("selected"), list))
     shared_count = sum(len(item.get("shared_evidence_ids", [])) for item in task_events if isinstance(item.get("shared_evidence_ids"), list))
     normalization = next((item for item in (events or []) if isinstance(item, dict) and item.get("stage") == "normalization"), None)
+    # Condition labels are not sufficient here: M2 ablations retain either N
+    # or O while changing a different flag.  The trace is the source of truth
+    # for whether a metric is applicable to this individual attempt.
+    normalization_enabled = isinstance(normalization, dict)
+    overlap_enabled = any(item.get("o_enabled") is True for item in task_events)
     removed = normalization.get("removed") if isinstance(normalization, dict) else None
     after = normalization.get("tasks") if isinstance(normalization, dict) else None
     task_count_after = len(after) if isinstance(after, list) else None
@@ -53,13 +58,13 @@ def canonical_metric_snapshot(
         "citations_emitted": raw.get("citations_emitted"),
         "citations_valid": raw.get("citations_valid"),
         "citation_locator_validity": raw.get("citation_locator_validity"),
-        "duplicate_tasks_removed": removed if condition == "C" else None,
+        "duplicate_tasks_removed": removed if normalization_enabled else None,
         "duplicate_task_rate": (
             removed / (task_count_after + removed)
-            if condition == "C" and isinstance(removed, int) and isinstance(task_count_after, int) and task_count_after + removed > 0
+            if normalization_enabled and isinstance(removed, int) and isinstance(task_count_after, int) and task_count_after + removed > 0
             else None
         ),
-        "overlap_reuse_ratio": shared_count / selected_count if condition == "C" and selected_count else None,
+        "overlap_reuse_ratio": shared_count / selected_count if overlap_enabled and selected_count else None,
         "failure_stage": failure.get("stage") if failure else None,
         "retry_count": "NOT_RECORDED",
     }
