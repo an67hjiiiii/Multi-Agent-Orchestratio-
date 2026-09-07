@@ -1,9 +1,9 @@
 # State reconciliation
 
-No canonical-state promotion was made. Before/after `.project/project-state.yaml`
-is unchanged: model/corpus are `UNFROZEN`, hardware is `UNVERIFIED`, local
-Ollama gate is `PENDING`, and M1 remains authorized but not complete. Direct
-freeze evidence now exists, but the metric-wiring worktree is uncommitted and
-the bounded A/B/C smoke is incomplete because the runner lock remains present.
-Therefore a reproducible state update would be unsupported. M2 remains
-unapproved.
+Canonical state now promotes only evidenced fields: frozen qwen3:4b model,
+frozen M1 source snapshot, verified hardware profile, local Ollama health,
+approved development/validation pilot-subset benchmark and semantic gold, plus
+experiment freeze ID `532b87f9c0aaadf014b31c52cf0714cdaeea9b5d1940830997327a1c642b6fa1`.
+
+M1 remains authorized but is not started by this update. The 15-case set is not
+a full empirical benchmark, and M2 remains unapproved.

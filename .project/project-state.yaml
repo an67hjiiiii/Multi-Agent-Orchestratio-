@@ -21,17 +21,20 @@ foundation:
   integration: BLOCKED_UNTIL_FOUNDATION_TRACKS_AND_GOVERNANCE_ARE_REVIEWED
 
 runtime:
-  model: UNFROZEN
-  corpus_version: UNFROZEN
-  hardware: UNVERIFIED
-  local_ollama_gate: PENDING
+  model: FROZEN_QWEN3_4B_359D7DD4
+  corpus_version: FROZEN_M1_PILOT_AUTHORIZED_V1
+  hardware: VERIFIED_HW_2C1E5E16
+  local_ollama_gate: PASS
 
 evaluation:
-  status: NOT_STARTED
-  frozen_references: false
+  status: DEVELOPMENT_VALIDATION_GOLD_APPROVED
+  frozen_references: true
   canonical_attempt_ledger: REQUIRED
   dataset_and_rubric: PRESERVE
   last_known_good: REQUIRED
+  experiment_freeze_id: 532b87f9c0aaadf014b31c52cf0714cdaeea9b5d1940830997327a1c642b6fa1
+  benchmark_set: HUMAN_APPROVED_DEVELOPMENT_VALIDATION_PILOT_SUBSET
+  semantic_gold: HUMAN_APPROVED_DEVELOPMENT_VALIDATION_PILOT_SUBSET
 
 approval:
   self_approval: PROHIBITED
