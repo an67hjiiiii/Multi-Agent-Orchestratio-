@@ -1,18 +1,53 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useResearchApp } from "./app/useResearchApp";
-import { ChatPanel } from "./components/ChatPanel";
-import { Inspector } from "./components/Inspector";
+import { normalizeRun } from "./lib/uiAdapter";
+import { AnswerCanvas } from "./components/AnswerCanvas";
+import { EvidenceDrawer, type DrawerTab } from "./components/EvidenceDrawer";
 import { Sidebar } from "./components/Sidebar";
-import { StatusBadge } from "./components/StatusBadge";
+import { WorkspaceHeader, type ViewMode } from "./components/WorkspaceHeader";
 
 const M0_CONDITION = "A";
 
 export function App() {
   const research = useResearchApp();
   const [provider, setProvider] = useState("fake");
+  const [mode, setMode] = useState<ViewMode>("normal");
+  const [railOpen, setRailOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerTab, setDrawerTab] = useState<DrawerTab>("context");
+  const [focusCitationId, setFocusCitationId] = useState<string | null>(null);
+  const citationTrigger = useRef<HTMLButtonElement | null>(null);
+  const normalizedRun = research.activeRun ? normalizeRun(research.activeRun) : null;
 
   async function submitQuestion(message: string) {
     await research.submitQuestion(message, M0_CONDITION, provider);
+  }
+
+  function openResearch() {
+    citationTrigger.current = null;
+    setDrawerTab("research");
+    setFocusCitationId(null);
+    setDrawerOpen(true);
+  }
+
+  function openSources() {
+    citationTrigger.current = null;
+    setDrawerTab("sources");
+    setFocusCitationId(null);
+    setDrawerOpen(true);
+  }
+
+  function openEvidence(citation: string, trigger: HTMLButtonElement) {
+    citationTrigger.current = trigger;
+    setFocusCitationId(citation);
+    setDrawerTab("context");
+    setDrawerOpen(true);
+  }
+
+  function closeDrawer() {
+    setDrawerOpen(false);
+    setFocusCitationId(null);
+    requestAnimationFrame(() => citationTrigger.current?.focus());
   }
 
   const runtimeStatus = research.isBooting
@@ -25,42 +60,33 @@ export function App() {
 
   return (
     <div className="app-shell">
+      <a className="skip-link" href="#answer-canvas">Skip to answer</a>
       <Sidebar
         history={research.history}
         sources={research.sources}
         activeRunId={research.activeRun?.run_id}
+        isOpen={railOpen}
+        onClose={() => setRailOpen(false)}
         onNewRun={research.startNewRun}
         onSelectRun={(runId) => void research.selectRun(runId)}
+        mode={mode}
+        onModeToggle={() => setMode((current) => current === "normal" ? "research" : "normal")}
+        provider={provider}
+        onProviderChange={setProvider}
+        onOpenSources={openSources}
       />
+
       <div className="workspace-column">
-        <header className="topbar">
-          <div className="topbar-context">
-            <span className="topbar-title">Research chat</span>
-            <span className="topbar-separator" aria-hidden="true">/</span>
-            <span className="topbar-subtitle">Evidence-first answers</span>
-            <span className="m0-context-pill">M0 · A</span>
-          </div>
-          <div className="topbar-controls">
-            <div className="locked-control" aria-label="Run condition">
-              <span>Condition</span>
-              <strong>A</strong>
-              <small>Vanilla RAG</small>
-            </div>
-            <label className="select-control">
-              <span>Provider</span>
-              <select
-                value={provider}
-                onChange={(event) => setProvider(event.target.value)}
-                aria-label="Run provider"
-                disabled={research.isRunning}
-              >
-                <option value="fake">Fake · wiring</option>
-                <option value="ollama">Local Ollama</option>
-              </select>
-            </label>
-            <StatusBadge status={runtimeStatus} compact />
-          </div>
-        </header>
+        <WorkspaceHeader
+          mode={mode}
+          onModeChange={setMode}
+          runtimeStatus={runtimeStatus}
+          health={research.health}
+          run={normalizedRun}
+          sourceCount={research.sources.length}
+          onOpenRail={() => setRailOpen(true)}
+          onOpenResearch={openResearch}
+        />
 
         {research.error && (
           <div className="global-alert" role="alert">
@@ -69,26 +95,36 @@ export function App() {
           </div>
         )}
 
-        <ChatPanel
-          run={research.activeRun}
+        <AnswerCanvas
+          run={normalizedRun}
+          pendingQuestion={research.pendingQuestion}
           isRunning={research.isRunning}
           isImporting={research.isImporting}
           sourceNotice={research.sourceNotice}
-          pendingQuestion={research.pendingQuestion}
-          condition={M0_CONDITION}
           provider={provider}
+          mode={mode}
+          sources={research.sources}
+          onProviderChange={setProvider}
           onSubmit={submitQuestion}
           onImport={async (file) => { await research.importSource(file); }}
+          onOpenEvidence={openEvidence}
+          onOpenResearch={openResearch}
+          onOpenSources={openSources}
         />
       </div>
-      <Inspector
-        run={research.activeRun}
+
+      <EvidenceDrawer
+        open={drawerOpen}
+        mode={mode}
+        activeTab={drawerTab}
+        onTabChange={setDrawerTab}
+        onClose={closeDrawer}
+        run={normalizedRun}
         sources={research.sources}
-        activeTab={research.activeTab}
-        onTabChange={research.setActiveTab}
+        focusCitationId={focusCitationId}
+        canInspectPlan={research.canInspectPlan}
         planningInspection={research.planningInspection}
         planningError={research.planningError}
-        canInspectPlan={research.canInspectPlan}
         isInspectingPlan={research.isInspectingPlan}
         onInspectPlan={() => {
           const request = research.activeRun?.query ?? "";
