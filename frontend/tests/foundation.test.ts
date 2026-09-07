@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const sourceRoot = fileURLToPath(new URL("../src", import.meta.url));
+const entryHtml = fileURLToPath(new URL("../index.html", import.meta.url));
 const documentedRoutes = new Set([
   "/api/health",
   "/api/config",
@@ -31,6 +32,11 @@ function sourceText(directory: string): string {
 
 describe("frontend foundation boundary", () => {
   const text = sourceText(sourceRoot);
+
+  it("boots the React entrypoint from the hosted HTML shell", () => {
+    const html = readFileSync(entryHtml, "utf8");
+    expect(html).toContain('<script type="module" src="/src/main.tsx"></script>');
+  });
 
   it("uses only documented backend routes", () => {
     const routes = [...text.matchAll(/[\"'`]\/(api\/[A-Za-z0-9._~/-]+)/g)]
