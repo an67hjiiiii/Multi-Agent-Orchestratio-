@@ -141,7 +141,9 @@ class ContextController:
             chunk = by_id.get(record["chunk_id"])
             if chunk is not None:
                 record.update({"source_id": chunk.source_id, "locator": chunk.index})
-        selected_log = [{"chunk_id": item.chunk_id, "source_id": item.source_id, "locator": item.index, "score": item.score, "reason": "retained_shared"} for item in selected]
+        # Cross-task sharing is reported by OverlapTracker after this local
+        # selection.  Do not claim sharing before another task has reused it.
+        selected_log = [{"chunk_id": item.chunk_id, "source_id": item.source_id, "locator": item.index, "score": item.score, "reason": "retained"} for item in selected]
         return selected, dropped, selected_log
 
     @staticmethod

@@ -1,0 +1,64 @@
+{
+  "A": {
+    "flags": {
+      "P": false,
+      "N": false,
+      "O": false
+    },
+    "status": "COMPLETE",
+    "citations": "src_ecad6843b8fcb99b_c0000",
+    "events": [
+      "run_started",
+      "vanilla_retrieval",
+      "run_finished"
+    ],
+    "run_id": "run_79761de34b7f"
+  },
+  "B": {
+    "flags": {
+      "P": false,
+      "N": false,
+      "O": false
+    },
+    "status": "COMPLETE",
+    "citations": [
+      "src_ecad6843b8fcb99b_c0000",
+      "src_ecad6843b8fcb99b_c0000"
+    ],
+    "events": [
+      "run_started",
+      "decomposition",
+      "task_retrieval",
+      "task_completed",
+      "task_retrieval",
+      "task_completed",
+      "run_finished"
+    ],
+    "run_id": "run_f5a2744f0f5e"
+  },
+  "C": {
+    "flags": {
+      "P": true,
+      "N": true,
+      "O": true
+    },
+    "status": "COMPLETE",
+    "citations": [
+      "src_ecad6843b8fcb99b_c0000",
+      "src_ecad6843b8fcb99b_c0000"
+    ],
+    "events": [
+      "run_started",
+      "planning_retrieval",
+      "decomposition",
+      "normalization",
+      "task_retrieval",
+      "task_completed",
+      "task_retrieval",
+      "task_completed",
+      "overlap_summary",
+      "run_finished"
+    ],
+    "run_id": "run_69ff518e3304"
+  }
+}

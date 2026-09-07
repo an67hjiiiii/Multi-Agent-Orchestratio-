@@ -42,3 +42,17 @@ def test_overlap_tracker_keeps_legitimate_shared_evidence_and_reports_reuse():
     assert second["shared_evidence_ids"] == ["c1"]
     assert second["reused_from_task_ids"] == {"c1": ["T1"]}
     assert tracker.summary()["reuse_by_evidence_id"] == {"c1": ["T1", "T2"]}
+
+
+def test_local_selection_does_not_claim_cross_task_sharing_before_tracker_observes_reuse():
+    selected, _, selected_log = ContextController(max_tokens=100).select_for_task(
+        [_chunk("c1", "s1", "Authentication identity verification evidence")],
+        task_terms={"authentication", "identity"},
+        max_tokens=100,
+    )
+
+    assert [chunk.chunk_id for chunk in selected] == ["c1"]
+    assert selected_log == [{
+        "chunk_id": "c1", "source_id": "s1", "locator": 0,
+        "score": 1.0, "reason": "retained",
+    }]

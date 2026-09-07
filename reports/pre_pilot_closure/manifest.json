@@ -1,0 +1,27 @@
+{
+  "schema_version": "pre-pilot-closure-bundle-v1",
+  "head_before": "d781d8e",
+  "local_runtime": {
+    "host": "127.0.0.1",
+    "ollama_version": "0.33.3",
+    "model": "qwen3:4b"
+  },
+  "preserved_historical_evidence": [
+    "reports/m1_pilot/",
+    "runs/m1_pilot/",
+    "reports/pre_m2_audit_bundle/",
+    "reports/pre_m2_audit_bundle.zip"
+  ],
+  "live_namespaces": [
+    "runs/pre_pilot_closure/live-acceptance-v1/",
+    "runs/pre_pilot_closure/live-acceptance-n1-o3-v1/"
+  ],
+  "http_runs": {
+    "A": "run_79761de34b7f",
+    "B": "run_f5a2744f0f5e",
+    "C": "run_69ff518e3304",
+    "UI_C": "run_e7b4d34303f5"
+  },
+  "decision": "PRE_PILOT_CLOSURE_FAIL",
+  "reason": "Metric/state freeze requirements remain blocked; no empirical-quality claim is made."
+}

@@ -1,0 +1,24 @@
+{
+  "schema_version": "m1-metric-contract-v1",
+  "join_key": "experiment_id|case_id|condition|repeat_index",
+  "status_values": ["COMPLETE", "PARTIAL", "NO_EVIDENCE", "FAILED"],
+  "metrics": [
+    {"name":"terminal_status","class":"AUTOMATED_CANONICAL","source":"RunResult.status","missing":"GATE_FAILURE"},
+    {"name":"llm_calls","class":"AUTOMATED_CANONICAL","source":"RunMetrics.llm_calls","unit":"count"},
+    {"name":"total_tokens","class":"AUTOMATED_CANONICAL","formula":"input_tokens + output_tokens","unit":"tokens"},
+    {"name":"latency_ms","class":"AUTOMATED_CANONICAL","source":"RunMetrics.latency_ms","unit":"ms"},
+    {"name":"peak_rss_mb","class":"AUTOMATED_CANONICAL","source":"RunMetrics.peak_rss_mb","unit":"MB","missing":"null"},
+    {"name":"gpu_memory_mb","class":"AUTOMATED_CANONICAL","source":"RunMetrics.gpu_memory_mb","unit":"MB","missing":"null"},
+    {"name":"context_tokens_est","class":"AUTOMATED_CANONICAL","source":"RunMetrics.context_tokens_est","unit":"tokens"},
+    {"name":"citation_locator_validity","class":"AUTOMATED_CANONICAL","formula":"citations_valid/citations_emitted","missing":"null when zero emitted"},
+    {"name":"duplicate_tasks_removed","class":"AUTOMATED_CANONICAL","source":"RunMetrics.duplicate_tasks_removed","unit":"count"},
+    {"name":"duplicate_task_rate","class":"AUTOMATED_DERIVED","formula":"removed/(tasks_after+removed)","missing":"UNDEFINED without N before/after trace"},
+    {"name":"overlap_reuse_ratio","class":"AUTOMATED_DERIVED","formula":"repeated selected evidence occurrences/all selected evidence occurrences","missing":"UNDEFINED without selected IDs"},
+    {"name":"task_coverage","class":"HUMAN_REVIEW","source":"frozen obligations + independent annotations","missing":"UNDEFINED"},
+    {"name":"evidence_recall_at_k","class":"BLOCKED","missing":"frozen gold evidence IDs absent"},
+    {"name":"role_assignment_accuracy","class":"BLOCKED","missing":"approved role gold absent"},
+    {"name":"relevant_context_ratio","class":"HUMAN_REVIEW","missing":"UNSCORED until relevance review"},
+    {"name":"sufficient_pass","class":"HUMAN_REVIEW","missing":"UNSCORED until human review"},
+    {"name":"faithfulness","class":"HUMAN_REVIEW","missing":"UNSCORED until human review"}
+  ]
+}
