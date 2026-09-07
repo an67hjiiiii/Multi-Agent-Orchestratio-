@@ -2,6 +2,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.research.task_schema import (
+    CANONICAL_TASK_DOMAINS,
     DecompositionResult,
     PlanningKnowledgeItem,
     PlanningRetrievalResult,
@@ -73,3 +74,21 @@ def test_dependency_cycles_are_rejected() -> None:
 
     with pytest.raises(ValueError, match="cycle"):
         validate_task_dependencies(tasks)
+
+
+@pytest.mark.parametrize("domain", ["Security", "Database Management", "general"])
+def test_noncanonical_task_domains_are_rejected(domain: str) -> None:
+    assert CANONICAL_TASK_DOMAINS == frozenset(
+        {"security", "database", "api_architecture"}
+    )
+
+    with pytest.raises(ValidationError, match="domain"):
+        TaskItem(
+            task_id="T1",
+            title="Review",
+            objective="Review the request.",
+            expected_output="Findings.",
+            domain=domain,
+            role_profile="reviewer",
+            depends_on=[],
+        )

@@ -15,11 +15,14 @@ from app.research.planning_retrieval import PlanningRetriever
 from app.research.worker import execute_task
 from app.research.synthesizer import synthesize
 from app.research.vanilla import answer_vanilla
-from app.retrieval.text import retrieve, apply_token_budget, estimate_tokens
+from app.retrieval.text import retrieve, apply_token_budget, estimate_tokens, terms
 from app.storage.source_store import SourceStore
 from app.storage.run_store import RunStore
 
 CONDITIONS = {"A", "B", "C", "C-P", "C-N", "C-O"}
+TASK_QUERY_FORMULATION_VERSION = "task-query-v2-anchor-preserving"
+TASK_QUERY_FALLBACK_REASON = "task_query_no_results_fallback_to_user_request"
+TASK_QUERY_DOMAIN_FALLBACK_REASON = "task_query_no_results_fallback_to_task_domain"
 
 class ResearchPipeline:
     def __init__(self, source_store: SourceStore, run_store: RunStore):
@@ -152,7 +155,11 @@ class ResearchPipeline:
                 overlap_tracker = OverlapTracker() if flags["O"] else None
                 for task in ordered:
                     dependency_context = " ".join(completed[d].answer for d in task.depends_on if d in completed)
-                    retrieval_query = f"{task.goal} {' '.join(task.evidence_needs)} {dependency_context}".strip()
+                    retrieval_query, task_query_anchors = _build_task_retrieval_query(
+                        task,
+                        query,
+                        dependency_context,
+                    )
                     r0 = time.perf_counter()
                     candidates, retrieval_fallback_reason = _retrieve_task_candidates(
                         retrieval_query,
@@ -160,13 +167,19 @@ class ResearchPipeline:
                         all_chunks,
                         top_k=cfg.task_top_k,
                         min_score=cfg.retrieval_min_score,
+                        task_domain=task.domain,
                     )
                     metrics.retrieval_latency_ms += int((time.perf_counter() - r0) * 1000)
                     metrics.retrieved_chunks += len(candidates)
                     if flags["O"]:
                         selected, dropped, selected_log = controller.select_for_task(
                             candidates,
-                            task_terms=set(task.goal.casefold().split()),
+                            task_terms=_task_relevance_terms(
+                                task,
+                                retrieval_query,
+                                query,
+                                retrieval_fallback_reason,
+                            ),
                             max_tokens=per_task_budget,
                         )
                     else:
@@ -184,6 +197,8 @@ class ResearchPipeline:
                     event(
                         "task_retrieval",
                         task_id=task.task_id,
+                        task_query_version=TASK_QUERY_FORMULATION_VERSION,
+                        task_query_anchors=task_query_anchors,
                         candidates=[c.chunk_id for c in candidates],
                         retrieval_fallback_reason=retrieval_fallback_reason,
                         selected=[c.chunk_id for c in selected],
@@ -261,14 +276,59 @@ def _retrieve_task_candidates(
     *,
     top_k: int,
     min_score: float,
+    task_domain: str | None = None,
 ) -> tuple[list[SourceChunk], str | None]:
-    """Keep the original user obligation as a bounded fallback only on a miss."""
+    """Keep task/domain anchors before using the broad request fallback."""
 
     candidates = retrieve(task_query, chunks, top_k=top_k, min_score=min_score)
     if candidates:
         return candidates, None
 
+    if task_domain and task_domain.strip():
+        domain_query = f"{task_domain.strip()} {task_query}".strip()
+        domain_candidates = retrieve(domain_query, chunks, top_k=top_k, min_score=min_score)
+        if domain_candidates:
+            return domain_candidates, TASK_QUERY_DOMAIN_FALLBACK_REASON
+
     fallback = retrieve(original_request, chunks, top_k=top_k, min_score=min_score)
     if fallback:
-        return fallback, "task_query_no_results_fallback_to_user_request"
+        return fallback, TASK_QUERY_FALLBACK_REASON
     return [], None
+
+
+def _task_relevance_terms(
+    task: Task,
+    task_query: str,
+    original_request: str,
+    fallback_reason: str | None,
+) -> set[str]:
+    """Use the query that produced candidates as O-lite's relevance boundary."""
+
+    relevance = terms(task.goal) | terms(task_query)
+    if fallback_reason == TASK_QUERY_FALLBACK_REASON:
+        relevance.update(terms(original_request))
+    return relevance
+
+
+def _build_task_retrieval_query(
+    task: Task,
+    original_request: str,
+    dependency_context: str = "",
+) -> tuple[str, list[str]]:
+    """Keep request anchors while avoiding noisy model-added paraphrases.
+
+    The request remains the authority for task-specific retrieval. When the
+    generated objective shares lexical anchors with the request, query only
+    those anchors plus explicit task evidence needs and completed dependency
+    context. A task with no shared anchors keeps its generated objective so
+    the existing bounded fallback can record the miss explicitly.
+    """
+
+    request_terms = terms(original_request)
+    objective_terms = terms(task.goal)
+    anchors = sorted(request_terms.intersection(objective_terms))
+    query_parts = [" ".join(anchors) if anchors else task.goal]
+    query_parts.extend(task.evidence_needs)
+    if dependency_context:
+        query_parts.append(dependency_context)
+    return " ".join(part.strip() for part in query_parts if part and part.strip()), anchors

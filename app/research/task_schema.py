@@ -1,6 +1,18 @@
 from __future__ import annotations
 
+from typing import Final, Literal, TypeAlias
+
 from pydantic import BaseModel, model_validator
+
+
+CANONICAL_TASK_DOMAINS: Final[frozenset[str]] = frozenset(
+    {"security", "database", "api_architecture"}
+)
+CanonicalTaskDomain: TypeAlias = Literal[
+    "security",
+    "database",
+    "api_architecture",
+]
 
 
 class PlanningKnowledgeItem(BaseModel):
@@ -23,7 +35,7 @@ class TaskItem(BaseModel):
     title: str
     objective: str
     expected_output: str
-    domain: str
+    domain: CanonicalTaskDomain
     role_profile: str
     depends_on: list[str]
 

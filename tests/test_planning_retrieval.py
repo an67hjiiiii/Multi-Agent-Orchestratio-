@@ -5,6 +5,7 @@ import pytest
 from app.research.planning_retrieval import (
     PlanningKnowledgeItem,
     PlanningRetriever,
+    PLANNING_RETRIEVAL_SCORING_VERSION,
 )
 from app.retrieval.text import estimate_tokens
 
@@ -26,6 +27,74 @@ def _items() -> list[PlanningKnowledgeItem]:
             provenance="planning-kb:v1/api",
         ),
     ]
+
+
+def _domain_items() -> list[PlanningKnowledgeItem]:
+    return [
+        PlanningKnowledgeItem(
+            id="plan-security",
+            domain="security",
+            title="Keep distinct security obligations atomic",
+            content="Keep authentication and authorization as separate planning obligations.",
+            provenance="planning-kb:v1/security",
+        ),
+        PlanningKnowledgeItem(
+            id="plan-database",
+            domain="database",
+            title="Split database review concerns",
+            content="Keep transaction and consistency obligations in database planning.",
+            provenance="planning-kb:v1/database",
+        ),
+        PlanningKnowledgeItem(
+            id="plan-api",
+            domain="api_architecture",
+            title="Preserve API boundaries and dependencies",
+            content="Keep API endpoint contracts, errors, and integration dependencies explicit.",
+            provenance="planning-kb:v1/api",
+        ),
+        PlanningKnowledgeItem(
+            id="plan-multi",
+            domain="multi_domain",
+            title="Plan independent obligations",
+            content="Create one planning task per independent requested obligation.",
+            provenance="planning-kb:v1/multi-domain",
+        ),
+    ]
+
+
+def test_scoring_version_is_explicit_and_traceable():
+    assert PLANNING_RETRIEVAL_SCORING_VERSION == "idf-content-anchor-v1"
+
+
+def test_content_anchor_rejects_unrelated_api_boundary_for_transaction_request():
+    result = PlanningRetriever(
+        items=_domain_items(),
+        expose_scores=True,
+    ).retrieve("When are transaction boundaries required?")
+
+    assert result.item_ids == ["plan-database"]
+    assert result.scores is not None
+    assert result.scores[0] >= 0.18
+
+
+def test_multi_domain_request_keeps_each_relevant_domain_pattern():
+    result = PlanningRetriever(
+        items=_domain_items(),
+        expose_scores=True,
+    ).retrieve("Review authentication and database index requirements.")
+
+    assert result.item_ids[:2] == ["plan-database", "plan-security"]
+    assert "plan-api" not in result.item_ids
+
+
+def test_unrepresented_detail_does_not_dilute_known_multi_domain_anchors():
+    result = PlanningRetriever(
+        items=_domain_items(),
+        expose_scores=True,
+    ).retrieve("Review JWT policy database transactions and API authorization.")
+
+    assert result.item_ids[0] == "plan-database"
+    assert set(result.item_ids) == {"plan-database", "plan-api", "plan-security"}
 
 
 def test_retrieval_returns_planning_items_not_answer_chunks():

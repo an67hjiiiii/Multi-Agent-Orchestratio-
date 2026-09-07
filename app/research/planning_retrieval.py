@@ -13,6 +13,40 @@ DEFAULT_TOP_K = 3
 DEFAULT_MAX_CONTEXT_TOKENS = 1_200
 DEFAULT_MIN_SCORE = 0.18
 
+# Traceable, deterministic relevance contract for the Planning KB.  This is
+# intentionally separate from answer-domain retrieval scoring.
+PLANNING_RETRIEVAL_SCORING_VERSION = "idf-content-anchor-v1"
+
+# Question scaffolding is not planning evidence.  Removing only these terms
+# prevents a word such as "when" or "review" from making an unrelated KB item
+# look relevant while retaining domain/obligation terms such as "request".
+_PLANNING_QUERY_STOPWORDS = frozenset(
+    {
+        "when",
+        "what",
+        "which",
+        "how",
+        "why",
+        "review",
+        "check",
+        "identify",
+        "determine",
+        "suggest",
+        "required",
+    }
+)
+
+# Content anchors carry more relevance than a match found only in a title or
+# domain label.  This keeps a transaction request anchored to the database
+# guidance instead of an API item whose title happens to contain "boundaries".
+_CONTENT_ANCHOR_WEIGHT = 1.0
+_TITLE_ANCHOR_WEIGHT = 0.25
+_DOMAIN_ANCHOR_WEIGHT = 0.15
+_SECONDARY_ANCHOR_WEIGHT = 0.25
+_PLANNING_QUERY_CONNECTORS = frozenset(
+    {"and", "or", "then", "first", "second", "independently", "also"}
+)
+
 
 @dataclass(frozen=True)
 class PlanningKnowledgeItem:
@@ -165,19 +199,87 @@ class PlanningRetriever:
         )
 
     def _rank(self, request: str) -> list[_ScoredItem]:
-        query_terms = terms(request)
+        query_groups = _planning_query_term_groups(request)
+        query_terms = {term for group in query_groups for term in group}
         if not query_terms:
             return []
 
+        secondary_anchors = {
+            term: group[index - 1]
+            for group in query_groups
+            for index, term in enumerate(group)
+            if index > 0
+        }
+
+        indexed_items = [
+            (
+                item,
+                terms(item.domain),
+                terms(item.title),
+                terms(item.content),
+            )
+            for item in self.items
+        ]
+        document_frequency = {
+            query_term: sum(
+                query_term in (domain_terms | title_terms | content_terms)
+                for _, domain_terms, title_terms, content_terms in indexed_items
+            )
+            for query_term in query_terms
+        }
+        # Query terms absent from the Planning KB cannot discriminate among
+        # planning items.  Excluding them from the denominator keeps a
+        # multi-domain request from losing its known database/API/security
+        # anchors merely because it also mentions an unrepresented detail.
+        query_terms = {
+            query_term for query_term in query_terms
+            if document_frequency[query_term] > 0
+        }
+        if not query_terms:
+            return []
+        item_count = len(indexed_items)
+        inverse_document_frequency = {
+            query_term: math.log(
+                (item_count + 1) / (document_frequency[query_term] + 1)
+            )
+            + 1.0
+            for query_term in query_terms
+        }
+        query_weight = sum(inverse_document_frequency.values())
+
         scored: list[_ScoredItem] = []
-        for item in self.items:
-            item_terms = terms(f"{item.domain} {item.title} {item.content}")
-            overlap = len(query_terms & item_terms)
-            if overlap == 0:
+        for item, domain_terms, title_terms, content_terms in indexed_items:
+            item_terms = domain_terms | title_terms | content_terms
+            overlap = query_terms & item_terms
+            if not overlap:
                 continue
-            coverage = overlap / len(query_terms)
-            density = overlap / max(1, len(item_terms))
-            score = round(0.8 * coverage + 0.2 * density, 8)
+
+            weighted_overlap = 0.0
+            for query_term in overlap:
+                if query_term in content_terms:
+                    anchor_weight = _CONTENT_ANCHOR_WEIGHT
+                elif query_term in title_terms:
+                    anchor_weight = _TITLE_ANCHOR_WEIGHT
+                else:
+                    anchor_weight = _DOMAIN_ANCHOR_WEIGHT
+                predecessor = secondary_anchors.get(query_term)
+                if (
+                    len(query_terms) <= 2
+                    and predecessor is not None
+                    and predecessor not in item_terms
+                ):
+                    anchor_weight *= _SECONDARY_ANCHOR_WEIGHT
+                weighted_overlap += (
+                    inverse_document_frequency[query_term] * anchor_weight
+                )
+
+            weighted_item_mass = sum(
+                inverse_document_frequency.get(item_term, 1.0)
+                for item_term in item_terms
+            )
+            coverage = weighted_overlap / max(1e-12, query_weight)
+            density = weighted_overlap / max(1.0, weighted_item_mass)
+            score = round(0.9 * coverage + 0.1 * density, 8)
             if score >= self.min_score:
                 scored.append(_ScoredItem(item=item, score=score))
 
@@ -233,6 +335,28 @@ class PlanningRetriever:
         if expose_scores is not None:
             return expose_scores
         return self.expose_scores
+
+
+def _planning_query_term_groups(request: str) -> list[list[str]]:
+    """Keep adjacent obligation terms while separating independent clauses."""
+
+    groups: list[list[str]] = []
+    current: list[str] = []
+    for raw_token in request.split():
+        marker = raw_token.casefold().strip(".,;:!?()[]{}")
+        if marker in _PLANNING_QUERY_CONNECTORS:
+            if current:
+                groups.append(current)
+                current = []
+            continue
+        token_terms = terms(raw_token) - _PLANNING_QUERY_STOPWORDS
+        if token_terms:
+            # A token normally yields one normalized term; sorting keeps
+            # hyphenated/multi-part tokens deterministic if that changes.
+            current.extend(sorted(token_terms))
+    if current:
+        groups.append(current)
+    return groups
 
 
 def _load_default_items() -> tuple[PlanningKnowledgeItem, ...]:

@@ -7,15 +7,25 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from app.core.types import RunMetrics
+from app.retrieval.text import terms as lexical_terms
 
 
 try:
     # The schema track is integrated separately; use its canonical types when
     # it is available while keeping this focused commit independently runnable.
-    from app.research.task_schema import DecompositionResult, TaskItem, TaskPlan
+    from app.research.task_schema import (
+        CANONICAL_TASK_DOMAINS,
+        DecompositionResult,
+        TaskItem,
+        TaskPlan,
+    )
 except ModuleNotFoundError as exc:
     if exc.name != "app.research.task_schema":
         raise
+
+    CANONICAL_TASK_DOMAINS = frozenset(
+        {"security", "database", "api_architecture"}
+    )
 
     @dataclass
     class TaskItem:
@@ -45,6 +55,56 @@ _ORDERED_OBLIGATIONS_PATTERN = re.compile(
     r"\b(?:first|before)\b.+\b(?:then|after|next|subsequently)\b",
     re.IGNORECASE | re.DOTALL,
 )
+_REPEATED_OBLIGATIONS_PATTERN = re.compile(
+    r"\b(?:repeat|recheck|re-examine|reexamine|again)\b|"
+    r"\b(?:shared evidence|using shared evidence)\b",
+    re.IGNORECASE,
+)
+# These are request-level domain hints, not worker roles. They make the
+# planner boundary fail closed when a multi-domain request is reduced to
+# planning categories for only one domain.
+_CANONICAL_DOMAIN_HINTS = {
+    "security": frozenset(
+        {
+            "security",
+            "auth",
+            "authentication",
+            "authorization",
+            "jwt",
+            "token",
+            "permission",
+            "identity",
+            "login",
+            "session",
+        }
+    ),
+    "database": frozenset(
+        {
+            "database",
+            "db",
+            "schema",
+            "query",
+            "index",
+            "transaction",
+            "consistency",
+            "table",
+        }
+    ),
+    "api_architecture": frozenset(
+        {
+            "api",
+            "endpoint",
+            "rest",
+            "service",
+            "sla",
+        }
+    ),
+}
+_DOMAIN_LABEL_HINTS = {
+    "security": frozenset({"security"}),
+    "database": frozenset({"database", "db"}),
+    "api_architecture": frozenset({"api", "endpoint", "rest", "service", "sla"}),
+}
 _REQUIRED_TASK_FIELDS = (
     "task_id",
     "title",
@@ -61,8 +121,8 @@ _TASK_SCHEMA = (
     '"role_profile":"declared role profile",'
     '"depends_on":[]}]}'
 )
-PROMPT_VERSION = "p-lite-decomposer-v2"
-STRUCTURED_OUTPUT_CONFIG_VERSION = "ollama-task-plan-schema-v1"
+PROMPT_VERSION = "p-lite-decomposer-v5"
+STRUCTURED_OUTPUT_CONFIG_VERSION = "ollama-task-plan-schema-v2"
 PLANNER_TEMPERATURE = 0.0
 TASK_PLAN_JSON_SCHEMA = TaskPlan.model_json_schema()
 _SYSTEM_PROMPT = (
@@ -75,13 +135,25 @@ _STATIC_PROMPT_PREFIX = (
     "Return exactly one JSON object and no markdown or explanation.\n"
     f"Schema: {_TASK_SCHEMA}\n\n"
     "PLANNER RULES:\n"
-    "Decompose only obligations stated or directly implied by the request. "
-    "Planning evidence is guidance only; do not add N/O, execution, retrieval, "
-    "answer evidence, or unstated requirements. Identify distinct obligations "
-    "before writing tasks. For explicitly ordered or dependent obligations, emit "
-    "separate tasks with separate expected outputs and put the predecessor task "
-    "ID in depends_on. Every task must include every schema field; use depends_on: [] "
-    "when it has no predecessor. Never emit blank placeholder tasks."
+    "The current request is the sole source of obligations. Planning evidence is "
+    "non-binding guidance only; never let it add a category, domain, implementation "
+    "detail, evidence need, or task that is not stated or directly implied by the "
+    "request. Identify one task per explicit independent obligation before writing "
+    "tasks; do not enumerate every category listed in a planning item. Add a "
+    "dependency only when the request states order, causality, or that one task "
+    "consumes another task's output. Repeat, recheck, and shared-evidence wording "
+    "does not create a dependency by itself. Use only canonical domain IDs: "
+    "security, database, or api_architecture. Preserve high-signal request terms "
+    "in each title and objective instead of adding guessed specifics. For a "
+    "request naming multiple domains, emit at least one task anchored to each "
+    "named domain; distinct obligations in the same domain remain separate when "
+    "each has its own request anchor. Do not enumerate planning categories as "
+    "extra tasks when the request does not name them. Do not add N/O, "
+    "execution, retrieval, or answer evidence. For explicitly ordered or dependent "
+    "obligations, emit separate tasks with separate expected outputs and put the "
+    "predecessor task ID in depends_on. Every task must include every schema field; "
+    "use depends_on: [] when it has no predecessor. Never emit blank placeholder "
+    "tasks."
 )
 
 
@@ -151,7 +223,16 @@ def _parse_tasks(parsed: dict[str, Any]) -> list[TaskItem]:
                 )
             dependencies.append(dependency.strip())
 
-        tasks.append(TaskItem(**values, depends_on=dependencies))
+        if values["domain"] not in CANONICAL_TASK_DOMAINS:
+            raise _DecompositionOutputError(
+                f"task {index} domain must be one of the canonical task domains"
+            )
+        try:
+            tasks.append(TaskItem(**values, depends_on=dependencies))
+        except (TypeError, ValueError) as exc:
+            raise _DecompositionOutputError(
+                f"task {index} did not satisfy the canonical task schema"
+            ) from exc
 
     _validate_dependencies(tasks)
     return tasks
@@ -189,18 +270,96 @@ def _validate_dependencies(tasks: list[TaskItem]) -> None:
         raise _DecompositionOutputError("task dependency graph contains a cycle")
 
 
+def _validate_request_alignment(request: str, tasks: list[TaskItem]) -> None:
+    """Keep multi-domain plans anchored to the obligations in the request.
+
+    Planning guidance can describe several categories for one domain.  It must
+    not turn those examples into tasks when the request names another domain or
+    a narrower obligation.  The check is intentionally conservative: it only
+    runs when at least two canonical domains are signalled by the request, and
+    it never merges distinct tasks.
+    """
+
+    request_terms = lexical_terms(request)
+    requested_domains = {
+        domain
+        for domain, hints in _CANONICAL_DOMAIN_HINTS.items()
+        if request_terms & hints
+    }
+    if len(requested_domains) < 2:
+        if len(tasks) == 1:
+            expected_domain = next(iter(requested_domains), None)
+            if expected_domain is not None and tasks[0].domain != expected_domain:
+                raise _DecompositionOutputError(
+                    "single task domain must match the sole requested canonical domain"
+                )
+        return
+
+    task_domains = {task.domain for task in tasks}
+    missing_domains = sorted(requested_domains - task_domains)
+    if missing_domains:
+        raise _DecompositionOutputError(
+            "planner tasks must preserve each named request obligation/domain"
+        )
+
+    for domain in sorted(requested_domains):
+        domain_tasks = [task for task in tasks if task.domain == domain]
+        # A single canonical task is enough to represent a named domain even
+        # when its wording paraphrases the request (for example, a security
+        # task may omit one specific token/authentication synonym).  Anchor
+        # checks remain strict for repeated tasks, where planning categories
+        # can otherwise become unrequested extra work.
+        if len(domain_tasks) == 1:
+            continue
+
+        request_anchors = request_terms & (
+            _CANONICAL_DOMAIN_HINTS[domain] - _DOMAIN_LABEL_HINTS[domain]
+        )
+        if not request_anchors:
+            raise _DecompositionOutputError(
+                "repeated domain tasks must retain concrete request anchors; "
+                "planning categories alone do not justify extra tasks"
+            )
+
+        anchored_tasks = [
+            task
+            for task in domain_tasks
+            if lexical_terms(f"{task.title} {task.objective}") & request_anchors
+        ]
+        if not anchored_tasks:
+            raise _DecompositionOutputError(
+                "planner tasks must preserve a concrete anchor for each named "
+                "request obligation"
+            )
+        if len(domain_tasks) > 1 and len(anchored_tasks) != len(domain_tasks):
+            raise _DecompositionOutputError(
+                "repeated domain tasks must retain distinct request anchors; "
+                "planning categories alone do not justify extra tasks"
+            )
+
+
 def _validate_obligation_coverage(request: str, tasks: list[TaskItem]) -> None:
     """Reject a collapsed plan when the user states an explicit ordered chain."""
 
-    if not _ORDERED_OBLIGATIONS_PATTERN.search(request):
+    _validate_request_alignment(request, tasks)
+    ordered = bool(_ORDERED_OBLIGATIONS_PATTERN.search(request))
+    if ordered:
+        if len(tasks) < 2:
+            raise _DecompositionOutputError(
+                "explicitly ordered obligations require separate tasks"
+            )
+        if not any(task.depends_on for task in tasks):
+            raise _DecompositionOutputError(
+                "explicitly ordered obligations require a dependency"
+            )
         return
-    if len(tasks) < 2:
+
+    if _REPEATED_OBLIGATIONS_PATTERN.search(request) and any(
+        task.depends_on for task in tasks
+    ):
         raise _DecompositionOutputError(
-            "explicitly ordered obligations require separate tasks"
-        )
-    if not any(task.depends_on for task in tasks):
-        raise _DecompositionOutputError(
-            "explicitly ordered obligations require a dependency"
+            "repeated or shared-evidence obligations are independent unless "
+            "the request states an order or dependency"
         )
 
 

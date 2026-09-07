@@ -1,9 +1,17 @@
 import asyncio
 import os
 from pathlib import Path
-from app.research.pipeline import ResearchPipeline
-from app.research.pipeline import _retrieve_task_candidates
-from app.core.types import SourceChunk
+from app.research.pipeline import (
+    TASK_QUERY_FALLBACK_REASON,
+    TASK_QUERY_DOMAIN_FALLBACK_REASON,
+    TASK_QUERY_FORMULATION_VERSION,
+    ResearchPipeline,
+    _build_task_retrieval_query,
+    _task_relevance_terms,
+    _retrieve_task_candidates,
+)
+from app.core.types import SourceChunk, Task
+from app.research.context_controller import ContextController
 from app.storage.source_store import SourceStore
 from app.storage.run_store import RunStore
 
@@ -64,6 +72,116 @@ def test_task_retrieval_falls_back_to_user_request_only_after_task_query_miss():
 
     assert [item.chunk_id for item in selected] == ["db-1"]
     assert reason == "task_query_no_results_fallback_to_user_request"
+
+
+def test_task_retrieval_domain_anchor_avoids_wrong_domain_fallback():
+    request = "Review the data model first, then check whether query access follows that model."
+    task = Task(
+        task_id="T1",
+        goal="Review the data model to understand the database schema",
+        domain="database",
+    )
+    database = SourceChunk(
+        "database-1",
+        "database",
+        "database.md",
+        "Database guidance: Queries that filter frequently used identifiers should be reviewed for appropriate indexes.",
+        0,
+    )
+    security = SourceChunk(
+        "security-1",
+        "security",
+        "security.md",
+        "Authorization checks whether an authenticated user may access an action.",
+        0,
+    )
+
+    task_query, _ = _build_task_retrieval_query(task, request)
+    selected, reason = _retrieve_task_candidates(
+        task_query,
+        request,
+        [database, security],
+        top_k=6,
+        min_score=0.18,
+        task_domain=task.domain,
+    )
+
+    assert [chunk.chunk_id for chunk in selected] == ["database-1"]
+    assert reason == TASK_QUERY_DOMAIN_FALLBACK_REASON
+
+
+def test_task_retrieval_fallback_keeps_request_evidence_for_o_lite():
+    request = "Review the service evidence and identify any missing SLA information."
+    task = Task(task_id="T1", goal="Identify missing SLA information", domain="security")
+    api = SourceChunk(
+        "api-1",
+        "api",
+        "api.md",
+        "The service exposes REST endpoints. This is the available service evidence.",
+        0,
+    )
+
+    task_query, _ = _build_task_retrieval_query(task, request)
+    candidates, reason = _retrieve_task_candidates(
+        task_query,
+        request,
+        [api],
+        top_k=6,
+        min_score=0.18,
+        task_domain=task.domain,
+    )
+    relevance_terms = _task_relevance_terms(task, task_query, request, reason)
+    selected, dropped, _ = ContextController(max_tokens=100).select_for_task(
+        candidates,
+        task_terms=relevance_terms,
+        max_tokens=100,
+    )
+
+    assert reason == TASK_QUERY_FALLBACK_REASON
+    assert [chunk.chunk_id for chunk in selected] == ["api-1"]
+    assert dropped == []
+
+
+def test_task_query_preserves_request_anchors_without_noisy_paraphrase():
+    task = Task(
+        task_id="T1",
+        goal="Identify specific authentication mechanisms and security protocols required for the system",
+        domain="security",
+    )
+
+    retrieval_query, anchors = _build_task_retrieval_query(
+        task,
+        "Review authentication and database index requirements.",
+    )
+
+    assert anchors == ["authentication"]
+    assert retrieval_query == "authentication"
+    assert TASK_QUERY_FORMULATION_VERSION == "task-query-v2-anchor-preserving"
+    assert TASK_QUERY_FALLBACK_REASON == "task_query_no_results_fallback_to_user_request"
+
+
+def test_pipeline_records_anchor_query_version_and_fallback_reason(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("IMPLEMENTATION_PROFILE", "dev")
+    sources = SourceStore(str(tmp_path / "data"))
+    sources.import_text("db.md", "Queries need indexes for frequent identifiers.")
+    run = asyncio.run(
+        ResearchPipeline(sources, RunStore(str(tmp_path / "runs"))).run(
+            "Review authentication and database index requirements.", "B", "fake"
+        )
+    )
+
+    retrieval_events = [
+        event for event in run["events"] if event["stage"] == "task_retrieval"
+    ]
+    assert retrieval_events
+    assert all(
+        event["task_query_version"] == TASK_QUERY_FORMULATION_VERSION
+        for event in retrieval_events
+    )
+    assert any(
+        event["retrieval_fallback_reason"] == TASK_QUERY_FALLBACK_REASON
+        for event in retrieval_events
+    )
 
 
 def test_failed_decomposition_is_explicit_not_an_empty_partial(tmp_path: Path, monkeypatch):
