@@ -31,6 +31,19 @@ export interface SourcesResponse {
   sources: SourceSummary[];
 }
 
+export interface KnowledgeBaseStatus {
+  status: "EMPTY" | "READY" | "FAILED" | "UNAVAILABLE" | (string & {});
+  backend: string;
+  retrieval_backend?: string;
+  embedding_version?: string | null;
+  vector_indexed_chunks?: number;
+  index_identity?: unknown;
+  index_status?: string;
+  source_count: number;
+  chunk_count: number;
+  snapshot_id: string;
+}
+
 export interface SourceChunk {
   chunk_id: string;
   source_id: string;
@@ -38,6 +51,7 @@ export interface SourceChunk {
   text: string;
   index: number;
   score?: number;
+  provenance?: Record<string, unknown>;
 }
 
 export interface SourceDetail {
@@ -210,4 +224,7 @@ export interface SourceImportResult {
   chunks_added: number;
   total_chunks_for_source: number;
   snapshot_id: string;
+  retrieval_backend?: string;
+  embedding_version?: string | null;
+  vector_indexed_chunks?: number;
 }

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import inspect
 import os
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, Query, UploadFile
@@ -20,6 +20,7 @@ from app.core.api_runtime import ApiRuntime
 from app.core.config import RuntimeConfig
 from app.ingestion.documents import DocumentTypeError
 from app.providers.ollama import OllamaProvider
+from app.retrieval.text import retrieve
 
 
 router = APIRouter(prefix="/api")
@@ -134,6 +135,201 @@ def _planning_value_error(exc: ValueError) -> ApiError:
     )
 
 
+def _vector_backend_requested() -> bool:
+    """Return whether the caller explicitly requested a vector backend."""
+
+    return bool(os.getenv("VECTOR_BACKEND", "").strip())
+
+
+def _knowledge_service(runtime: ApiRuntime) -> Any | None:
+    """Resolve the optional KnowledgeBase without changing the lexical LKG.
+
+    The Knowledge Engine owns the concrete service and its storage/provider
+    configuration.  Until that service is present, the existing SourceStore
+    remains the explicit lexical path.  An explicit vector configuration must
+    never silently fall back to that path.
+    """
+
+    service = getattr(runtime, "knowledge_base", None)
+    if service is None and _vector_backend_requested():
+        raise ApiError(
+            503,
+            "KNOWLEDGE_BASE_UNAVAILABLE",
+            "Configured vector knowledge base is unavailable",
+            retryable=True,
+        )
+    return service
+
+
+def _knowledge_method(runtime: ApiRuntime, name: str) -> Callable[..., Any]:
+    service = _knowledge_service(runtime)
+    if service is None:
+        raise ApiError(
+            503,
+            "KNOWLEDGE_BASE_UNAVAILABLE",
+            "Knowledge-base service is unavailable",
+            retryable=True,
+        )
+    method = getattr(service, name, None)
+    if not callable(method):
+        raise ApiError(
+            503,
+            "KNOWLEDGE_BASE_UNAVAILABLE",
+            "Knowledge-base service is unavailable",
+            retryable=True,
+        )
+    return method
+
+
+def _lexical_status(runtime: ApiRuntime) -> dict[str, Any]:
+    """Describe the current SourceStore path without implying vector search."""
+
+    chunks = runtime.source_store.chunks()
+    return {
+        "status": "READY" if chunks else "EMPTY",
+        "backend": "local_json",
+        "retrieval_backend": "lexical",
+        "embedding_version": None,
+        "vector_indexed_chunks": 0,
+        "index_identity": None,
+        "index_status": "NOT_CONFIGURED",
+        "source_count": len(runtime.source_store.list_sources()),
+        "chunk_count": len(chunks),
+        "snapshot_id": runtime.source_store.snapshot_id(),
+    }
+
+
+def _call_knowledge_method(
+    runtime: ApiRuntime,
+    name: str,
+    *args: Any,
+    **kwargs: Any,
+) -> Any:
+    method = _knowledge_method(runtime, name)
+    try:
+        return method(*args, **kwargs)
+    except ApiError:
+        raise
+    except Exception as exc:
+        raise ApiError(
+            503,
+            "KNOWLEDGE_BASE_UNAVAILABLE",
+            "Knowledge-base operation is unavailable",
+            retryable=True,
+        ) from exc
+
+
+def _as_record(value: Any, *, error_code: str) -> dict[str, Any]:
+    if isinstance(value, Mapping):
+        return dict(value)
+    attributes = getattr(value, "__dict__", None)
+    if isinstance(attributes, dict):
+        return dict(attributes)
+    raise ApiError(500, error_code, "Knowledge-base service returned an invalid record")
+
+
+def _chunk_record(value: Any) -> dict[str, Any]:
+    record = _as_record(value, error_code="INVALID_KNOWLEDGE_CHUNK")
+    provenance = record.get("provenance")
+    if isinstance(provenance, Mapping):
+        record["provenance"] = dict(provenance)
+    return record
+
+
+def _call_knowledge_import(
+    runtime: ApiRuntime,
+    name: str,
+    *args: Any,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    method = _knowledge_method(runtime, name)
+    try:
+        value = method(*args, **kwargs)
+    except DocumentTypeError as exc:
+        raise ApiError(415, "UNSUPPORTED_DOCUMENT_TYPE", str(exc)) from exc
+    except UnicodeDecodeError as exc:
+        raise ApiError(
+            415,
+            "UNSUPPORTED_ENCODING",
+            "document must be valid UTF-8",
+        ) from exc
+    except ValueError as exc:
+        detail = str(exc).strip()
+        if "size limit" in detail:
+            raise ApiError(413, "PAYLOAD_TOO_LARGE", detail) from exc
+        if "must not be empty" in detail or "text is empty" in detail:
+            raise ApiError(400, "EMPTY_SOURCE", "file is empty") from exc
+        raise ApiError(400, "INVALID_DOCUMENT", detail or "document is invalid") from exc
+    except Exception as exc:
+        raise ApiError(
+            503,
+            "KNOWLEDGE_BASE_UNAVAILABLE",
+            "Knowledge-base import is unavailable",
+            retryable=True,
+        ) from exc
+    return _as_record(value, error_code="INVALID_KNOWLEDGE_IMPORT")
+
+
+def _knowledge_status(runtime: ApiRuntime) -> dict[str, Any]:
+    service = _knowledge_service(runtime)
+    if service is None:
+        return _lexical_status(runtime)
+    status = _as_record(
+        _call_knowledge_method(runtime, "status"),
+        error_code="INVALID_KNOWLEDGE_STATUS",
+    )
+    retrieval_backend = str(status.get("retrieval_backend") or "").strip()
+    vector_indexed_chunks = status.get("vector_indexed_chunks", 0)
+    try:
+        vector_indexed_chunks = max(0, int(vector_indexed_chunks))
+    except (TypeError, ValueError):
+        vector_indexed_chunks = 0
+    chunk_count = status.get("chunk_count", len(runtime.source_store.chunks()))
+    source_count = status.get("source_count", len(runtime.source_store.list_sources()))
+    try:
+        chunk_count = max(0, int(chunk_count))
+    except (TypeError, ValueError):
+        chunk_count = len(runtime.source_store.chunks())
+    try:
+        source_count = max(0, int(source_count))
+    except (TypeError, ValueError):
+        source_count = len(runtime.source_store.list_sources())
+
+    if not retrieval_backend:
+        retrieval_backend = "lexical" if vector_indexed_chunks == 0 else "vector"
+    status.setdefault(
+        "status",
+        "READY"
+        if (retrieval_backend == "lexical" and chunk_count > 0)
+        or vector_indexed_chunks > 0
+        else "EMPTY"
+        if retrieval_backend == "lexical"
+        else "UNAVAILABLE",
+    )
+    status.setdefault(
+        "backend",
+        "local_json" if retrieval_backend == "lexical" else retrieval_backend,
+    )
+    status.setdefault("retrieval_backend", retrieval_backend)
+    status.setdefault("embedding_version", None)
+    status["vector_indexed_chunks"] = vector_indexed_chunks
+    status.setdefault("index_identity", None)
+    status.setdefault(
+        "index_status",
+        "NOT_CONFIGURED"
+        if retrieval_backend == "lexical"
+        else "READY"
+        if vector_indexed_chunks > 0
+        else "EMPTY"
+        if chunk_count == 0
+        else "UNAVAILABLE",
+    )
+    status["source_count"] = source_count
+    status["chunk_count"] = chunk_count
+    status.setdefault("snapshot_id", runtime.source_store.snapshot_id())
+    return status
+
+
 @router.get("/health")
 def health(runtime: ApiRuntime = Depends(get_api_runtime)):
     cfg = _runtime_config()
@@ -209,26 +405,42 @@ async def local_model_health():
 
 @router.get("/sources")
 def list_sources(runtime: ApiRuntime = Depends(get_api_runtime)):
+    service = _knowledge_service(runtime)
+    sources = (
+        runtime.source_store.list_sources()
+        if service is None
+        else _call_knowledge_method(runtime, "list_sources")
+    )
     return {
         "snapshot_id": runtime.source_store.snapshot_id(),
-        "sources": runtime.knowledge_base.list_sources(),
+        "sources": sources,
     }
 
 
 @router.get("/sources/{source_id}")
 def get_source(source_id: str, runtime: ApiRuntime = Depends(get_api_runtime)):
-    item = runtime.knowledge_base.source(source_id)
+    service = _knowledge_service(runtime)
+    item = (
+        runtime.source_store.source(source_id)
+        if service is None
+        else _call_knowledge_method(runtime, "source", source_id)
+    )
     if not item:
         raise ApiError(404, "NOT_FOUND", "source not found")
-    return item
+    return _as_record(item, error_code="INVALID_KNOWLEDGE_SOURCE")
 
 
 @router.get("/chunks/{chunk_id}")
 def get_chunk(chunk_id: str, runtime: ApiRuntime = Depends(get_api_runtime)):
-    item = runtime.knowledge_base.chunk(chunk_id)
+    service = _knowledge_service(runtime)
+    item = (
+        runtime.source_store.chunk(chunk_id)
+        if service is None
+        else _call_knowledge_method(runtime, "chunk", chunk_id)
+    )
     if not item:
         raise ApiError(404, "NOT_FOUND", "chunk not found")
-    return item
+    return _chunk_record(item)
 
 
 @router.post("/sources/text")
@@ -240,11 +452,16 @@ def import_text(
         raise ApiError(400, "SOURCE_NAME_REQUIRED", "source_name is required")
     if not body.text.strip():
         raise ApiError(400, "EMPTY_SOURCE", "text is empty")
-    return runtime.knowledge_base.import_text(
+    service = _knowledge_service(runtime)
+    if service is None:
+        return runtime.source_store.import_text(body.source_name, body.text)
+    return _call_knowledge_import(
+        runtime,
+        "import_text",
         body.source_name,
         body.text,
         provenance={
-            "ingestion_version": "kb-v2-text-ingestion-v1",
+            "ingestion_version": "api-text-v1",
             "source_type": "text/plain",
             "source_format": "text",
             "origin": "api_text",
@@ -258,37 +475,36 @@ async def import_file(
     runtime: ApiRuntime = Depends(get_api_runtime),
 ):
     data = await file.read(MAX_SOURCE_BYTES + 1)
-    try:
-        return runtime.knowledge_base.import_document(
-            (file.filename or "").strip() or "upload.txt",
+    if len(data) > MAX_SOURCE_BYTES:
+        raise ApiError(413, "PAYLOAD_TOO_LARGE", "M0 only accepts UTF-8 text/code/markdown files up to 2 MB")
+    service = _knowledge_service(runtime)
+    filename = (file.filename or "").strip() or "upload.txt"
+    if service is not None:
+        return _call_knowledge_import(
+            runtime,
+            "import_document",
+            filename,
             data,
             origin="upload",
             content_type=file.content_type,
         )
-    except DocumentTypeError as exc:
-        raise ApiError(415, "UNSUPPORTED_DOCUMENT_TYPE", str(exc)) from exc
-    except UnicodeDecodeError as exc:
-        raise ApiError(415, "UNSUPPORTED_ENCODING", "document must be valid UTF-8") from exc
-    except ValueError as exc:
-        detail = str(exc)
-        if "size limit" in detail:
-            raise ApiError(413, "PAYLOAD_TOO_LARGE", detail) from exc
-        if "must not be empty" in detail:
-            raise ApiError(400, "EMPTY_SOURCE", "file is empty") from exc
-        raise ApiError(400, "INVALID_DOCUMENT", detail) from exc
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError:
+        raise ApiError(415, "UNSUPPORTED_ENCODING", "M0 accepts UTF-8 text/code/markdown files only")
+    if not text.strip():
+        raise ApiError(400, "EMPTY_SOURCE", "file is empty")
+    return runtime.source_store.import_text(filename, text)
 
 
 @router.get("/kb/status")
-def knowledge_base_status(runtime: ApiRuntime = Depends(get_api_runtime)):
-    return runtime.knowledge_base.status()
+def kb_status(runtime: ApiRuntime = Depends(get_api_runtime)):
+    return _knowledge_status(runtime)
 
 
 @router.get("/kb/sources")
 def list_knowledge_base_sources(runtime: ApiRuntime = Depends(get_api_runtime)):
-    return {
-        "snapshot_id": runtime.source_store.snapshot_id(),
-        "sources": runtime.knowledge_base.list_sources(),
-    }
+    return list_sources(runtime)
 
 
 @router.get("/kb/sources/{source_id}")
@@ -296,10 +512,7 @@ def inspect_knowledge_base_source(
     source_id: str,
     runtime: ApiRuntime = Depends(get_api_runtime),
 ):
-    item = runtime.knowledge_base.source(source_id)
-    if not item:
-        raise ApiError(404, "NOT_FOUND", "source not found")
-    return item
+    return get_source(source_id, runtime)
 
 
 @router.get("/kb/search")
@@ -315,25 +528,32 @@ def search_knowledge_base(
     if not request:
         raise ApiError(400, "QUERY_REQUIRED", "query is required")
     try:
-        results = runtime.knowledge_base.search(
-            request,
-            top_k=top_k,
-            min_score=min_score,
-            domain=domain,
+        service = _knowledge_service(runtime)
+        results = (
+            retrieve(
+                request,
+                runtime.source_store.chunks(),
+                top_k=top_k,
+                min_score=min_score,
+                domain=domain,
+            )
+            if service is None
+            else _call_knowledge_method(
+                runtime,
+                "search",
+                request,
+                top_k=top_k,
+                min_score=min_score,
+                domain=domain,
+            )
         )
     except ValueError as exc:
         raise ApiError(400, "INVALID_SEARCH", str(exc)) from exc
     return {
         "query": request,
         "snapshot_id": runtime.source_store.snapshot_id(),
-        "retrieval_backend": runtime.knowledge_base.status()["retrieval_backend"],
-        "results": [
-            {
-                **chunk.__dict__,
-                "provenance": dict(chunk.provenance),
-            }
-            for chunk in results
-        ],
+        "retrieval_backend": _knowledge_status(runtime)["retrieval_backend"],
+        "results": [_chunk_record(chunk) for chunk in results],
     }
 
 
@@ -360,6 +580,10 @@ async def chat(
 ):
     if not body.message.strip():
         raise ApiError(400, "MESSAGE_REQUIRED", "message is required")
+    # An explicitly configured vector path must be wired before chat can use
+    # the corpus; otherwise the legacy lexical store would be a silent
+    # fallback for a request that selected a different retrieval backend.
+    _knowledge_service(runtime)
     try:
         run = await runtime.pipeline.run(body.message.strip(), body.condition, body.provider)
         return run

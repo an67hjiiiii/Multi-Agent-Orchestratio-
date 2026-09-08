@@ -16,6 +16,29 @@ afterEach(() => {
 });
 
 describe("source and run API presentation", () => {
+  it("loads the explicit knowledge-base status contract", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        status: "READY",
+        backend: "local_json",
+        retrieval_backend: "lexical",
+        embedding_version: null,
+        vector_indexed_chunks: 0,
+        source_count: 1,
+        chunk_count: 1,
+        snapshot_id: "corpus_1",
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(api.kbStatus()).resolves.toMatchObject({
+      status: "READY",
+      retrieval_backend: "lexical",
+      vector_indexed_chunks: 0,
+    });
+    expect(fetchMock).toHaveBeenCalledWith("/api/kb/status", undefined);
+  });
+
   it("loads source summaries, source details, and chunks through encoded routes", async () => {
     const fetchMock = vi
       .fn()

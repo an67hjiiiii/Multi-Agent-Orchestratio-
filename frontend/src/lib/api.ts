@@ -3,6 +3,7 @@ import type {
   ChatRequest,
   DecompositionRequest,
   HealthResponse,
+  KnowledgeBaseStatus,
   PLiteInspectionResponse,
   RunListItem,
   RunRecord,
@@ -51,6 +52,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   health: () => request<HealthResponse>("/health"),
   listSources: () => request<SourcesResponse>("/sources"),
+  kbStatus: () => request<KnowledgeBaseStatus>("/kb/status"),
   getSource: (sourceId: string) =>
     request<SourceDetail>(`/sources/${encodeURIComponent(sourceId)}`),
   getChunk: (chunkId: string) =>

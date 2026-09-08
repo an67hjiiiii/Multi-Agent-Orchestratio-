@@ -25,6 +25,7 @@ def make_frontend_dist(tmp_path: Path) -> Path:
 def make_client(tmp_path: Path, monkeypatch) -> TestClient:
     monkeypatch.setenv("IMPLEMENTATION_PROFILE", "m0")
     monkeypatch.setenv("PROVIDER", "fake")
+    monkeypatch.delenv("VECTOR_BACKEND", raising=False)
     return TestClient(
         create_app(
             data_dir=tmp_path / "data",
@@ -46,6 +47,21 @@ def test_api_boundary_preserves_static_frontend_and_m0_health(tmp_path, monkeypa
     assert health.status_code == 200
     assert health.json()["allowed_conditions"] == ["A"]
     assert health.json()["implementation_profile"] == "m0"
+
+    kb_status = client.get("/api/kb/status")
+    assert kb_status.status_code == 200
+    assert kb_status.json() == {
+        "status": "EMPTY",
+        "backend": "local_json",
+        "retrieval_backend": "lexical",
+        "embedding_version": None,
+        "vector_indexed_chunks": 0,
+        "index_identity": None,
+        "index_status": "NOT_CONFIGURED",
+        "source_count": 0,
+        "chunk_count": 0,
+        "snapshot_id": kb_status.json()["snapshot_id"],
+    }
 
 
 def test_api_boundary_serves_vite_assets_spa_fallback_and_keeps_legacy_explicit(
@@ -113,6 +129,24 @@ def test_api_boundary_imports_sources_and_runs_m0_chat(tmp_path, monkeypatch):
     )
     assert imported.status_code == 200
     assert imported.json()["chunks_added"] == 1
+
+    source_id = imported.json()["source_id"]
+    source = client.get(f"/api/sources/{source_id}")
+    assert source.status_code == 200
+    assert source.json()["chunks"][0]["text"] == (
+        "The API contract defines request validation and error responses."
+    )
+    chunk_id = source.json()["chunks"][0]["chunk_id"]
+    chunk = client.get(f"/api/chunks/{chunk_id}")
+    assert chunk.status_code == 200
+    assert chunk.json()["source_id"] == source_id
+
+    kb_status = client.get("/api/kb/status")
+    assert kb_status.status_code == 200
+    assert kb_status.json()["status"] == "READY"
+    assert kb_status.json()["retrieval_backend"] == "lexical"
+    assert kb_status.json()["source_count"] == 1
+    assert kb_status.json()["chunk_count"] == 1
 
     run_response = client.post(
         "/api/chat",
@@ -221,3 +255,120 @@ def test_api_boundary_accepts_utf8_file_upload(tmp_path, monkeypatch):
     )
     assert response.status_code == 200
     assert response.json()["source_name"] == "notes.md"
+
+
+def test_api_boundary_delegates_to_optional_knowledge_base_service(tmp_path, monkeypatch):
+    monkeypatch.setenv("IMPLEMENTATION_PROFILE", "m0")
+    monkeypatch.setenv("PROVIDER", "fake")
+    application = create_app(
+        data_dir=tmp_path / "data",
+        runs_dir=tmp_path / "runs",
+        frontend_dist_dir=make_frontend_dist(tmp_path),
+    )
+
+    class StubKnowledgeBase:
+        def status(self):
+            return {
+                "schema_version": "knowledge-v2",
+                "retrieval_backend": "qdrant",
+                "embedding_version": "local-embed-v1",
+                "vector_indexed_chunks": 1,
+                "source_count": 1,
+                "chunk_count": 1,
+                "snapshot_id": "corpus_vector",
+            }
+
+        def list_sources(self):
+            return [{"source_id": "src_vector", "source_name": "notes.md", "chunk_count": 1}]
+
+        def source(self, source_id):
+            return {
+                "source_id": source_id,
+                "source_name": "notes.md",
+                "chunks": [self.chunk("chunk_vector")],
+            }
+
+        def chunk(self, chunk_id):
+            return {
+                "chunk_id": chunk_id,
+                "source_id": "src_vector",
+                "source_name": "notes.md",
+                "text": "Vector-backed evidence",
+                "index": 0,
+                "score": 0.9,
+                "provenance": {"origin": "upload"},
+            }
+
+        def import_text(self, source_name, text, *, provenance):
+            assert provenance["origin"] == "api_text"
+            return {
+                "source_id": "src_vector",
+                "source_name": source_name,
+                "chunks_added": 1,
+                "total_chunks_for_source": 1,
+                "snapshot_id": "corpus_vector",
+                "retrieval_backend": "qdrant",
+                "vector_indexed_chunks": 1,
+            }
+
+        def import_document(self, source_name, data, *, origin, content_type):
+            assert source_name == "upload.md"
+            assert data == b"Uploaded evidence"
+            assert origin == "upload"
+            assert content_type == "text/markdown"
+            return {
+                "source_id": "src_vector",
+                "source_name": source_name,
+                "chunks_added": 1,
+                "total_chunks_for_source": 1,
+                "snapshot_id": "corpus_vector",
+                "retrieval_backend": "qdrant",
+                "vector_indexed_chunks": 1,
+            }
+
+    application.state.api_runtime.knowledge_base = StubKnowledgeBase()
+    client = TestClient(application)
+
+    status = client.get("/api/kb/status").json()
+    assert status["status"] == "READY"
+    assert status["backend"] == "qdrant"
+    assert status["index_status"] == "READY"
+    assert client.get("/api/sources").json()["sources"][0]["source_id"] == "src_vector"
+    imported = client.post(
+        "/api/sources/text",
+        json={"source_name": "notes.md", "text": "Vector-backed evidence"},
+    )
+    assert imported.status_code == 200
+    uploaded = client.post(
+        "/api/sources/file",
+        files={"file": ("upload.md", "Uploaded evidence", "text/markdown")},
+    )
+    assert uploaded.status_code == 200
+    assert uploaded.json()["retrieval_backend"] == "qdrant"
+    assert client.get("/api/sources/src_vector").json()["source_name"] == "notes.md"
+    assert client.get("/api/chunks/chunk_vector").json()["provenance"] == {"origin": "upload"}
+
+
+def test_api_boundary_does_not_silently_fallback_when_vector_backend_is_explicit(
+    tmp_path,
+    monkeypatch,
+):
+    client = make_client(tmp_path, monkeypatch)
+    monkeypatch.setenv("VECTOR_BACKEND", "qdrant")
+
+    response = client.get("/api/kb/status")
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "detail": "Configured vector knowledge base is unavailable",
+        "code": "KNOWLEDGE_BASE_UNAVAILABLE",
+        "message": "Configured vector knowledge base is unavailable",
+        "retryable": True,
+    }
+
+    chat = client.post(
+        "/api/chat",
+        json={"message": "use the configured corpus", "condition": "A", "provider": "fake"},
+    )
+    assert chat.status_code == 503
+    assert chat.json()["code"] == "KNOWLEDGE_BASE_UNAVAILABLE"

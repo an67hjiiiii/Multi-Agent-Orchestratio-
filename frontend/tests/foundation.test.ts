@@ -9,6 +9,7 @@ const documentedRoutes = new Set([
   "/api/health",
   "/api/config",
   "/api/local-model/health",
+  "/api/kb/status",
   "/api/sources",
   "/api/sources/file",
   "/api/sources/text",

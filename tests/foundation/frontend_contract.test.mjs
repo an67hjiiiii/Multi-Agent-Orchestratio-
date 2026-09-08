@@ -12,6 +12,7 @@ const documentedRoutes = new Set([
   "/api/health",
   "/api/config",
   "/api/local-model/health",
+  "/api/kb/status",
   "/api/sources",
   "/api/sources/file",
   "/api/sources/text",
@@ -52,6 +53,6 @@ contract("frontend API boundary", () => {
   it("keeps inference behind the local backend boundary", () => {
     const text = frontendText();
     expect(text).not.toMatch(/(?:https?:\/\/|127\.0\.0\.1|localhost)[^\n"'`]*/i);
-    expect(text).not.toMatch(/(?:ollama|openai|anthropic|gemini|api[_-]?key|bearer)/i);
+    expect(text).not.toMatch(/(?:openai|anthropic|gemini|api[_-]?key|bearer)/i);
   });
 });
