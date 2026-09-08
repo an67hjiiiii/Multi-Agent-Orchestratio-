@@ -135,7 +135,12 @@ def test_evaluator_calls_gold_loader_only_after_terminal_report(tmp_path):
             {
                 "report_schema": "final-six-condition-report-v1",
                 "inference_complete": True,
-                "rows": [{"attempt_id": "a1", "case_id": "F-01", "condition": "A"}],
+                "rows": [{
+                    "attempt_id": "a1",
+                    "case_id": "F-01",
+                    "condition": "A",
+                    "status": "COMPLETE",
+                }],
             }
         ),
         encoding="utf-8",
