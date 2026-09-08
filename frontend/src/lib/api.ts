@@ -7,6 +7,7 @@ import type {
   PLiteInspectionResponse,
   RunListItem,
   RunRecord,
+  RuntimeConfigResponse,
   SourceChunk,
   SourceDetail,
   SourceImportResult,
@@ -51,6 +52,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   health: () => request<HealthResponse>("/health"),
+  config: () => request<RuntimeConfigResponse>("/config"),
   listSources: () => request<SourcesResponse>("/sources"),
   kbStatus: () => request<KnowledgeBaseStatus>("/kb/status"),
   getSource: (sourceId: string) =>

@@ -5,17 +5,28 @@ import type {
   PLiteInspectionResponse,
   RunListItem,
   RunRecord,
+  RuntimeConfigResponse,
   SourceImportResult,
   SourceSummary,
 } from "../types/api";
 
 export type InspectorTab = "evidence" | "sources" | "metrics" | "plan";
+export type SourceImportPhase = "idle" | "uploading" | "indexing" | "complete" | "error";
+
+export interface SourceImportState {
+  phase: SourceImportPhase;
+  fileName: string | null;
+  message: string | null;
+  result: SourceImportResult | null;
+}
 
 const PLITE_PROFILES = new Set(["dev", "m1", "m2"]);
 
 export interface ResearchAppState {
   health: HealthResponse | null;
+  runtimeConfig: RuntimeConfigResponse | null;
   sources: SourceSummary[];
+  sourceSnapshotId: string | null;
   history: RunListItem[];
   activeRun: RunRecord | null;
   pendingQuestion: string | null;
@@ -24,6 +35,7 @@ export interface ResearchAppState {
   isRunning: boolean;
   isImporting: boolean;
   isInspectingPlan: boolean;
+  sourceImport: SourceImportState;
   canInspectPlan: boolean;
   planningInspection: PLiteInspectionResponse | null;
   planningError: string | null;
@@ -39,7 +51,9 @@ export interface ResearchAppState {
 }
 export function useResearchApp(): ResearchAppState {
   const [health, setHealth] = useState<HealthResponse | null>(null);
+  const [runtimeConfig, setRuntimeConfig] = useState<RuntimeConfigResponse | null>(null);
   const [sources, setSources] = useState<SourceSummary[]>([]);
+  const [sourceSnapshotId, setSourceSnapshotId] = useState<string | null>(null);
   const [history, setHistory] = useState<RunListItem[]>([]);
   const [activeRun, setActiveRun] = useState<RunRecord | null>(null);
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
@@ -52,10 +66,17 @@ export function useResearchApp(): ResearchAppState {
   const [planningError, setPlanningError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sourceNotice, setSourceNotice] = useState<string | null>(null);
+  const [sourceImport, setSourceImport] = useState<SourceImportState>({
+    phase: "idle",
+    fileName: null,
+    message: null,
+    result: null,
+  });
 
   const refreshSources = useCallback(async () => {
     const response = await api.listSources();
     setSources(response.sources ?? []);
+    setSourceSnapshotId(response.snapshot_id ?? null);
   }, []);
 
   const refreshHistory = useCallback(async () => {
@@ -67,16 +88,21 @@ export function useResearchApp(): ResearchAppState {
 
     async function boot() {
       setIsBooting(true);
-      const [healthResult, sourcesResult, historyResult] = await Promise.allSettled([
+      const [healthResult, sourcesResult, historyResult, configResult] = await Promise.allSettled([
         api.health(),
         api.listSources(),
         api.listRuns(),
+        api.config(),
       ]);
 
       if (cancelled) return;
 
       if (healthResult.status === "fulfilled") setHealth(healthResult.value);
-      if (sourcesResult.status === "fulfilled") setSources(sourcesResult.value.sources ?? []);
+      if (configResult.status === "fulfilled") setRuntimeConfig(configResult.value);
+      if (sourcesResult.status === "fulfilled") {
+        setSources(sourcesResult.value.sources ?? []);
+        setSourceSnapshotId(sourcesResult.value.snapshot_id ?? null);
+      }
       if (historyResult.status === "fulfilled") setHistory(historyResult.value);
 
       const failed = [healthResult, sourcesResult, historyResult].find(
@@ -172,13 +198,18 @@ export function useResearchApp(): ResearchAppState {
     setIsImporting(true);
     setError(null);
     setSourceNotice(null);
+    setSourceImport({ phase: "uploading", fileName: file.name, message: "Sending the file to the local source store…", result: null });
     try {
       const result = await api.importFile(file);
+      setSourceImport({ phase: "indexing", fileName: file.name, message: "Source accepted. Refreshing indexed chunks…", result });
       setSourceNotice(`${result.source_name ?? file.name} added to the corpus.`);
       await refreshSources();
+      setSourceImport({ phase: "complete", fileName: file.name, message: `${result.source_name ?? file.name} is available to local retrieval.`, result });
       return result;
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Unable to import this source");
+      const message = cause instanceof Error ? cause.message : "Unable to import this source";
+      setError(message);
+      setSourceImport({ phase: "error", fileName: file.name, message, result: null });
       return null;
     } finally {
       setIsImporting(false);
@@ -187,7 +218,9 @@ export function useResearchApp(): ResearchAppState {
 
   return {
     health,
+    runtimeConfig,
     sources,
+    sourceSnapshotId,
     history,
     activeRun,
     pendingQuestion,
@@ -197,6 +230,7 @@ export function useResearchApp(): ResearchAppState {
     isImporting,
     error,
     sourceNotice,
+    sourceImport,
     setActiveTab,
     startNewRun: () => {
       setActiveRun(null);

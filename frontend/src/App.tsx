@@ -76,6 +76,7 @@ export function App() {
         mode={mode}
         onModeToggle={() => setMode((current) => current === "normal" ? "research" : "normal")}
         provider={provider}
+        model={research.runtimeConfig?.local_model ?? research.activeRun?.model ?? null}
         onProviderChange={setProvider}
         onOpenSources={openSources}
       />
@@ -88,6 +89,7 @@ export function App() {
           health={research.health}
           run={normalizedRun}
           sourceCount={research.sources.length}
+          model={research.runtimeConfig?.local_model ?? research.activeRun?.model ?? null}
           onOpenRail={(trigger) => {
             railTrigger.current = trigger ?? null;
             setRailOpen(true);
@@ -128,6 +130,10 @@ export function App() {
         onClose={closeDrawer}
         run={normalizedRun}
         sources={research.sources}
+        sourceSnapshotId={research.sourceSnapshotId}
+        sourceImport={research.sourceImport}
+        isImporting={research.isImporting}
+        onImport={async (file) => { await research.importSource(file); }}
         focusCitationId={focusCitationId}
         canInspectPlan={research.canInspectPlan}
         planningInspection={research.planningInspection}

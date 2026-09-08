@@ -11,6 +11,7 @@ interface WorkspaceHeaderProps {
   health: HealthResponse | null;
   run: NormalizedUiRun | null;
   sourceCount: number;
+  model: string | null;
   onOpenRail: (trigger?: HTMLButtonElement) => void;
   onOpenResearch: () => void;
 }
@@ -41,10 +42,12 @@ export function WorkspaceHeader({
   health,
   run,
   sourceCount,
+  model,
   onOpenRail,
   onOpenResearch,
 }: WorkspaceHeaderProps) {
   const profile = run?.raw.implementation_profile ?? health?.implementation_profile;
+  const configuredModel = run?.raw.model ?? model;
   const condition = run?.condition ?? health?.allowed_conditions?.[0] ?? "A";
 
   return (
@@ -99,7 +102,7 @@ export function WorkspaceHeader({
             <span>Condition <strong>{condition}</strong></span>
             <span>{profile ?? "profile not recorded"}</span>
             <span>{providerLabel(run)}</span>
-            {run?.raw.model && <span>{run.raw.model}</span>}
+            {configuredModel && <span>{configuredModel}</span>}
           </div>
         )}
 

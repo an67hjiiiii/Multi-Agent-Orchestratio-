@@ -3,12 +3,13 @@ import type {
   PLiteInspectionResponse,
   RunEvent,
   SourceChunk,
-  SourceDetail,
   SourceSummary,
 } from "../types/api";
+import type { SourceImportState } from "../app/useResearchApp";
 import type { NormalizedUiRun, NormalizedUiTask } from "../lib/uiAdapter";
 import { api } from "../lib/api";
 import { PlanningEvidencePanel } from "./PlanningEvidencePanel";
+import { KnowledgeWorkspace } from "./KnowledgeWorkspace";
 import { ResearchFlagStrip } from "./ResearchWorkspace";
 import { StatusBadge } from "./StatusBadge";
 import { TaskResultPanel } from "./TaskResultPanel";
@@ -25,6 +26,10 @@ interface EvidenceDrawerProps {
   onClose: () => void;
   run: NormalizedUiRun | null;
   sources: SourceSummary[];
+  sourceSnapshotId: string | null;
+  sourceImport: SourceImportState;
+  isImporting: boolean;
+  onImport: (file: File) => Promise<void>;
   focusCitationId: string | null;
   canInspectPlan: boolean;
   planningInspection: PLiteInspectionResponse | null;
@@ -232,47 +237,6 @@ function EvidenceTrail({ run, onInspectChunk }: { run: NormalizedUiRun | null; o
   );
 }
 
-function SourcesPanel({ sources, onInspectChunk }: { sources: SourceSummary[]; onInspectChunk: (id: string) => void }) {
-  const [selectedSource, setSelectedSource] = useState<SourceDetail | null>(null);
-  const [loadingId, setLoadingId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  async function inspectSource(sourceId: string) {
-    setLoadingId(sourceId);
-    setError(null);
-    try {
-      setSelectedSource(await api.getSource(sourceId));
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Unable to load source details");
-    } finally {
-      setLoadingId(null);
-    }
-  }
-
-  if (sources.length === 0) return <DrawerEmpty title="Corpus is empty" copy="Add a UTF-8 text or code source from the question composer." />;
-
-  return (
-    <div className="drawer-stack">
-      <div className="drawer-section-intro"><span className="section-eyebrow">Corpus</span><h3>Source library</h3><p>Source names lead. IDs and chunks are available when you inspect a source.</p></div>
-      {error && <div className="drawer-error" role="alert"><strong>Source details unavailable</strong><span>{error}</span></div>}
-      <div className="source-library-list">
-        {sources.map((source) => (
-          <article className="source-library-card" key={source.source_id}>
-            <div className="source-library-heading"><span className="source-kind" aria-hidden="true">TXT</span><div><h4>{source.source_name}</h4><p>{source.chunk_count} {source.chunk_count === 1 ? "chunk" : "chunks"}</p></div></div>
-            <button className="inline-action" type="button" onClick={() => void inspectSource(source.source_id)} disabled={loadingId !== null}>{loadingId === source.source_id ? "Loading…" : "Inspect chunks"}</button>
-          </article>
-        ))}
-      </div>
-      {selectedSource && (
-        <section className="source-detail-card" aria-label={`Chunks in ${selectedSource.source_name}`}>
-          <div className="drawer-card-heading"><div><span className="drawer-label">Selected source</span><h4>{selectedSource.source_name}</h4></div><button className="icon-button" type="button" aria-label="Close source details" onClick={() => setSelectedSource(null)}>×</button></div>
-          {selectedSource.chunks.length === 0 ? <DrawerEmpty title="No stored chunks" copy="This source returned no chunks to inspect." /> : <ul className="source-chunk-list">{selectedSource.chunks.map((chunk) => <li key={chunk.chunk_id}><span>Chunk {chunk.index + 1}</span><button type="button" onClick={() => onInspectChunk(chunk.chunk_id)}>{chunk.chunk_id}</button></li>)}</ul>}
-        </section>
-      )}
-    </div>
-  );
-}
-
 function MetricsPanel({ run }: { run: NormalizedUiRun | null }) {
   if (!run) return <DrawerEmpty title="No metrics yet" copy="Measured runtime values appear after a run." />;
   const metrics = run.metrics;
@@ -367,6 +331,10 @@ export function EvidenceDrawer({
   onClose,
   run,
   sources,
+  sourceSnapshotId,
+  sourceImport,
+  isImporting,
+  onImport,
   focusCitationId,
   canInspectPlan,
   planningInspection,
@@ -476,7 +444,7 @@ export function EvidenceDrawer({
         <div className="drawer-content">
           {safeTab === "context" && <div id="drawer-panel-context" role="tabpanel" aria-labelledby="drawer-tab-context"><EvidenceContext run={run} selectedChunk={selectedChunk} selectedChunkId={selectedChunkId} loadingId={loadingId} error={chunkError} mode={mode} onInspectChunk={(id) => void inspectChunk(id)} onRetry={() => { if (selectedChunkId) void inspectChunk(selectedChunkId); }} /></div>}
           {safeTab === "evidence" && <div id="drawer-panel-evidence" role="tabpanel" aria-labelledby="drawer-tab-evidence"><EvidenceTrail run={run} onInspectChunk={(id) => void inspectChunk(id)} /></div>}
-          {safeTab === "sources" && <div id="drawer-panel-sources" role="tabpanel" aria-labelledby="drawer-tab-sources"><SourcesPanel sources={sources} onInspectChunk={(id) => void inspectChunk(id)} /></div>}
+          {safeTab === "sources" && <div id="drawer-panel-sources" role="tabpanel" aria-labelledby="drawer-tab-sources"><KnowledgeWorkspace sources={sources} sourceSnapshotId={sourceSnapshotId} sourceImport={sourceImport} isImporting={isImporting} onImport={onImport} onInspectChunk={(id) => void inspectChunk(id)} /></div>}
           {safeTab === "research" && <div id="drawer-panel-research" role="tabpanel" aria-labelledby="drawer-tab-research"><ResearchPanel run={run} onInspectChunk={(id) => void inspectChunk(id)} /></div>}
           {safeTab === "metrics" && <div id="drawer-panel-metrics" role="tabpanel" aria-labelledby="drawer-tab-metrics"><MetricsPanel run={run} /></div>}
           {safeTab === "plan" && canInspectPlan && <div id="drawer-panel-plan" role="tabpanel" aria-labelledby="drawer-tab-plan"><PlanPanel result={planningInspection} error={planningError} isLoading={isInspectingPlan} /></div>}

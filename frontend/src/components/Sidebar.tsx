@@ -14,6 +14,7 @@ interface SidebarProps {
   mode: ViewMode;
   onModeToggle: () => void;
   provider: string;
+  model: string | null;
   onProviderChange: (provider: string) => void;
   onOpenSources: () => void;
 }
@@ -41,6 +42,7 @@ export function Sidebar({
   mode,
   onModeToggle,
   provider,
+  model,
   onProviderChange,
   onOpenSources,
 }: SidebarProps) {
@@ -158,6 +160,7 @@ export function Sidebar({
             <div className="rail-section-eyebrow">Workspace boundaries</div>
             <p>Presentation mode changes what is shown, not the research condition or provider.</p>
             <div className="rail-setting-row"><span>Condition</span><code>A · locked in M0</code></div>
+            <div className="rail-setting-row"><span>Model</span><code>{model ?? "Not recorded"}</code></div>
             <label className="rail-setting-select">
               <span>Run provider</span>
               <select value={provider} onChange={(event) => onProviderChange(event.target.value)}>

@@ -20,6 +20,15 @@ export interface HealthResponse {
   source_snapshot_id?: string;
   config_hash?: string;
 }
+
+export interface RuntimeConfigResponse {
+  implementation_profile?: string;
+  provider?: string;
+  local_model?: string;
+  allowed_conditions?: string[];
+  config_hash?: string;
+}
+
 export interface SourceSummary {
   source_id: string;
   source_name: string;
