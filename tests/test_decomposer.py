@@ -107,7 +107,7 @@ def test_decompose_prompt_preserves_distinct_dependent_obligations():
 
     assert result.status == "COMPLETE"
     prompt = provider.calls[0]["user"]
-    assert "PROMPT VERSION: p-lite-decomposer-v5" in prompt
+    assert "PROMPT VERSION: p-lite-decomposer-v6" in prompt
     assert prompt.index("OUTPUT PROTOCOL") < prompt.index("CURRENT REQUEST")
     assert prompt.index("PLANNER RULES") < prompt.index("PLANNING EVIDENCE")
     assert "separate tasks" in prompt
@@ -313,6 +313,136 @@ def test_decompose_allows_security_obligations_in_api_context():
 
     assert result.status == "COMPLETE"
     assert [task.domain for task in result.tasks] == ["security", "security"]
+
+
+def test_decompose_accepts_separate_security_and_api_obligations():
+    response = json.dumps(
+        {
+            "tasks": [
+                {
+                    "task_id": "T1",
+                    "title": "Review authentication",
+                    "objective": "Review authentication requirements.",
+                    "expected_output": "Authentication findings.",
+                    "domain": "security",
+                    "role_profile": "Security Analyst",
+                    "depends_on": [],
+                },
+                {
+                    "task_id": "T2",
+                    "title": "Review authorization",
+                    "objective": "Review authorization requirements.",
+                    "expected_output": "Authorization findings.",
+                    "domain": "security",
+                    "role_profile": "Security Analyst",
+                    "depends_on": [],
+                },
+                {
+                    "task_id": "T3",
+                    "title": "Review request validation",
+                    "objective": "Review API request validation requirements.",
+                    "expected_output": "Request-validation findings.",
+                    "domain": "api_architecture",
+                    "role_profile": "API Analyst",
+                    "depends_on": [],
+                },
+                {
+                    "task_id": "T4",
+                    "title": "Review error responses",
+                    "objective": "Review API error response requirements.",
+                    "expected_output": "Error-response findings.",
+                    "domain": "api_architecture",
+                    "role_profile": "API Analyst",
+                    "depends_on": [],
+                },
+            ]
+        }
+    )
+    provider = _Provider([response])
+
+    result = asyncio.run(
+        decompose(
+            provider,
+            "Review an API design for authentication, authorization, request "
+            "validation, and error responses. Keep each obligation separate.",
+            "",
+            RunMetrics(),
+        )
+    )
+
+    assert result.status == "COMPLETE"
+    assert [task.task_id for task in result.tasks] == ["T1", "T2", "T3", "T4"]
+    assert len(provider.calls) == 1
+
+
+def test_decompose_repair_names_missing_request_domains():
+    collapsed = json.dumps(
+        {
+            "tasks": [
+                {
+                    "task_id": "T1",
+                    "title": "Review API write",
+                    "objective": "Review the multi-step API write.",
+                    "expected_output": "API write findings.",
+                    "domain": "api_architecture",
+                    "role_profile": "API Analyst",
+                    "depends_on": [],
+                }
+            ]
+        }
+    )
+    repaired = json.dumps(
+        {
+            "tasks": [
+                {
+                    "task_id": "T1",
+                    "title": "Review authentication and authorization",
+                    "objective": "Review authentication and authorization requirements.",
+                    "expected_output": "Security findings.",
+                    "domain": "security",
+                    "role_profile": "Security Analyst",
+                    "depends_on": [],
+                },
+                {
+                    "task_id": "T2",
+                    "title": "Review request validation and error responses",
+                    "objective": "Review API validation and error response requirements.",
+                    "expected_output": "API contract findings.",
+                    "domain": "api_architecture",
+                    "role_profile": "API Analyst",
+                    "depends_on": [],
+                },
+                {
+                    "task_id": "T3",
+                    "title": "Review transaction boundary",
+                    "objective": "Review the transaction boundary for the database write.",
+                    "expected_output": "Transaction findings.",
+                    "domain": "database",
+                    "role_profile": "Database Analyst",
+                    "depends_on": [],
+                },
+            ]
+        }
+    )
+    provider = _Provider([collapsed, repaired])
+
+    result = asyncio.run(
+        decompose(
+            provider,
+            "For a secure multi-step API write, combine authentication, authorization, "
+            "request validation, error responses, and transaction-boundary obligations.",
+            "",
+            RunMetrics(),
+        )
+    )
+
+    assert result.status == "COMPLETE"
+    assert {task.domain for task in result.tasks} == {
+        "security",
+        "database",
+        "api_architecture",
+    }
+    assert "missing canonical request domains: database, security" in provider.calls[1]["user"]
 
 
 def test_decompose_rejects_dependency_for_repeated_obligation_without_order():

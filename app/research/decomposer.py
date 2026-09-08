@@ -145,7 +145,7 @@ _TASK_SCHEMA = (
     '"role_profile":"declared role profile",'
     '"depends_on":[]}]}'
 )
-PROMPT_VERSION = "p-lite-decomposer-v5"
+PROMPT_VERSION = "p-lite-decomposer-v6"
 STRUCTURED_OUTPUT_CONFIG_VERSION = "ollama-task-plan-schema-v2"
 PLANNER_TEMPERATURE = 0.0
 TASK_PLAN_JSON_SCHEMA = TaskPlan.model_json_schema()
@@ -332,7 +332,8 @@ def _validate_request_alignment(request: str, tasks: list[TaskItem]) -> None:
     missing_domains = sorted(requested_domains - task_domains)
     if missing_domains:
         raise _DecompositionOutputError(
-            "planner tasks must preserve each named request obligation/domain"
+            "planner tasks must preserve each named request obligation/domain; "
+            "missing canonical request domains: " + ", ".join(missing_domains)
         )
 
     for domain in sorted(requested_domains):
@@ -345,9 +346,7 @@ def _validate_request_alignment(request: str, tasks: list[TaskItem]) -> None:
         if len(domain_tasks) == 1:
             continue
 
-        request_anchors = request_terms & (
-            _CANONICAL_DOMAIN_HINTS[domain] - _DOMAIN_LABEL_HINTS[domain]
-        )
+        request_anchors = request_terms & _DOMAIN_OBLIGATION_HINTS[domain]
         if not request_anchors:
             raise _DecompositionOutputError(
                 "repeated domain tasks must retain concrete request anchors; "
