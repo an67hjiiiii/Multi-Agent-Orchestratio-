@@ -151,13 +151,15 @@ def _knowledge_service(runtime: ApiRuntime) -> Any | None:
     """
 
     service = getattr(runtime, "knowledge_base", None)
-    if service is None and _vector_backend_requested():
-        raise ApiError(
-            503,
-            "KNOWLEDGE_BASE_UNAVAILABLE",
-            "Configured vector knowledge base is unavailable",
-            retryable=True,
-        )
+    if _vector_backend_requested():
+        backend_name = str(getattr(service, "backend_name", "")).strip().lower()
+        if service is None or backend_name in {"", "lexical"}:
+            raise ApiError(
+                503,
+                "KNOWLEDGE_BASE_UNAVAILABLE",
+                "Configured vector knowledge base is unavailable",
+                retryable=True,
+            )
     return service
 
 
@@ -297,37 +299,38 @@ def _knowledge_status(runtime: ApiRuntime) -> dict[str, Any]:
 
     if not retrieval_backend:
         retrieval_backend = "lexical" if vector_indexed_chunks == 0 else "vector"
-    status.setdefault(
-        "status",
-        "READY"
-        if (retrieval_backend == "lexical" and chunk_count > 0)
-        or vector_indexed_chunks > 0
-        else "EMPTY"
-        if retrieval_backend == "lexical"
-        else "UNAVAILABLE",
-    )
-    status.setdefault(
-        "backend",
-        "local_json" if retrieval_backend == "lexical" else retrieval_backend,
-    )
-    status.setdefault("retrieval_backend", retrieval_backend)
-    status.setdefault("embedding_version", None)
-    status["vector_indexed_chunks"] = vector_indexed_chunks
-    status.setdefault("index_identity", None)
-    status.setdefault(
-        "index_status",
-        "NOT_CONFIGURED"
-        if retrieval_backend == "lexical"
-        else "READY"
-        if vector_indexed_chunks > 0
-        else "EMPTY"
-        if chunk_count == 0
-        else "UNAVAILABLE",
-    )
-    status["source_count"] = source_count
-    status["chunk_count"] = chunk_count
-    status.setdefault("snapshot_id", runtime.source_store.snapshot_id())
-    return status
+    return {
+        "status": status.get(
+            "status",
+            "READY"
+            if (retrieval_backend == "lexical" and chunk_count > 0)
+            or vector_indexed_chunks > 0
+            else "EMPTY"
+            if retrieval_backend == "lexical"
+            else "UNAVAILABLE",
+        ),
+        "backend": status.get(
+            "backend",
+            "local_json" if retrieval_backend == "lexical" else retrieval_backend,
+        ),
+        "retrieval_backend": retrieval_backend,
+        "embedding_version": status.get("embedding_version"),
+        "vector_indexed_chunks": vector_indexed_chunks,
+        "index_identity": status.get("index_identity"),
+        "index_status": status.get(
+            "index_status",
+            "NOT_CONFIGURED"
+            if retrieval_backend == "lexical"
+            else "READY"
+            if vector_indexed_chunks > 0
+            else "EMPTY"
+            if chunk_count == 0
+            else "UNAVAILABLE",
+        ),
+        "source_count": source_count,
+        "chunk_count": chunk_count,
+        "snapshot_id": status.get("snapshot_id", runtime.source_store.snapshot_id()),
+    }
 
 
 @router.get("/health")
