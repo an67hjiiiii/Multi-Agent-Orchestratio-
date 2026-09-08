@@ -74,6 +74,9 @@ def test_public_config_is_allowlisted_and_hash_is_deterministic(
         "max_run_tokens",
         "retry_limit",
         "retrieval_min_score",
+        "retrieval_mode",
+        "vector_backend",
+        "local_embedding_model",
     }
     assert "config_hash" not in public
     assert config.config_hash() == config.config_hash()

@@ -199,13 +199,16 @@ class KnowledgeBase:
 
     def status(self) -> dict[str, Any]:
         status = self.source_store.status()
+        reported_retrieval_backend = (
+            "hybrid" if self.retrieval_mode == "HYBRID" else self.backend_name
+        )
         if self.retrieval_mode != "LEXICAL" and self.vector_store is None:
             status.update(
                 {
                     "status": "UNAVAILABLE",
                     "backend": self.backend_name,
                     "retrieval_mode": self.retrieval_mode,
-                    "retrieval_backend": self.backend_name,
+                    "retrieval_backend": reported_retrieval_backend,
                     "embedding_version": None,
                     "vector_indexed_chunks": 0,
                     "index_status": "UNAVAILABLE",
@@ -217,7 +220,7 @@ class KnowledgeBase:
             {
                 "backend": "local_json" if self.retrieval_mode == "LEXICAL" else self.backend_name,
                 "retrieval_mode": self.retrieval_mode,
-                "retrieval_backend": self.backend_name,
+                "retrieval_backend": reported_retrieval_backend,
                 "embedding_version": self.embedder.version
                 if self.vector_store is not None
                 else None,
