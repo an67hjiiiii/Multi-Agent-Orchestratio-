@@ -7,6 +7,21 @@ from fastapi.testclient import TestClient
 from app.main import create_app
 
 
+def make_frontend_dist(tmp_path: Path) -> Path:
+    dist = tmp_path / "frontend" / "dist"
+    assets = dist / "assets"
+    assets.mkdir(parents=True)
+    (dist / "index.html").write_text(
+        """<!doctype html>
+<html><head><title>Local Multi-Agent RAG modern React</title></head>
+<body><div id=\"root\"></div><script type=\"module\" src=\"/assets/app.js\"></script></body></html>
+""",
+        encoding="utf-8",
+    )
+    (assets / "app.js").write_text("console.log('modern frontend');\n", encoding="utf-8")
+    return dist
+
+
 def make_client(tmp_path: Path, monkeypatch) -> TestClient:
     monkeypatch.setenv("IMPLEMENTATION_PROFILE", "m0")
     monkeypatch.setenv("PROVIDER", "fake")
@@ -14,6 +29,7 @@ def make_client(tmp_path: Path, monkeypatch) -> TestClient:
         create_app(
             data_dir=tmp_path / "data",
             runs_dir=tmp_path / "runs",
+            frontend_dist_dir=make_frontend_dist(tmp_path),
         )
     )
 
@@ -24,11 +40,65 @@ def test_api_boundary_preserves_static_frontend_and_m0_health(tmp_path, monkeypa
     root = client.get("/")
     assert root.status_code == 200
     assert "Local Multi-Agent RAG" in root.text
+    assert 'id="root"' in root.text
 
     health = client.get("/api/health")
     assert health.status_code == 200
     assert health.json()["allowed_conditions"] == ["A"]
     assert health.json()["implementation_profile"] == "m0"
+
+
+def test_api_boundary_serves_vite_assets_spa_fallback_and_keeps_legacy_explicit(
+    tmp_path,
+    monkeypatch,
+):
+    client = make_client(tmp_path, monkeypatch)
+
+    asset = client.get("/assets/app.js")
+    assert asset.status_code == 200
+    assert "modern frontend" in asset.text
+
+    root = client.get("/")
+    nested = client.get("/workspace/runs/example")
+    assert nested.status_code == 200
+    assert nested.text == root.text
+
+    legacy = client.get("/static/index.html")
+    assert legacy.status_code == 200
+    assert "Research Chat" in legacy.text
+    assert legacy.text != root.text
+
+    unknown_api = client.get("/api/not-a-real-route")
+    assert unknown_api.status_code == 404
+    assert unknown_api.json() == {
+        "detail": "API route not found",
+        "code": "NOT_FOUND",
+        "message": "API route not found",
+        "retryable": False,
+    }
+
+
+def test_api_boundary_does_not_use_legacy_shell_when_frontend_build_is_missing(
+    tmp_path,
+    monkeypatch,
+):
+    monkeypatch.setenv("IMPLEMENTATION_PROFILE", "m0")
+    monkeypatch.setenv("PROVIDER", "fake")
+    client = TestClient(
+        create_app(
+            data_dir=tmp_path / "data",
+            runs_dir=tmp_path / "runs",
+            frontend_dist_dir=tmp_path / "missing-dist",
+        )
+    )
+
+    root = client.get("/")
+    assert root.status_code == 503
+    assert "Frontend build is unavailable" in root.text
+
+    legacy = client.get("/static/index.html")
+    assert legacy.status_code == 200
+    assert "Research Chat" in legacy.text
 
 
 def test_api_boundary_imports_sources_and_runs_m0_chat(tmp_path, monkeypatch):
