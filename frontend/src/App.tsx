@@ -13,10 +13,11 @@ export function App() {
   const [provider, setProvider] = useState("fake");
   const [mode, setMode] = useState<ViewMode>("normal");
   const [railOpen, setRailOpen] = useState(false);
+  const railTrigger = useRef<HTMLButtonElement | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerTab, setDrawerTab] = useState<DrawerTab>("context");
   const [focusCitationId, setFocusCitationId] = useState<string | null>(null);
-  const citationTrigger = useRef<HTMLButtonElement | null>(null);
+  const drawerTrigger = useRef<HTMLElement | null>(null);
   const normalizedRun = research.activeRun ? normalizeRun(research.activeRun) : null;
 
   async function submitQuestion(message: string) {
@@ -24,21 +25,21 @@ export function App() {
   }
 
   function openResearch() {
-    citationTrigger.current = null;
+    drawerTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setDrawerTab("research");
     setFocusCitationId(null);
     setDrawerOpen(true);
   }
 
   function openSources() {
-    citationTrigger.current = null;
+    drawerTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setDrawerTab("sources");
     setFocusCitationId(null);
     setDrawerOpen(true);
   }
 
   function openEvidence(citation: string, trigger: HTMLButtonElement) {
-    citationTrigger.current = trigger;
+    drawerTrigger.current = trigger;
     setFocusCitationId(citation);
     setDrawerTab("context");
     setDrawerOpen(true);
@@ -47,7 +48,7 @@ export function App() {
   function closeDrawer() {
     setDrawerOpen(false);
     setFocusCitationId(null);
-    requestAnimationFrame(() => citationTrigger.current?.focus());
+    requestAnimationFrame(() => drawerTrigger.current?.focus());
   }
 
   const runtimeStatus = research.isBooting
@@ -66,7 +67,10 @@ export function App() {
         sources={research.sources}
         activeRunId={research.activeRun?.run_id}
         isOpen={railOpen}
-        onClose={() => setRailOpen(false)}
+        onClose={() => {
+          setRailOpen(false);
+          requestAnimationFrame(() => railTrigger.current?.focus());
+        }}
         onNewRun={research.startNewRun}
         onSelectRun={(runId) => void research.selectRun(runId)}
         mode={mode}
@@ -84,7 +88,10 @@ export function App() {
           health={research.health}
           run={normalizedRun}
           sourceCount={research.sources.length}
-          onOpenRail={() => setRailOpen(true)}
+          onOpenRail={(trigger) => {
+            railTrigger.current = trigger ?? null;
+            setRailOpen(true);
+          }}
           onOpenResearch={openResearch}
         />
 

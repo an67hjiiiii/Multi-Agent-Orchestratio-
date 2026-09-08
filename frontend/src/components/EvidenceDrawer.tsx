@@ -9,8 +9,10 @@ import type {
 import type { NormalizedUiRun, NormalizedUiTask } from "../lib/uiAdapter";
 import { api } from "../lib/api";
 import { PlanningEvidencePanel } from "./PlanningEvidencePanel";
+import { ResearchFlagStrip } from "./ResearchWorkspace";
 import { StatusBadge } from "./StatusBadge";
 import { TaskResultPanel } from "./TaskResultPanel";
+import { TaskGraph } from "./TaskGraph";
 import type { ViewMode } from "./WorkspaceHeader";
 
 export type DrawerTab = "context" | "evidence" | "sources" | "metrics" | "research" | "plan";
@@ -274,15 +276,23 @@ function SourcesPanel({ sources, onInspectChunk }: { sources: SourceSummary[]; o
 function MetricsPanel({ run }: { run: NormalizedUiRun | null }) {
   if (!run) return <DrawerEmpty title="No metrics yet" copy="Measured runtime values appear after a run." />;
   const metrics = run.metrics;
+  const totalTokens = typeof metrics?.total_tokens === "number"
+    ? metrics.total_tokens
+    : typeof metrics?.input_tokens === "number" && typeof metrics.output_tokens === "number"
+      ? metrics.input_tokens + metrics.output_tokens
+      : undefined;
   const entries: Array<[string, string]> = [
     ["Total latency", formatValue(metrics?.latency_ms, " ms")],
     ["Retrieval latency", formatValue(metrics?.retrieval_latency_ms, " ms")],
     ["Generation latency", formatValue(metrics?.generation_latency_ms, " ms")],
     ["LLM calls", formatValue(metrics?.llm_calls)],
+    ["Total tokens", formatValue(totalTokens)],
     ["Input tokens", formatValue(metrics?.input_tokens)],
     ["Output tokens", formatValue(metrics?.output_tokens)],
+    ["Retrieved chunks", formatValue(metrics?.retrieved_chunks)],
     ["Selected chunks", formatValue(metrics?.selected_chunks)],
     ["Dropped chunks", formatValue(metrics?.dropped_chunks)],
+    ["Context estimate", formatValue(metrics?.context_tokens_est, " tok")],
     ["Valid citations", formatValue(metrics?.citations_valid)],
     ["Citation validity", metrics?.citation_locator_validity === null || metrics?.citation_locator_validity === undefined ? "—" : `${Math.round(metrics.citation_locator_validity * 100)}%`],
   ];
@@ -303,19 +313,8 @@ function MetricsPanel({ run }: { run: NormalizedUiRun | null }) {
   );
 }
 
-function flagValue(flags: Record<string, boolean>, aliases: readonly string[]) {
-  const key = aliases.find((alias) => Object.prototype.hasOwnProperty.call(flags, alias));
-  return key ? (flags[key] ? "Enabled" : "Disabled") : "Not recorded";
-}
-
 function ResearchPanel({ run, onInspectChunk }: { run: NormalizedUiRun | null; onInspectChunk: (id: string) => void }) {
   if (!run) return <DrawerEmpty title="No research details" copy="Run details appear after a question resolves." />;
-  const flags = run.researchFlags.effectiveConfigFlags;
-  const flagRows = [
-    ["P", "Retrieval-guided decomposition", ["planning_enabled", "p_enabled"]],
-    ["N", "Task normalization", ["normalization_enabled", "task_normalization_enabled", "n_enabled"]],
-    ["O", "Overlap-aware context allocation", ["overlap_enabled", "overlap_context_enabled", "o_enabled"]],
-  ] as const;
 
   return (
     <div className="drawer-stack">
@@ -326,11 +325,11 @@ function ResearchPanel({ run, onInspectChunk }: { run: NormalizedUiRun | null; o
       </div>
       <section className="research-section" aria-labelledby="research-flags-title">
         <div className="drawer-card-heading"><h4 id="research-flags-title">P / N / O flags</h4><span>Effective config</span></div>
-        <div className="research-flag-list">{flagRows.map(([letter, label, aliases]) => <div className="research-flag" key={letter}><span className="research-flag-letter">{letter}</span><span>{label}</span><strong>{flagValue(flags, aliases)}</strong></div>)}</div>
+        <ResearchFlagStrip run={run} compact />
       </section>
       <section className="research-section" aria-labelledby="research-tasks-title">
         <div className="drawer-card-heading"><h4 id="research-tasks-title">Recorded tasks</h4><span>{run.tasks.length}</span></div>
-        {run.tasks.length === 0 ? <p className="drawer-muted">No task records were returned for this run.</p> : <div className="research-task-list">{run.tasks.map((task) => <article className="research-task" key={task.taskId}><div className="research-task-heading"><strong>{task.taskId}</strong><StatusBadge status={task.status ?? "UNKNOWN"} compact /></div><p>{task.goal ?? "Task goal not recorded"}</p><div className="research-task-meta"><span>{task.domain ?? "Domain not recorded"}</span><span>{task.dependsOn.length ? `Depends on ${task.dependsOn.join(", ")}` : "No dependencies recorded"}</span></div>{task.evidenceNeeds.length > 0 && <div className="research-task-needs"><span>Evidence needs</span>{task.evidenceNeeds.map((need) => <code key={need}>{need}</code>)}</div>}</article>)}</div>}
+        <TaskGraph tasks={run.tasks} compact />
       </section>
       {(run.agents.length > 0 || run.roles.length > 0) && (
         <section className="research-section" aria-labelledby="research-labels-title">
@@ -375,6 +374,7 @@ export function EvidenceDrawer({
   isInspectingPlan,
   onInspectPlan,
 }: EvidenceDrawerProps) {
+  const drawerRef = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const [selectedChunk, setSelectedChunk] = useState<SourceChunk | null>(null);
   const [selectedChunkId, setSelectedChunkId] = useState<string | null>(null);
@@ -397,11 +397,6 @@ export function EvidenceDrawer({
   }
 
   useEffect(() => {
-    if (!open) return;
-    closeRef.current?.focus();
-  }, [open]);
-
-  useEffect(() => {
     if (open && focusCitationId) void inspectChunk(focusCitationId);
     // The drawer intentionally reacts to a citation request, not every run update.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -409,8 +404,33 @@ export function EvidenceDrawer({
 
   useEffect(() => {
     if (!open) return;
+    const drawer = drawerRef.current;
+    closeRef.current?.focus();
+
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+      if (event.key !== "Tab" || !drawer) return;
+
+      const focusable = Array.from(
+        drawer.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), select:not([disabled]), textarea:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+        ),
+      );
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
@@ -432,7 +452,7 @@ export function EvidenceDrawer({
   return (
     <div className="drawer-layer">
       <button className="drawer-backdrop" type="button" aria-label="Close evidence drawer" onClick={onClose} />
-      <aside className="evidence-drawer" role="dialog" aria-modal="true" aria-labelledby="evidence-drawer-title">
+      <aside ref={drawerRef} className="evidence-drawer" role="dialog" aria-modal="true" aria-labelledby="evidence-drawer-title">
         <div className="drawer-header">
           <div><span className="section-eyebrow">Inspector</span><h2 id="evidence-drawer-title">{run ? "Evidence & run details" : "Evidence inspector"}</h2><p>{run ? `Run ${run.runId.slice(-8)}` : "No active run"}</p></div>
           <div className="drawer-header-actions"><button ref={closeRef} className="icon-button" type="button" aria-label="Close evidence drawer" onClick={onClose}>×</button>{run && <StatusBadge status={run.status} compact />}</div>

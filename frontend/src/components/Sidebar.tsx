@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { RunListItem, SourceSummary } from "../types/api";
 import type { ViewMode } from "./WorkspaceHeader";
 import { StatusBadge } from "./StatusBadge";
@@ -44,10 +44,15 @@ export function Sidebar({
   onProviderChange,
   onOpenSources,
 }: SidebarProps) {
+  const closeRef = useRef<HTMLButtonElement>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    if (isOpen) closeRef.current?.focus();
+  }, [isOpen]);
 
   const filteredHistory = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -81,7 +86,7 @@ export function Sidebar({
               <small>Local research workspace</small>
             </span>
           </div>
-          <button className="rail-close-button" type="button" aria-label="Close workspace navigation" onClick={onClose}>
+          <button ref={closeRef} className="rail-close-button" type="button" aria-label="Close workspace navigation" onClick={onClose}>
             ×
           </button>
         </div>

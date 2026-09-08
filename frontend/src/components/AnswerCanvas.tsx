@@ -1,7 +1,9 @@
+import { useEffect, useState } from "react";
 import type { RunStatus, SourceSummary } from "../types/api";
 import type { NormalizedUiRun } from "../lib/uiAdapter";
 import { QuestionComposer } from "./QuestionComposer";
-import { StatusBadge, getStatusLabel } from "./StatusBadge";
+import { ResearchWorkspace } from "./ResearchWorkspace";
+import { StatusBadge } from "./StatusBadge";
 import type { ViewMode } from "./WorkspaceHeader";
 
 interface AnswerCanvasProps {
@@ -73,32 +75,44 @@ function RunStateBanner({ run }: { run: NormalizedUiRun }) {
   );
 }
 
-function LoadingProgress() {
+function LoadingProgress({ mode }: { mode: ViewMode }) {
   const steps = [
-    { label: "Question received", state: "complete" },
-    { label: "Retrieving local evidence", state: "active" },
-    { label: "Validating citations", state: "waiting" },
-    { label: "Preparing the answer", state: "waiting" },
+    { label: "Receive", detail: "Question accepted" },
+    { label: "Retrieve", detail: "Search local evidence" },
+    { label: "Validate", detail: "Check source locators" },
+    { label: "Respond", detail: "Prepare grounded answer" },
   ];
+  const [activeStage, setActiveStage] = useState(1);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setActiveStage((current) => (current + 1) % steps.length);
+    }, 1400);
+    return () => window.clearInterval(timer);
+  }, [steps.length]);
 
   return (
-    <section className="loading-progress" role="status" aria-label="Local run progress" aria-live="polite">
+    <section className="loading-progress" role="status" aria-label="Local run progress">
       <div className="loading-progress-heading">
         <div>
-          <span className="section-eyebrow">Current run</span>
-          <strong>Working locally</strong>
+          <span className="section-eyebrow">{mode === "normal" ? "Normal mode · guided progress" : "Run progress"}</span>
+          <strong>{steps[activeStage].detail}</strong>
         </div>
-        <span className="loading-stage-label">No cancellation available</span>
+        <span className="loading-stage-label">Stage {activeStage + 1} of {steps.length}</span>
       </div>
       <ol className="loading-steps">
-        {steps.map((step) => (
-          <li className={`loading-step loading-step-${step.state}`} key={step.label}>
-            <span className="loading-step-marker" aria-hidden="true">{step.state === "complete" ? "✓" : step.state === "active" ? "•" : ""}</span>
-            <span>{step.label}</span>
-          </li>
-        ))}
+        {steps.map((step, index) => {
+          const state = index < activeStage ? "complete" : index === activeStage ? "active" : "waiting";
+          return (
+            <li className={`loading-step loading-step-${state}`} key={step.label}>
+              <span className="loading-step-marker" aria-hidden="true">{state === "complete" ? "✓" : state === "active" ? "•" : String(index + 1)}</span>
+              <span>{step.label}</span>
+              <small>{step.detail}</small>
+            </li>
+          );
+        })}
       </ol>
-      <p>Retrieving evidence and keeping your question visible while the bounded local run resolves.</p>
+      <p>The guide keeps the request visible while the bounded local run resolves. The completed trace is authoritative.</p>
     </section>
   );
 }
@@ -202,6 +216,7 @@ function AnswerBlock({
         <div className="answer-boundary-note" role="note">
           <strong>Research boundary</strong>
           <span>Human correctness and faithfulness remain UNSCORED. This view reports returned runtime evidence only.</span>
+          {run.error?.errorType && <code>Failure type: {run.error.errorType}</code>}
         </div>
       )}
 
@@ -285,10 +300,14 @@ export function AnswerCanvas({
 
         {!hasRun ? (
           <section className="canvas-ready-state" aria-label="Ready state">
-            <div className="ready-marker" aria-hidden="true">01</div>
+            <div className="ready-marker" aria-hidden="true"><span />⌁</div>
             <div>
-              <strong>Ready when you are</strong>
-              <p>The answer canvas stays quiet until a question is submitted. Nothing is sent outside the local runtime.</p>
+              <strong>Ready for a grounded question</strong>
+              <p>The canvas stays quiet until you ask. Nothing is sent outside the local runtime.</p>
+            </div>
+            <div className="ready-state-meta">
+              <span>{sources.length} {sources.length === 1 ? "source" : "sources"}</span>
+              <span>{sources.length === 0 ? "Import to begin" : "Corpus ready"}</span>
             </div>
             {sources.length === 0 && <button className="secondary-action" type="button" onClick={onOpenSources}>Open corpus</button>}
           </section>
@@ -300,12 +319,13 @@ export function AnswerCanvas({
             </section>
 
             {isRunning ? (
-              <LoadingProgress />
+              <LoadingProgress mode={mode} />
             ) : run ? (
               <>
                 <RunStateBanner run={run} />
                 <AnswerBlock run={run} mode={mode} onOpenEvidence={onOpenEvidence} onOpenResearch={onOpenResearch} />
                 <RuntimeSummary run={run} onOpenResearch={onOpenResearch} />
+                {mode === "research" && <ResearchWorkspace run={run} onOpenResearch={onOpenResearch} />}
               </>
             ) : (
               <section className="run-pending-empty" role="status"><strong>Preparing the run…</strong><span>The submitted question is retained while the local service responds.</span></section>

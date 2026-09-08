@@ -11,7 +11,7 @@ interface WorkspaceHeaderProps {
   health: HealthResponse | null;
   run: NormalizedUiRun | null;
   sourceCount: number;
-  onOpenRail: () => void;
+  onOpenRail: (trigger?: HTMLButtonElement) => void;
   onOpenResearch: () => void;
 }
 function runtimeCopy(status: RunStatus) {
@@ -54,7 +54,7 @@ export function WorkspaceHeader({
           className="mobile-rail-button"
           type="button"
           aria-label="Open workspace navigation"
-          onClick={onOpenRail}
+          onClick={(event) => onOpenRail(event.currentTarget)}
         >
           <span aria-hidden="true">☰</span>
         </button>

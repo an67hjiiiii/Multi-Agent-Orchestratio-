@@ -13,6 +13,10 @@ export interface NormalizedUiTask {
   taskId: string;
   goal: string | null;
   domain: string | null;
+  /** Only shown when the run record explicitly returns a role label. */
+  roleProfile: string | null;
+  /** Only shown when the run record explicitly returns an agent label. */
+  agent: string | null;
   dependsOn: string[];
   evidenceNeeds: string[];
   status: StringStatus;
@@ -180,6 +184,10 @@ function normalizeTasks(run: RunRecord, events: RunEvent[]): NormalizedUiTask[] 
       taskId,
       goal: asNonEmptyString(task?.goal),
       domain: asNonEmptyString(result?.domain ?? task?.domain),
+      roleProfile: asNonEmptyString(
+        result?.role_profile ?? result?.role ?? task?.role_profile ?? task?.role,
+      ),
+      agent: asNonEmptyString(result?.agent ?? result?.agent_id ?? task?.agent ?? task?.agent_id),
       dependsOn: asStringList(task?.depends_on),
       evidenceNeeds: asStringList(task?.evidence_needs),
       status: statusValue(result?.status),

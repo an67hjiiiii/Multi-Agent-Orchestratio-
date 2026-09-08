@@ -87,7 +87,7 @@ export function QuestionComposer({
           type="button"
           aria-label="Add a UTF-8 source file"
           title="Add a UTF-8 source file"
-          disabled={isImporting}
+          disabled={isImporting || isRunning}
           onClick={() => fileRef.current?.click()}
         >
           <span aria-hidden="true">＋</span>

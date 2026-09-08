@@ -93,6 +93,11 @@ export interface Task {
   task_id: string;
   goal: string;
   domain?: string;
+  /** Optional additive labels returned by richer research profiles. */
+  role_profile?: string;
+  role?: string;
+  agent?: string;
+  agent_id?: string;
   depends_on?: string[];
   evidence_needs?: string[];
 }
@@ -100,6 +105,11 @@ export interface Task {
 export interface TaskResult {
   task_id: string;
   domain?: string;
+  /** Optional additive labels; older run records omit these fields. */
+  role_profile?: string;
+  role?: string;
+  agent?: string;
+  agent_id?: string;
   status?: RunStatus;
   answer?: string;
   evidence_ids?: string[];
@@ -165,6 +175,11 @@ export interface RunRecord {
   query?: string;
   status: RunStatus;
   answer?: string;
+  /** Optional additive labels used by richer research/demo run records. */
+  agents?: string[];
+  agent_ids?: string[];
+  roles?: string[];
+  role_profiles?: string[];
   source_snapshot_id?: string;
   config_hash?: string;
   tasks?: Task[];
