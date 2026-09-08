@@ -63,9 +63,33 @@ def load_cases(path: str | Path) -> list[FinalCase]:
     """Load request-only cases; gold-shaped fields are rejected at the seam."""
 
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
-    if not isinstance(payload, dict) or payload.get("schema_version") != "final-experiment-cases-v1":
-        raise ValueError("final cases must use schema_version final-experiment-cases-v1")
-    raw_cases = payload.get("cases")
+    if not isinstance(payload, dict):
+        raise ValueError("final cases manifest must be a JSON object")
+    schema_version = payload.get("schema_version")
+    if schema_version == "final-experiment-cases-v1":
+        raw_cases = payload.get("cases")
+    elif schema_version == "m1-final-frozen-requests-v1":
+        # The canonical frozen manifest groups four request variants under
+        # each scenario. Flatten only request fields at the generation seam.
+        raw_cases = []
+        for group in payload.get("scenario_groups") or []:
+            if not isinstance(group, dict):
+                raise ValueError("final scenario groups must be objects")
+            for variant in group.get("variants") or []:
+                if not isinstance(variant, dict):
+                    raise ValueError("final scenario variants must be objects")
+                raw_cases.append(
+                    {
+                        "id": variant.get("case_id"),
+                        "query": variant.get("request_text"),
+                        "kind": group.get("canonical_domain") or "",
+                    }
+                )
+    else:
+        raise ValueError(
+            "final cases must use schema_version final-experiment-cases-v1 "
+            "or m1-final-frozen-requests-v1"
+        )
     if not isinstance(raw_cases, list) or not raw_cases:
         raise ValueError("final cases must contain a non-empty cases list")
     forbidden = {"gold", "gold_answer", "expected_answer", "rubric", "expected_evidence"}

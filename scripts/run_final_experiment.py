@@ -22,7 +22,7 @@ from app.evaluation.final_experiment import (
     run_final_experiment,
 )
 
-DEFAULT_CASES = ROOT / "datasets" / "final" / "final_cases.json"
+DEFAULT_CASES = ROOT / "datasets" / "final" / "final_benchmark_v1.json"
 DEFAULT_OUTPUT = ROOT / "reports" / "final_experiment"
 DEFAULT_RUNS = ROOT / "runs" / "final_experiment"
 

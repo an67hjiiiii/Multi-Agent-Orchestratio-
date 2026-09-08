@@ -56,6 +56,17 @@ def test_pending_approval_blocks_even_before_cases_are_loaded(tmp_path):
         )
 
 
+def test_canonical_final_manifest_flattens_request_variants_only():
+    manifest = Path(__file__).parents[1] / "datasets" / "final" / "final_benchmark_v1.json"
+    from app.evaluation.final_experiment import load_cases
+
+    cases = load_cases(manifest)
+    assert len(cases) == 120
+    assert cases[0].case_id == "M1F-S01-V01"
+    assert cases[0].query.startswith("Trace the security handoff")
+    assert cases[-1].case_id == "M1F-S30-V04"
+
+
 def test_dry_run_reports_explicit_pending_approval_block_without_pipeline(tmp_path):
     result = asyncio.run(
         run_final_experiment(

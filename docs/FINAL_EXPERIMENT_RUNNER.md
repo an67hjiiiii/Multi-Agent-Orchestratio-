@@ -1,7 +1,10 @@
 # Final six-condition runner
 
 `app.evaluation.final_experiment` and `scripts/run_final_experiment.py` provide
-the reusable serial harness for `A`, `B`, `C`, `C-P`, `C-N`, and `C-O`.
+the reusable serial harness for `A`, `B`, `C`, `C-P`, `C-N`, and `C-O`. The
+default request manifest is the canonical
+`datasets/final/final_benchmark_v1.json`; its frozen scenario groups are
+flattened into request-only variants at the generation seam.
 
 The harness is plumbing only until the owner approves both the final dataset
 and semantic gold. The default invocation is therefore blocked with
