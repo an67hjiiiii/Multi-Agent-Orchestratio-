@@ -24,7 +24,7 @@ STRUCTURED_OUTPUT_CONFIG_VERSION = "ollama-json-schema-v1"
 
 _LOCAL_HOSTNAMES = frozenset({"localhost"})
 _MODEL_FIELDS = ("name", "model", "digest", "size", "modified_at")
-_STRUCTURED_MARKERS = ("VANILLA_RAG_ANSWERER", "TASK_DECOMPOSER", "WORKER")
+_STRUCTURED_MARKERS = ("VANILLA_RAG_ANSWERER", "TASK_DECOMPOSER", "WORKER", "SYNTHESIZER")
 
 
 class OllamaConfigurationError(ValueError):

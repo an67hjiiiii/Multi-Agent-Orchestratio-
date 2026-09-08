@@ -14,6 +14,7 @@ const sourceTypeByExtension: Record<string, string> = {
   jsx: "Code",
   markdown: "Markdown",
   md: "Markdown",
+  pdf: "PDF",
   py: "Code",
   sh: "Code",
   sql: "Code",
@@ -48,6 +49,7 @@ function SourceRow({
   onInspect: () => void;
 }) {
   const indexed = source.chunk_count > 0;
+  const status = source.index_status ?? (indexed ? "READY" : "EMPTY");
   return (
     <article className={`knowledge-source-row${selected ? " knowledge-source-row-selected" : ""}`} role="listitem">
       <div className="knowledge-source-row-heading">
@@ -58,12 +60,12 @@ function SourceRow({
             <p>{sourceType(source.source_name)} · {source.chunk_count} {source.chunk_count === 1 ? "chunk" : "chunks"}</p>
           </div>
         </div>
-        <span className="knowledge-availability"><span aria-hidden="true" />Available locally</span>
+        <span className={`knowledge-availability knowledge-availability-${status.toLowerCase()}`}><span aria-hidden="true" />{status === "READY" ? "Available locally" : status}</span>
       </div>
       <div className="knowledge-source-facts">
         <div><span>Type</span><strong>{sourceType(source.source_name)}</strong></div>
         <div><span>Chunks</span><strong>{source.chunk_count}</strong></div>
-        <div><span>Status</span><strong>{indexed ? "Indexed" : "No chunks"}</strong></div>
+        <div><span>Status</span><strong>{status === "READY" ? "Indexed" : status === "EMPTY" ? "No chunks" : status}</strong></div>
       </div>
       <div className="knowledge-source-row-footer">
         <code title={source.source_id}>{source.source_id}</code>

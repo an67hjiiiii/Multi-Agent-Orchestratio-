@@ -19,12 +19,16 @@ export interface HealthResponse {
   default_provider?: string;
   source_snapshot_id?: string;
   config_hash?: string;
+  knowledge_base?: KnowledgeBaseStatus;
 }
 
 export interface RuntimeConfigResponse {
   implementation_profile?: string;
   provider?: string;
   local_model?: string;
+  retrieval_mode?: "LEXICAL" | "VECTOR" | "HYBRID" | string;
+  vector_backend?: string | null;
+  local_embedding_model?: string | null;
   allowed_conditions?: string[];
   config_hash?: string;
 }
@@ -33,6 +37,9 @@ export interface SourceSummary {
   source_id: string;
   source_name: string;
   chunk_count: number;
+  source_type?: string | null;
+  source_format?: string | null;
+  index_status?: string | null;
 }
 
 export interface SourcesResponse {
@@ -44,6 +51,7 @@ export interface KnowledgeBaseStatus {
   status: "EMPTY" | "READY" | "FAILED" | "UNAVAILABLE" | (string & {});
   backend: string;
   retrieval_backend?: string;
+  retrieval_mode?: "LEXICAL" | "VECTOR" | "HYBRID" | string;
   embedding_version?: string | null;
   vector_indexed_chunks?: number;
   index_identity?: unknown;
@@ -51,6 +59,7 @@ export interface KnowledgeBaseStatus {
   source_count: number;
   chunk_count: number;
   snapshot_id: string;
+  availability_error?: string | null;
 }
 
 export interface SourceChunk {
@@ -236,4 +245,7 @@ export interface SourceImportResult {
   retrieval_backend?: string;
   embedding_version?: string | null;
   vector_indexed_chunks?: number;
+  source_type?: string | null;
+  source_format?: string | null;
+  index_status?: string | null;
 }

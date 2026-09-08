@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from collections.abc import Mapping
 from dataclasses import replace
 from pathlib import Path
@@ -8,7 +7,12 @@ from typing import Any
 
 from app.core.storage_config import StorageConfig
 from app.core.types import SourceChunk
-from app.retrieval.embeddings import LocalHashEmbedder, TextEmbedder
+from app.retrieval.embeddings import (
+    EmbeddingBackendUnavailable,
+    LocalHashEmbedder,
+    OllamaEmbedder,
+    TextEmbedder,
+)
 from app.retrieval.text import domain_compatibility, retrieve
 from app.storage.source_store import SourceStore
 from app.storage.vector_store import (
@@ -29,10 +33,18 @@ class KnowledgeBase:
         vector_store: VectorStore | None = None,
         embedder: TextEmbedder | None = None,
         backend_name: str | None = None,
+        retrieval_mode: str | None = None,
+        availability_error: str | None = None,
     ) -> None:
         self.source_store = source_store
         self.vector_store = vector_store
         self.embedder = embedder or LocalHashEmbedder()
+        self.retrieval_mode = (
+            retrieval_mode or ("VECTOR" if vector_store is not None else "LEXICAL")
+        ).strip().upper()
+        if self.retrieval_mode not in {"LEXICAL", "VECTOR", "HYBRID"}:
+            raise ValueError(f"Unsupported retrieval mode {self.retrieval_mode}")
+        self.availability_error = availability_error
         vector_dimension = getattr(vector_store, "vector_size", None)
         if vector_dimension is not None and vector_dimension != self.embedder.dimension:
             raise ValueError(
@@ -54,28 +66,55 @@ class KnowledgeBase:
         silently changing the configured implementation.
         """
 
-        configured_backend = os.getenv("VECTOR_BACKEND", "").strip().lower()
-        if not configured_backend:
-            return cls(source_store, backend_name="lexical")
-
         config = StorageConfig.from_env()
-        embedder = LocalHashEmbedder(dimension=config.vector_size)
-        if config.vector_backend == "memory":
-            vector_store: VectorStore = InMemoryVectorStore(
-                vector_size=config.vector_size
+        if config.retrieval_mode == "LEXICAL":
+            return cls(
+                source_store,
+                backend_name="lexical",
+                retrieval_mode="LEXICAL",
             )
-        else:
-            vector_store = QdrantVectorStore(
-                path=config.qdrant_path,
-                collection=config.qdrant_collection,
-                vector_size=config.vector_size,
+
+        try:
+            embedder: TextEmbedder
+            if config.embedding_provider == "ollama":
+                embedder = OllamaEmbedder(
+                    model=config.embedding_model,
+                    dimension=config.vector_size,
+                )
+            else:
+                embedder = LocalHashEmbedder(dimension=config.vector_size)
+            if config.vector_backend == "memory":
+                vector_store: VectorStore = InMemoryVectorStore(
+                    vector_size=config.vector_size
+                )
+            else:
+                vector_store = QdrantVectorStore(
+                    path=config.qdrant_path,
+                    collection=config.qdrant_collection,
+                    vector_size=config.vector_size,
+                )
+            return cls(
+                source_store,
+                vector_store=vector_store,
+                embedder=embedder,
+                backend_name=config.vector_backend,
+                retrieval_mode=config.retrieval_mode,
             )
-        return cls(
-            source_store,
-            vector_store=vector_store,
-            embedder=embedder,
-            backend_name=config.vector_backend,
-        )
+        except (
+            EmbeddingBackendUnavailable,
+            ImportError,
+            OSError,
+            ValueError,
+            VectorBackendUnavailable,
+        ) as exc:
+            # Keep startup deterministic and let the API report an explicit
+            # unavailable vector mode instead of silently using lexical search.
+            return cls(
+                source_store,
+                backend_name="unavailable",
+                retrieval_mode=config.retrieval_mode,
+                availability_error=str(exc),
+            )
 
     def import_text(
         self,
@@ -93,11 +132,20 @@ class KnowledgeBase:
         return {
             **result,
             "retrieval_backend": self.backend_name,
+            "retrieval_mode": self.retrieval_mode,
+            "backend": self.backend_name,
+            "source_type": result.get("provenance", {}).get("source_type"),
+            "source_format": result.get("provenance", {}).get("source_format"),
+            "index_status": "READY" if self.retrieval_mode == "LEXICAL" or self.vector_store is not None else "UNAVAILABLE",
             "embedding_version": self.embedder.version
             if self.vector_store is not None
             else None,
             "vector_indexed_chunks": indexed,
         }
+
+    @property
+    def is_available(self) -> bool:
+        return self.retrieval_mode == "LEXICAL" or self.vector_store is not None
 
     def import_document(
         self,
@@ -132,7 +180,16 @@ class KnowledgeBase:
         )
 
     def list_sources(self) -> list[dict[str, Any]]:
-        return self.source_store.list_sources()
+        sources = self.source_store.list_sources()
+        for source in sources:
+            source["index_status"] = (
+                "UNAVAILABLE"
+                if not self.is_available
+                else "READY"
+                if int(source.get("chunk_count", 0) or 0) > 0
+                else "EMPTY"
+            )
+        return sources
 
     def source(self, source_id: str) -> dict[str, Any] | None:
         return self.source_store.source(source_id)
@@ -142,13 +199,36 @@ class KnowledgeBase:
 
     def status(self) -> dict[str, Any]:
         status = self.source_store.status()
+        if self.retrieval_mode != "LEXICAL" and self.vector_store is None:
+            status.update(
+                {
+                    "status": "UNAVAILABLE",
+                    "backend": self.backend_name,
+                    "retrieval_mode": self.retrieval_mode,
+                    "retrieval_backend": self.backend_name,
+                    "embedding_version": None,
+                    "vector_indexed_chunks": 0,
+                    "index_status": "UNAVAILABLE",
+                    "availability_error": self.availability_error,
+                }
+            )
+            return status
         status.update(
             {
+                "backend": "local_json" if self.retrieval_mode == "LEXICAL" else self.backend_name,
+                "retrieval_mode": self.retrieval_mode,
                 "retrieval_backend": self.backend_name,
                 "embedding_version": self.embedder.version
                 if self.vector_store is not None
                 else None,
                 "vector_indexed_chunks": self._vector_count(),
+                "index_status": (
+                    "NOT_CONFIGURED"
+                    if self.retrieval_mode == "LEXICAL"
+                    else "READY"
+                    if self._vector_count()
+                    else "EMPTY"
+                ),
             }
         )
         return status
@@ -162,12 +242,7 @@ class KnowledgeBase:
         domain: str | None = None,
         task_domain: str | None = None,
     ) -> list[SourceChunk]:
-        """Search the canonical chunks, using vector hits only as a fallback.
-
-        Existing lexical/domain-aware ranking remains authoritative whenever it
-        has results.  The optional vector path recovers vocabulary-mismatch
-        queries while retaining canonical chunk/provenance joins.
-        """
+        """Search canonical chunks using the configured local retrieval mode."""
 
         chunks = self.source_store.chunks()
         lexical = retrieve(
@@ -178,29 +253,52 @@ class KnowledgeBase:
             domain=domain,
             task_domain=task_domain,
         )
-        if lexical or self.vector_store is None:
+        if self.retrieval_mode == "LEXICAL":
             return lexical
+
+        self._ensure_available()
 
         matches = self.vector_store.search(
             self.embedder.embed(query),
             limit=max(top_k, top_k * 2),
         )
         by_id = {chunk.chunk_id: chunk for chunk in chunks}
-        requested_domain = task_domain if task_domain is not None else domain
-        candidates: list[tuple[SourceChunk, float]] = []
+        vector_scores: dict[str, float] = {}
         for match in matches:
             chunk = by_id.get(match.id)
             if chunk is None or match.score <= 0:
                 continue
-            candidates.append((replace(chunk, score=float(match.score)), match.score))
+            vector_scores[chunk.chunk_id] = float(match.score)
+
+        lexical_scores = {chunk.chunk_id: float(chunk.score) for chunk in lexical}
+        if self.retrieval_mode == "VECTOR":
+            candidate_ids = list(vector_scores)
+            score_for = lambda chunk_id: vector_scores[chunk_id]
+        else:
+            candidate_ids = list(dict.fromkeys([*lexical_scores, *vector_scores]))
+
+            def score_for(chunk_id: str) -> float:
+                lexical_score = lexical_scores.get(chunk_id, 0.0)
+                vector_score = vector_scores.get(chunk_id, 0.0)
+                return round(0.65 * lexical_score + 0.35 * vector_score, 8)
+
+        requested_domain = task_domain if task_domain is not None else domain
+        candidates: list[SourceChunk] = []
+        for chunk_id in candidate_ids:
+            chunk = by_id[chunk_id]
+            score = score_for(chunk_id)
+            if score <= 0 or score < min_score:
+                continue
+            candidates.append(replace(chunk, score=score))
         candidates.sort(
-            key=lambda item: (
-                -domain_compatibility(item[0], requested_domain),
-                -item[1],
-                item[0].chunk_id,
-            )
+            key=lambda item: (-domain_compatibility(item, requested_domain), -item.score, item.chunk_id)
         )
-        return [chunk for chunk, _score in candidates[:top_k]]
+        return candidates[:top_k]
+
+    def _ensure_available(self) -> None:
+        if self.retrieval_mode != "LEXICAL" and self.vector_store is None:
+            detail = self.availability_error or "vector backend is unavailable"
+            raise VectorBackendUnavailable(detail)
 
     def _sync_index(self) -> None:
         if self.vector_store is None:

@@ -28,6 +28,26 @@ This repository is a clean codebase. Legacy Adaptive Orchestrator research seman
 - 12-case M0 calibration runner.
 - Candidate release manifest generator.
 
+## Knowledge Engine V3 (local, opt-in)
+
+- `RETRIEVAL_MODE=LEXICAL` keeps the dependency-free last-known-good path.
+- `RETRIEVAL_MODE=VECTOR` or `HYBRID` enables the configured local vector store;
+  use `VECTOR_BACKEND=qdrant` for a local Qdrant path or `memory` for a bounded
+  development check. Vector mode never silently falls back when explicitly
+  requested.
+- `EMBEDDING_PROVIDER=hash` is deterministic and offline. Set it to `ollama`
+  with `LOCAL_EMBEDDING_MODEL` only when a local Ollama embedding model is
+  already available.
+- TXT/Markdown/PDF ingestion preserves source/chunk provenance. PDF support is
+  selectable-text extraction through `pypdf`; scanned-image OCR is not supported.
+
+Build the served React shell before starting FastAPI:
+
+```powershell
+npm --prefix frontend install
+npm --prefix frontend run build
+```
+
 
 ## New repository bootstrap
 

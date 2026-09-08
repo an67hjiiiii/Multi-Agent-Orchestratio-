@@ -94,3 +94,23 @@ def test_synthesis_no_evidence_stays_citation_free():
     answer = asyncio.run(synthesize(provider, "Review", results, RunMetrics()))
 
     assert "Nguồn:" not in answer
+
+
+def test_synthesis_uses_question_first_fallback_for_thin_model_answer():
+    provider = StubProvider({"answer": "yes", "citations": ["E1"]})
+    results = [
+        TaskResult(
+            "T1",
+            "security",
+            "COMPLETE",
+            "Authentication verifies identity.",
+            evidence_ids=["chunk-1"],
+            citations=["chunk-1"],
+        )
+    ]
+
+    answer = asyncio.run(synthesize(provider, "How does authentication work?", results, RunMetrics()))
+
+    assert answer.startswith("Kết luận:")
+    assert "Authentication verifies identity." in answer
+    assert "[chunk-1]" in answer

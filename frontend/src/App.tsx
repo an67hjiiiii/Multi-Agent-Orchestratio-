@@ -144,6 +144,8 @@ export function App() {
           const runProvider = research.activeRun?.provider ?? provider;
           void research.inspectPlan(request, runProvider);
         }}
+        knowledgeStatus={research.health?.knowledge_base}
+        retrievalMode={research.runtimeConfig?.retrieval_mode}
       />
     </div>
   );

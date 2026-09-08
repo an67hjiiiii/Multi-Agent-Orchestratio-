@@ -4,6 +4,7 @@ import type {
   RunEvent,
   SourceChunk,
   SourceSummary,
+  KnowledgeBaseStatus,
 } from "../types/api";
 import type { SourceImportState } from "../app/useResearchApp";
 import type { NormalizedUiRun, NormalizedUiTask } from "../lib/uiAdapter";
@@ -36,6 +37,8 @@ interface EvidenceDrawerProps {
   planningError: string | null;
   isInspectingPlan: boolean;
   onInspectPlan: () => void;
+  knowledgeStatus?: KnowledgeBaseStatus | null;
+  retrievalMode?: string | null;
 }
 
 function unique(values: string[]) {
@@ -341,6 +344,8 @@ export function EvidenceDrawer({
   planningError,
   isInspectingPlan,
   onInspectPlan,
+  knowledgeStatus,
+  retrievalMode,
 }: EvidenceDrawerProps) {
   const drawerRef = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -444,7 +449,7 @@ export function EvidenceDrawer({
         <div className="drawer-content">
           {safeTab === "context" && <div id="drawer-panel-context" role="tabpanel" aria-labelledby="drawer-tab-context"><EvidenceContext run={run} selectedChunk={selectedChunk} selectedChunkId={selectedChunkId} loadingId={loadingId} error={chunkError} mode={mode} onInspectChunk={(id) => void inspectChunk(id)} onRetry={() => { if (selectedChunkId) void inspectChunk(selectedChunkId); }} /></div>}
           {safeTab === "evidence" && <div id="drawer-panel-evidence" role="tabpanel" aria-labelledby="drawer-tab-evidence"><EvidenceTrail run={run} onInspectChunk={(id) => void inspectChunk(id)} /></div>}
-          {safeTab === "sources" && <div id="drawer-panel-sources" role="tabpanel" aria-labelledby="drawer-tab-sources"><KnowledgeWorkspace sources={sources} sourceSnapshotId={sourceSnapshotId} sourceImport={sourceImport} isImporting={isImporting} onImport={onImport} onInspectChunk={(id) => void inspectChunk(id)} /></div>}
+          {safeTab === "sources" && <div id="drawer-panel-sources" role="tabpanel" aria-labelledby="drawer-tab-sources"><KnowledgeWorkspace sources={sources} sourceSnapshotId={sourceSnapshotId} sourceImport={sourceImport} isImporting={isImporting} onImport={onImport} onInspectChunk={(id) => void inspectChunk(id)} knowledgeStatus={knowledgeStatus} retrievalMode={retrievalMode} researchMode={mode === "research"} /></div>}
           {safeTab === "research" && <div id="drawer-panel-research" role="tabpanel" aria-labelledby="drawer-tab-research"><ResearchPanel run={run} onInspectChunk={(id) => void inspectChunk(id)} /></div>}
           {safeTab === "metrics" && <div id="drawer-panel-metrics" role="tabpanel" aria-labelledby="drawer-tab-metrics"><MetricsPanel run={run} /></div>}
           {safeTab === "plan" && canInspectPlan && <div id="drawer-panel-plan" role="tabpanel" aria-labelledby="drawer-tab-plan"><PlanPanel result={planningInspection} error={planningError} isLoading={isInspectingPlan} /></div>}

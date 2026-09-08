@@ -83,6 +83,9 @@ PUBLIC_CONFIG_FIELDS: Final[tuple[str, ...]] = (
     "max_run_tokens",
     "retry_limit",
     "retrieval_min_score",
+    "retrieval_mode",
+    "vector_backend",
+    "local_embedding_model",
 )
 
 
@@ -107,12 +110,24 @@ class RuntimeConfig:
     max_run_tokens: int
     retry_limit: int
     retrieval_min_score: float
+    retrieval_mode: str
+    vector_backend: str | None
+    local_embedding_model: str | None
 
     @classmethod
     def from_env(cls) -> "RuntimeConfig":
         profile = os.getenv("IMPLEMENTATION_PROFILE", "m0").strip().lower()
         if profile not in PROFILE_CONDITIONS:
             raise ValueError(f"Unsupported IMPLEMENTATION_PROFILE={profile}")
+        retrieval_mode = os.getenv("RETRIEVAL_MODE", "").strip().upper()
+        if not retrieval_mode:
+            retrieval_mode = "VECTOR" if os.getenv("VECTOR_BACKEND", "").strip() else "LEXICAL"
+        if retrieval_mode not in {"LEXICAL", "VECTOR", "HYBRID"}:
+            raise ValueError(f"Unsupported RETRIEVAL_MODE={retrieval_mode}")
+        vector_backend = os.getenv("VECTOR_BACKEND", "").strip().lower() or None
+        if vector_backend is not None and vector_backend not in {"memory", "qdrant"}:
+            raise ValueError(f"Unsupported VECTOR_BACKEND={vector_backend}")
+        embedding_model = os.getenv("LOCAL_EMBEDDING_MODEL", "").strip() or None
         return cls(
             implementation_profile=profile,
             provider=os.getenv("PROVIDER", "fake").strip().lower(),
@@ -124,6 +139,9 @@ class RuntimeConfig:
             max_run_tokens=max(512, int(os.getenv("MAX_RUN_TOKENS", "12000"))),
             retry_limit=max(0, int(os.getenv("RETRY_LIMIT", "1"))),
             retrieval_min_score=max(0.0, float(os.getenv("MIN_RETRIEVAL_SCORE", "0.18"))),
+            retrieval_mode=retrieval_mode,
+            vector_backend=vector_backend,
+            local_embedding_model=embedding_model,
         )
 
     def allowed_conditions(self) -> list[str]:

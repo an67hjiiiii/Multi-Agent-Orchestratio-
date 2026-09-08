@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import type { SourceSummary } from "../types/api";
+import type { KnowledgeBaseStatus, SourceSummary } from "../types/api";
 import type { SourceImportState } from "../app/useResearchApp";
 import { KnowledgeSourceList } from "./KnowledgeSourceList";
 
@@ -10,6 +10,9 @@ interface KnowledgeWorkspaceProps {
   isImporting: boolean;
   onImport: (file: File) => Promise<void>;
   onInspectChunk: (chunkId: string) => void;
+  knowledgeStatus?: KnowledgeBaseStatus | null;
+  retrievalMode?: string | null;
+  researchMode?: boolean;
 }
 
 function snapshotLabel(snapshotId: string | null) {
@@ -68,6 +71,9 @@ export function KnowledgeWorkspace({
   isImporting,
   onImport,
   onInspectChunk,
+  knowledgeStatus,
+  retrievalMode,
+  researchMode = false,
 }: KnowledgeWorkspaceProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const totalChunks = sources.reduce((total, source) => total + source.chunk_count, 0);
@@ -85,7 +91,7 @@ export function KnowledgeWorkspace({
             ref={fileRef}
             className="visually-hidden"
             type="file"
-            accept=".txt,.md,.markdown,.py,.js,.ts,.tsx,.json,.yaml,.yml,.csv"
+            accept=".txt,.md,.markdown,.pdf,.py,.js,.ts,.tsx,.json,.yaml,.yml,.csv"
             onChange={(event) => {
               const file = event.target.files?.[0];
               if (file) void onImport(file);
@@ -102,6 +108,8 @@ export function KnowledgeWorkspace({
       <div className="knowledge-summary" aria-label="Knowledge base summary">
         <div><span>Documents</span><strong>{sources.length}</strong></div>
         <div><span>Indexed chunks</span><strong>{totalChunks}</strong></div>
+        {researchMode && <div><span>Retrieval</span><strong>{retrievalMode ?? knowledgeStatus?.retrieval_backend ?? "LEXICAL"}</strong></div>}
+        {researchMode && <div><span>Index status</span><strong>{knowledgeStatus?.index_status ?? (totalChunks ? "READY" : "EMPTY")}</strong></div>}
         <div><span>Corpus snapshot</span><code title={sourceSnapshotId ?? "Snapshot not recorded"}>{snapshotLabel(sourceSnapshotId)}</code></div>
       </div>
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+from io import BytesIO
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -8,12 +9,16 @@ from typing import Any
 from app.retrieval.text import normalize_source_name, normalize_text
 
 
-DOCUMENT_INGESTION_VERSION = "kb-v2-text-ingestion-v1"
+DOCUMENT_INGESTION_VERSION = "kb-v3-document-ingestion-v1"
 MAX_DOCUMENT_BYTES = 2_000_000
 SUPPORTED_TEXT_EXTENSIONS = {
     ".txt": "text/plain",
     ".md": "text/markdown",
     ".markdown": "text/markdown",
+}
+SUPPORTED_DOCUMENT_EXTENSIONS = {
+    **SUPPORTED_TEXT_EXTENSIONS,
+    ".pdf": "application/pdf",
 }
 
 
@@ -41,24 +46,32 @@ def extract_document(
 ) -> ExtractedDocument:
     """Decode one supported local document and return stable metadata.
 
-    PDF is intentionally not accepted here: the repository has no PDF parser
-    dependency, so pretending that a binary file is UTF-8 would corrupt the
-    source boundary.  A later, explicitly versioned parser can extend this
-    function without changing SourceStore identity rules.
+    PDF extraction is text-only and intentionally does not attempt OCR. The
+    optional parser is imported lazily so the lexical TXT/MD path remains
+    usable when the PDF dependency is not installed.
     """
 
     clean_name = normalize_source_name(source_name)
     if not clean_name:
         raise ValueError("source_name must not be empty")
     suffix = Path(clean_name).suffix.casefold()
-    source_type = SUPPORTED_TEXT_EXTENSIONS.get(suffix)
+    source_type = SUPPORTED_DOCUMENT_EXTENSIONS.get(suffix)
     if source_type is None:
-        supported = ", ".join(sorted(SUPPORTED_TEXT_EXTENSIONS))
+        supported = ", ".join(sorted(SUPPORTED_DOCUMENT_EXTENSIONS))
         raise DocumentTypeError(
             f"unsupported document type {suffix or '<none>'}; supported: {supported}"
         )
 
-    if isinstance(data, bytes):
+    if suffix == ".pdf":
+        if not isinstance(data, bytes):
+            raise TypeError("PDF document data must be bytes")
+        byte_size = len(data)
+        if byte_size > MAX_DOCUMENT_BYTES:
+            raise ValueError(
+                f"document exceeds the {MAX_DOCUMENT_BYTES}-byte size limit"
+            )
+        raw_text, page_count = _extract_pdf_text(data)
+    elif isinstance(data, bytes):
         byte_size = len(data)
         if byte_size > MAX_DOCUMENT_BYTES:
             raise ValueError(
@@ -93,6 +106,9 @@ def extract_document(
     }
     if isinstance(content_type, str) and content_type.strip():
         provenance["declared_content_type"] = content_type.strip().lower()
+    if suffix == ".pdf":
+        provenance["page_count"] = page_count
+        provenance["parser"] = "pypdf-text-v1"
 
     return ExtractedDocument(
         source_name=clean_name,
@@ -103,6 +119,34 @@ def extract_document(
         source_hash=source_hash,
         provenance=provenance,
     )
+
+
+def _extract_pdf_text(data: bytes) -> tuple[str, int]:
+    """Extract selectable PDF text without attempting image OCR."""
+
+    try:
+        from pypdf import PdfReader  # type: ignore
+    except ImportError as exc:
+        raise DocumentTypeError(
+            "PDF text extraction requires the optional pypdf dependency"
+        ) from exc
+
+    try:
+        reader = PdfReader(BytesIO(data))
+        pages: list[str] = []
+        for page in reader.pages:
+            text = page.extract_text() or ""
+            if text.strip():
+                pages.append(text)
+    except Exception as exc:
+        raise DocumentTypeError("PDF text extraction failed") from exc
+
+    extracted = "\n\n".join(pages).strip()
+    if not extracted:
+        raise DocumentTypeError(
+            "PDF contains no extractable text; scanned-image OCR is not supported"
+        )
+    return extracted, len(reader.pages)
 
 
 def extract_document_path(path: str | Path) -> ExtractedDocument:
@@ -120,6 +164,7 @@ __all__ = [
     "DOCUMENT_INGESTION_VERSION",
     "MAX_DOCUMENT_BYTES",
     "SUPPORTED_TEXT_EXTENSIONS",
+    "SUPPORTED_DOCUMENT_EXTENSIONS",
     "DocumentTypeError",
     "ExtractedDocument",
     "extract_document",

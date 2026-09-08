@@ -21,6 +21,7 @@ afterEach(() => {
 describe("knowledge workspace", () => {
   it("derives readable source types without changing the API shape", () => {
     expect(sourceType("research-notes.md")).toBe("Markdown");
+    expect(sourceType("research-pack.pdf")).toBe("PDF");
     expect(sourceType("retriever.py")).toBe("Code");
     expect(sourceType("corpus.data")).toBe("Text");
   });

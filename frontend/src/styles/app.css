@@ -999,7 +999,7 @@ code, .workspace-source-count, .header-research-context, .context-location, .tra
 .knowledge-add-button { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 0 12px; border: 1px solid var(--signal); border-radius: 7px; background: var(--signal); color: #fff; cursor: pointer; font-size: 11px; font-weight: 750; transition: background .14s ease-out, border-color .14s ease-out, transform .14s ease-out; }
 .knowledge-add-button:hover:not(:disabled) { border-color: var(--signal-dark); background: var(--signal-dark); transform: translateY(-1px); }
 .knowledge-add-button:disabled { cursor: wait; opacity: .62; }
-.knowledge-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; padding: 9px; border: 1px solid var(--line); border-radius: 9px; background: var(--paper); }
+.knowledge-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; padding: 9px; border: 1px solid var(--line); border-radius: 9px; background: var(--paper); }
 .knowledge-summary > div { display: grid; gap: 4px; min-width: 0; padding: 8px 9px; border-radius: 7px; background: var(--surface-1); }
 .knowledge-summary span { color: var(--ink-muted); font-size: 9px; }
 .knowledge-summary strong { color: var(--ink); font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace; font-size: 14px; font-weight: 750; }

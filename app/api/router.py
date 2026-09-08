@@ -136,8 +136,11 @@ def _planning_value_error(exc: ValueError) -> ApiError:
 
 
 def _vector_backend_requested() -> bool:
-    """Return whether the caller explicitly requested a vector backend."""
+    """Return whether vector or hybrid retrieval was explicitly requested."""
 
+    mode = os.getenv("RETRIEVAL_MODE", "").strip().upper()
+    if mode:
+        return mode in {"VECTOR", "HYBRID"}
     return bool(os.getenv("VECTOR_BACKEND", "").strip())
 
 
@@ -153,7 +156,8 @@ def _knowledge_service(runtime: ApiRuntime) -> Any | None:
     service = getattr(runtime, "knowledge_base", None)
     if _vector_backend_requested():
         backend_name = str(getattr(service, "backend_name", "")).strip().lower()
-        if service is None or backend_name in {"", "lexical"}:
+        vector_store = getattr(service, "vector_store", None)
+        if service is None or vector_store is None or backend_name in {"", "lexical", "unavailable"}:
             raise ApiError(
                 503,
                 "KNOWLEDGE_BASE_UNAVAILABLE",
@@ -248,7 +252,12 @@ def _call_knowledge_import(
     try:
         value = method(*args, **kwargs)
     except DocumentTypeError as exc:
-        raise ApiError(415, "UNSUPPORTED_DOCUMENT_TYPE", str(exc)) from exc
+        detail = str(exc)
+        if "requires the optional pypdf dependency" in detail:
+            raise ApiError(503, "PDF_EXTRACTION_UNAVAILABLE", detail, retryable=True) from exc
+        if "no extractable text" in detail:
+            raise ApiError(422, "PDF_NO_TEXT", detail) from exc
+        raise ApiError(415, "UNSUPPORTED_DOCUMENT_TYPE", detail) from exc
     except UnicodeDecodeError as exc:
         raise ApiError(
             415,
@@ -299,7 +308,7 @@ def _knowledge_status(runtime: ApiRuntime) -> dict[str, Any]:
 
     if not retrieval_backend:
         retrieval_backend = "lexical" if vector_indexed_chunks == 0 else "vector"
-    return {
+    normalized = {
         "status": status.get(
             "status",
             "READY"
@@ -331,6 +340,11 @@ def _knowledge_status(runtime: ApiRuntime) -> dict[str, Any]:
         "chunk_count": chunk_count,
         "snapshot_id": status.get("snapshot_id", runtime.source_store.snapshot_id()),
     }
+    if retrieval_backend != "lexical":
+        normalized["retrieval_mode"] = str(
+            status.get("retrieval_mode") or retrieval_backend
+        ).upper()
+    return normalized
 
 
 @router.get("/health")
