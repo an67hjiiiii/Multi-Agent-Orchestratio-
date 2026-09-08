@@ -26,6 +26,7 @@ class SourceChunk:
     text: str
     index: int
     score: float = 0.0
+    provenance: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class Task:

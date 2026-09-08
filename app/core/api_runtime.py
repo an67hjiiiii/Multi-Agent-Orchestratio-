@@ -8,6 +8,7 @@ from typing import Any
 from app.providers.factory import get_provider
 from app.research.p_lite_pipeline import PLitePipeline
 from app.research.pipeline import ResearchPipeline
+from app.storage.knowledge_base import KnowledgeBase
 from app.storage.run_store import RunStore
 from app.storage.source_store import SourceStore
 
@@ -36,6 +37,7 @@ class ApiRuntime:
     """
 
     source_store: SourceStore
+    knowledge_base: KnowledgeBase
     run_store: RunStore
     pipeline: ResearchPipeline
     p_lite_pipeline: PLitePipelineService
@@ -50,10 +52,16 @@ class ApiRuntime:
         data_root = data_dir if data_dir is not None else os.getenv("APP_DATA_DIR", str(ROOT / "data"))
         runs_root = runs_dir if runs_dir is not None else os.getenv("RUNS_DIR", str(ROOT / "runs"))
         source_store = SourceStore(str(data_root))
+        knowledge_base = KnowledgeBase.from_env(source_store)
         run_store = RunStore(str(runs_root))
         return cls(
             source_store=source_store,
+            knowledge_base=knowledge_base,
             run_store=run_store,
-            pipeline=ResearchPipeline(source_store, run_store),
+            pipeline=ResearchPipeline(
+                source_store,
+                run_store,
+                knowledge_base=knowledge_base,
+            ),
             p_lite_pipeline=PLitePipelineService(PLitePipeline()),
         )

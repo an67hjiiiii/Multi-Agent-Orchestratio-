@@ -1,8 +1,11 @@
 from __future__ import annotations
+import inspect
 import time
 import uuid
+from collections.abc import Callable, Mapping
 from dataclasses import asdict
 from datetime import datetime, timezone
+from typing import Any
 from app.core.config import CONDITION_DEFINITIONS, RuntimeConfig
 from app.core.graph import topological_order, validate_tasks
 from app.core.telemetry import process_rss_mb, gpu_memory_mb
@@ -38,11 +41,38 @@ SCORING_VERSION_METADATA = {
     "answer_retrieval": RETRIEVAL_SCORING_VERSION,
     "domain_ranking": DOMAIN_RANKING_VERSION,
 }
+_RETRIEVAL_METADATA_DEFAULTS = {
+    "retrieval_backend": "lexical",
+    "index_version": None,
+    "embedding_version": None,
+    "embedding_model": None,
+    "embedding_digest": None,
+    "embedding_dimension": None,
+    "corpus_snapshot_id": None,
+    "collection": None,
+    "readiness": "ready",
+    "retrieval_scoring_version": RETRIEVAL_SCORING_VERSION,
+    "domain_ranking_version": DOMAIN_RANKING_VERSION,
+}
+_RETRIEVAL_METADATA_FIELDS = frozenset(_RETRIEVAL_METADATA_DEFAULTS)
+_RETRIEVAL_METADATA_SCALAR_TYPES = (bool, int, float, str)
 
 class ResearchPipeline:
-    def __init__(self, source_store: SourceStore, run_store: RunStore):
+    def __init__(
+        self,
+        source_store: SourceStore,
+        run_store: RunStore,
+        *,
+        knowledge_base: Any | None = None,
+        retriever: Any | None = None,
+    ):
+        if knowledge_base is not None and retriever is not None:
+            raise ValueError("pass either knowledge_base or retriever, not both")
         self.source_store = source_store
         self.run_store = run_store
+        self.knowledge_base = knowledge_base
+        self.retrieval_owner = retriever if retriever is not None else knowledge_base
+        self.retriever = _preferred_retriever(self.retrieval_owner)
         self.planning = PlanningRetriever()
 
     async def run(self, query: str, condition: str = "A", provider_name: str | None = None) -> dict:
@@ -78,6 +108,7 @@ class ResearchPipeline:
                 "retry_limit": cfg.retry_limit,
                 "retrieval_min_score": cfg.retrieval_min_score,
                 "scoring_versions": dict(SCORING_VERSION_METADATA),
+                "retrieval": dict(retrieval_metadata),
             }
             run = {
                 "run_id": run_id,
@@ -100,9 +131,37 @@ class ResearchPipeline:
                 "planning_retrieval_scoring_version": PLANNING_RETRIEVAL_SCORING_VERSION,
                 "retrieval_scoring_version": RETRIEVAL_SCORING_VERSION,
                 "domain_ranking_version": DOMAIN_RANKING_VERSION,
+                "retrieval": dict(retrieval_metadata),
             }
             self.run_store.save(run)
             return run
+
+        try:
+            retrieval_metadata = await self._retrieval_metadata()
+        except Exception as exc:
+            retrieval_metadata = {
+                **_RETRIEVAL_METADATA_DEFAULTS,
+                "retrieval_backend": "unavailable",
+            }
+            event(
+                "run_started",
+                condition=condition,
+                provider=provider.name,
+                model=provider.model,
+                implementation_profile=cfg.implementation_profile,
+                source_snapshot_id=source_snapshot,
+                config_hash=cfg.config_hash(),
+                flags=flags,
+                scoring_versions=dict(SCORING_VERSION_METADATA),
+                retrieval=dict(retrieval_metadata),
+            )
+            event("retrieval_failed", error_type=type(exc).__name__)
+            return finalize(
+                "FAILED",
+                f"Pipeline failed: retrieval metadata unavailable ({type(exc).__name__})",
+                [],
+                [],
+            )
 
         event(
             "run_started",
@@ -114,12 +173,18 @@ class ResearchPipeline:
             config_hash=cfg.config_hash(),
             flags=flags,
             scoring_versions=dict(SCORING_VERSION_METADATA),
+            retrieval=dict(retrieval_metadata),
         )
         all_chunks = self.source_store.chunks()
         try:
             if condition == "A":
                 r0 = time.perf_counter()
-                candidates = retrieve(query, all_chunks, top_k=cfg.task_top_k, min_score=cfg.retrieval_min_score)
+                candidates = await self._retrieve(
+                    query,
+                    all_chunks,
+                    top_k=cfg.task_top_k,
+                    min_score=cfg.retrieval_min_score,
+                )
                 metrics.retrieval_latency_ms += int((time.perf_counter() - r0) * 1000)
                 metrics.retrieved_chunks += len(candidates)
                 selected, budget_dropped = apply_token_budget(candidates, cfg.max_context_tokens)
@@ -135,6 +200,7 @@ class ResearchPipeline:
                     dropped=budget_dropped,
                     context_tokens=context_tokens,
                     scoring_version=RETRIEVAL_SCORING_VERSION,
+                    retrieval=dict(retrieval_metadata),
                 )
                 task = Task(task_id="T1", goal=query, domain="general")
                 g0 = time.perf_counter()
@@ -189,13 +255,14 @@ class ResearchPipeline:
                         dependency_context,
                     )
                     r0 = time.perf_counter()
-                    candidates, retrieval_fallback_reason = _retrieve_task_candidates(
+                    candidates, retrieval_fallback_reason = await _retrieve_task_candidates_async(
                         retrieval_query,
                         query,
                         all_chunks,
                         top_k=cfg.task_top_k,
                         min_score=cfg.retrieval_min_score,
                         task_domain=task.domain,
+                        retriever=self._retrieve,
                     )
                     metrics.retrieval_latency_ms += int((time.perf_counter() - r0) * 1000)
                     metrics.retrieved_chunks += len(candidates)
@@ -239,6 +306,7 @@ class ResearchPipeline:
                         total_context_tokens=metrics.context_tokens_est,
                         scoring_version=RETRIEVAL_SCORING_VERSION,
                         domain_ranking_version=DOMAIN_RANKING_VERSION,
+                        retrieval=dict(retrieval_metadata),
                     )
                     g0 = time.perf_counter()
                     result = await execute_task(provider, task, selected, metrics)
@@ -271,6 +339,76 @@ class ResearchPipeline:
             raise ValueError(f"Unknown condition {condition}")
         return {flag: bool(definition[flag]) for flag in ("P", "N", "O")}
 
+    async def _retrieve(
+        self,
+        query: str,
+        chunks: list[SourceChunk],
+        *,
+        top_k: int,
+        min_score: float,
+        domain: str | None = None,
+        task_domain: str | None = None,
+    ) -> list[SourceChunk]:
+        if self.retriever is None:
+            result = retrieve(
+                query,
+                chunks,
+                top_k=top_k,
+                min_score=min_score,
+                domain=domain,
+                task_domain=task_domain,
+            )
+        else:
+            result = _call_retriever(
+                self.retriever,
+                query,
+                chunks,
+                top_k=top_k,
+                min_score=min_score,
+                domain=domain,
+                task_domain=task_domain,
+            )
+            if inspect.isawaitable(result):
+                result = await result
+        if not isinstance(result, list) or any(
+            not isinstance(chunk, SourceChunk) for chunk in result
+        ):
+            raise TypeError("retriever must return a list of SourceChunk values")
+        return result
+
+    async def _retrieval_metadata(self) -> dict[str, Any]:
+        metadata = dict(_RETRIEVAL_METADATA_DEFAULTS)
+        if self.retriever is None:
+            return metadata
+
+        target = self.retrieval_owner
+        method = getattr(target, "index_identity", None)
+        if method is None:
+            method = getattr(target, "metadata", None)
+        if method is None:
+            method = getattr(target, "retrieval_metadata", None)
+        if method is None and not callable(target):
+            method = getattr(target, "status", None)
+        if method is None:
+            metadata["retrieval_backend"] = "custom"
+            metadata["readiness"] = "unknown"
+            return metadata
+        value = method() if callable(method) else method
+        if inspect.isawaitable(value):
+            value = await value
+        if not isinstance(value, Mapping):
+            raise TypeError("retrieval metadata must be an object")
+        metadata["retrieval_backend"] = "custom"
+        metadata["readiness"] = "unknown"
+        for key in _RETRIEVAL_METADATA_FIELDS:
+            candidate = value.get(key)
+            if candidate is None:
+                continue
+            if not isinstance(candidate, _RETRIEVAL_METADATA_SCALAR_TYPES):
+                continue
+            metadata[key] = candidate
+        return metadata
+
 
 def _runtime_tasks(decomposition: object) -> list[Task]:
     """Adapt the decomposer's locked schema to the legacy execution contract."""
@@ -299,6 +437,120 @@ def _runtime_tasks(decomposition: object) -> list[Task]:
     return tasks
 
 
+def _call_retriever(
+    retriever: Any,
+    query: str,
+    chunks: list[SourceChunk],
+    *,
+    top_k: int,
+    min_score: float,
+    domain: str | None,
+    task_domain: str | None,
+) -> Any:
+    """Call an injected retriever without changing the lexical fallback API.
+
+    The canonical seam is ``query`` plus retrieval kwargs.  ``chunks`` is
+    passed only when the injected callable declares it, allowing a local
+    knowledge service to own the source registry while a lightweight test
+    retriever can still use the pipeline's snapshot.
+    """
+
+    method = retriever if callable(retriever) else getattr(retriever, "asearch", None)
+    if method is None:
+        method = getattr(retriever, "search", None)
+    if method is None:
+        method = getattr(retriever, "retrieve", None)
+    if not callable(method):
+        raise TypeError("retriever must be callable or expose search/retrieve")
+
+    values = {
+        "chunks": chunks,
+        "top_k": top_k,
+        "min_score": min_score,
+        "domain": domain,
+        "task_domain": task_domain,
+    }
+    try:
+        parameters = inspect.signature(method).parameters
+    except (TypeError, ValueError):
+        parameters = {}
+    if any(parameter.kind == inspect.Parameter.VAR_KEYWORD for parameter in parameters.values()):
+        kwargs = values
+    else:
+        kwargs = {
+            name: value
+            for name, value in values.items()
+            if name in parameters
+        }
+    return method(query, **kwargs)
+
+
+def _preferred_retriever(retriever: Any | None) -> Any | None:
+    """Prefer the async KB seam while retaining the legacy sync object path."""
+
+    if retriever is None:
+        return retriever
+    async_search = getattr(retriever, "asearch", None)
+    if callable(async_search):
+        return async_search
+    return retriever
+
+
+async def _retrieve_task_candidates_async(
+    task_query: str,
+    original_request: str,
+    chunks: list[SourceChunk],
+    *,
+    top_k: int,
+    min_score: float,
+    task_domain: str | None = None,
+    retriever: Any | None = None,
+) -> tuple[list[SourceChunk], str | None]:
+    """Apply the task/domain fallback policy to sync or async retrieval."""
+
+    async def search(query: str) -> list[SourceChunk]:
+        if retriever is None:
+            result = retrieve(
+                query,
+                chunks,
+                top_k=top_k,
+                min_score=min_score,
+                task_domain=task_domain,
+            )
+        else:
+            result = _call_retriever(
+                retriever,
+                query,
+                chunks,
+                top_k=top_k,
+                min_score=min_score,
+                domain=None,
+                task_domain=task_domain,
+            )
+            if inspect.isawaitable(result):
+                result = await result
+        if not isinstance(result, list) or any(
+            not isinstance(chunk, SourceChunk) for chunk in result
+        ):
+            raise TypeError("retriever must return a list of SourceChunk values")
+        return result
+
+    candidates = await search(task_query)
+    if candidates:
+        return candidates, None
+
+    if task_domain and task_domain.strip():
+        domain_query = f"{task_domain.strip()} {task_query}".strip()
+        domain_candidates = await search(domain_query)
+        if domain_candidates:
+            return domain_candidates, TASK_QUERY_DOMAIN_FALLBACK_REASON
+
+    fallback = await search(original_request)
+    if fallback:
+        return fallback, TASK_QUERY_FALLBACK_REASON
+    return [], None
+
+
 def _retrieve_task_candidates(
     task_query: str,
     original_request: str,
@@ -307,10 +559,12 @@ def _retrieve_task_candidates(
     top_k: int,
     min_score: float,
     task_domain: str | None = None,
+    retriever: Callable[..., list[SourceChunk]] | None = None,
 ) -> tuple[list[SourceChunk], str | None]:
     """Keep task/domain anchors before using the broad request fallback."""
 
-    candidates = retrieve(
+    search = retriever or retrieve
+    candidates = search(
         task_query,
         chunks,
         top_k=top_k,
@@ -322,7 +576,7 @@ def _retrieve_task_candidates(
 
     if task_domain and task_domain.strip():
         domain_query = f"{task_domain.strip()} {task_query}".strip()
-        domain_candidates = retrieve(
+        domain_candidates = search(
             domain_query,
             chunks,
             top_k=top_k,
@@ -332,7 +586,7 @@ def _retrieve_task_candidates(
         if domain_candidates:
             return domain_candidates, TASK_QUERY_DOMAIN_FALLBACK_REASON
 
-    fallback = retrieve(
+    fallback = search(
         original_request,
         chunks,
         top_k=top_k,

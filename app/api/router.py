@@ -5,7 +5,7 @@ import os
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, Query, UploadFile
 from pydantic import ValidationError
 
 from app.api.dependencies import get_api_runtime
@@ -18,6 +18,7 @@ from app.api.schemas import (
 )
 from app.core.api_runtime import ApiRuntime
 from app.core.config import RuntimeConfig
+from app.ingestion.documents import DocumentTypeError
 from app.providers.ollama import OllamaProvider
 
 
@@ -145,6 +146,7 @@ def health(runtime: ApiRuntime = Depends(get_api_runtime)):
         "default_provider": cfg.provider,
         "source_snapshot_id": runtime.source_store.snapshot_id(),
         "config_hash": cfg.config_hash(),
+        "knowledge_base": runtime.knowledge_base.status(),
     }
 
 
@@ -209,13 +211,13 @@ async def local_model_health():
 def list_sources(runtime: ApiRuntime = Depends(get_api_runtime)):
     return {
         "snapshot_id": runtime.source_store.snapshot_id(),
-        "sources": runtime.source_store.list_sources(),
+        "sources": runtime.knowledge_base.list_sources(),
     }
 
 
 @router.get("/sources/{source_id}")
 def get_source(source_id: str, runtime: ApiRuntime = Depends(get_api_runtime)):
-    item = runtime.source_store.source(source_id)
+    item = runtime.knowledge_base.source(source_id)
     if not item:
         raise ApiError(404, "NOT_FOUND", "source not found")
     return item
@@ -223,7 +225,7 @@ def get_source(source_id: str, runtime: ApiRuntime = Depends(get_api_runtime)):
 
 @router.get("/chunks/{chunk_id}")
 def get_chunk(chunk_id: str, runtime: ApiRuntime = Depends(get_api_runtime)):
-    item = runtime.source_store.chunk(chunk_id)
+    item = runtime.knowledge_base.chunk(chunk_id)
     if not item:
         raise ApiError(404, "NOT_FOUND", "chunk not found")
     return item
@@ -238,7 +240,16 @@ def import_text(
         raise ApiError(400, "SOURCE_NAME_REQUIRED", "source_name is required")
     if not body.text.strip():
         raise ApiError(400, "EMPTY_SOURCE", "text is empty")
-    return runtime.source_store.import_text(body.source_name, body.text)
+    return runtime.knowledge_base.import_text(
+        body.source_name,
+        body.text,
+        provenance={
+            "ingestion_version": "kb-v2-text-ingestion-v1",
+            "source_type": "text/plain",
+            "source_format": "text",
+            "origin": "api_text",
+        },
+    )
 
 
 @router.post("/sources/file")
@@ -247,16 +258,99 @@ async def import_file(
     runtime: ApiRuntime = Depends(get_api_runtime),
 ):
     data = await file.read(MAX_SOURCE_BYTES + 1)
-    if len(data) > MAX_SOURCE_BYTES:
-        raise ApiError(413, "PAYLOAD_TOO_LARGE", "M0 only accepts UTF-8 text/code/markdown files up to 2 MB")
     try:
-        text = data.decode("utf-8")
-    except UnicodeDecodeError:
-        raise ApiError(415, "UNSUPPORTED_ENCODING", "M0 accepts UTF-8 text/code/markdown files only")
-    if not text.strip():
-        raise ApiError(400, "EMPTY_SOURCE", "file is empty")
-    filename = (file.filename or "").strip() or "upload.txt"
-    return runtime.source_store.import_text(filename, text)
+        return runtime.knowledge_base.import_document(
+            (file.filename or "").strip() or "upload.txt",
+            data,
+            origin="upload",
+            content_type=file.content_type,
+        )
+    except DocumentTypeError as exc:
+        raise ApiError(415, "UNSUPPORTED_DOCUMENT_TYPE", str(exc)) from exc
+    except UnicodeDecodeError as exc:
+        raise ApiError(415, "UNSUPPORTED_ENCODING", "document must be valid UTF-8") from exc
+    except ValueError as exc:
+        detail = str(exc)
+        if "size limit" in detail:
+            raise ApiError(413, "PAYLOAD_TOO_LARGE", detail) from exc
+        if "must not be empty" in detail:
+            raise ApiError(400, "EMPTY_SOURCE", "file is empty") from exc
+        raise ApiError(400, "INVALID_DOCUMENT", detail) from exc
+
+
+@router.get("/kb/status")
+def knowledge_base_status(runtime: ApiRuntime = Depends(get_api_runtime)):
+    return runtime.knowledge_base.status()
+
+
+@router.get("/kb/sources")
+def list_knowledge_base_sources(runtime: ApiRuntime = Depends(get_api_runtime)):
+    return {
+        "snapshot_id": runtime.source_store.snapshot_id(),
+        "sources": runtime.knowledge_base.list_sources(),
+    }
+
+
+@router.get("/kb/sources/{source_id}")
+def inspect_knowledge_base_source(
+    source_id: str,
+    runtime: ApiRuntime = Depends(get_api_runtime),
+):
+    item = runtime.knowledge_base.source(source_id)
+    if not item:
+        raise ApiError(404, "NOT_FOUND", "source not found")
+    return item
+
+
+@router.get("/kb/search")
+def search_knowledge_base(
+    query: str | None = Query(default=None),
+    q: str | None = Query(default=None),
+    top_k: int = Query(default=6, ge=1, le=50),
+    min_score: float = Query(default=0.0, ge=0.0),
+    domain: str | None = Query(default=None),
+    runtime: ApiRuntime = Depends(get_api_runtime),
+):
+    request = (query if query is not None else q or "").strip()
+    if not request:
+        raise ApiError(400, "QUERY_REQUIRED", "query is required")
+    try:
+        results = runtime.knowledge_base.search(
+            request,
+            top_k=top_k,
+            min_score=min_score,
+            domain=domain,
+        )
+    except ValueError as exc:
+        raise ApiError(400, "INVALID_SEARCH", str(exc)) from exc
+    return {
+        "query": request,
+        "snapshot_id": runtime.source_store.snapshot_id(),
+        "retrieval_backend": runtime.knowledge_base.status()["retrieval_backend"],
+        "results": [
+            {
+                **chunk.__dict__,
+                "provenance": dict(chunk.provenance),
+            }
+            for chunk in results
+        ],
+    }
+
+
+@router.post("/kb/import/text")
+def import_knowledge_base_text(
+    body: SourceTextRequest,
+    runtime: ApiRuntime = Depends(get_api_runtime),
+):
+    return import_text(body, runtime)
+
+
+@router.post("/kb/import/file")
+async def import_knowledge_base_file(
+    file: UploadFile = File(...),
+    runtime: ApiRuntime = Depends(get_api_runtime),
+):
+    return await import_file(file, runtime)
 
 
 @router.post("/chat")
