@@ -1,0 +1,612 @@
+{
+  "schema_version": "m1-final-scenario-gold-v1",
+  "dataset_id": "m1-final-experiment-v1",
+  "gold_granularity": "SCENARIO",
+  "case_level_annotations": false,
+  "status": "PENDING_HUMAN_APPROVAL",
+  "approval_policy": {
+    "reviewer_status_allowed": [
+      "PENDING_HUMAN_APPROVAL",
+      "APPROVED",
+      "REJECTED"
+    ],
+    "initial_reviewer_status": "PENDING_HUMAN_APPROVAL",
+    "self_approval": "PROHIBITED",
+    "approval_unit": "one scenario group, covering its four frozen request variants",
+    "runtime_boundary": "Evaluation-only after generation; never imported by retrieval, workers, synthesis, or prompt construction."
+  },
+  "corpus_snapshot": {
+    "snapshot_id": "m1-pilot-authorized-v1",
+    "manifest_path": "reports/pre_pilot_freeze/corpus-manifest.json",
+    "evidence_manifest_path": "reports/final_experiment/corpus-evidence-manifest.json",
+    "source_manifest_path": "data/m1-pilot-authorized-v1/sources.json",
+    "source_manifest_sha256": "274241507c91aa8ffaf8ca8f5ad9b3568879a4f99a691c9bd98bfe5dd52af265",
+    "chunk_count": 3
+  },
+  "scenario_gold": [
+    {
+      "scenario_gold_id": "M1F-G01",
+      "scenario_group_id": "M1F-S01",
+      "scenario_label": "Bearer-token to policy handoff",
+      "expected_role": "Security Analyst",
+      "expected_domain": "security",
+      "relevant_evidence_ids": [
+        "src_ecad6843b8fcb99b_c0000"
+      ],
+      "expected_answer_points": [
+        "Bearer access tokens establish the caller context; the server must retain a distinct permission decision for the protected action."
+      ],
+      "expected_missing_information": null,
+      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "reviewer_status": "PENDING_HUMAN_APPROVAL",
+      "reviewer_id_or_initials": "",
+      "reviewer_notes": "",
+      "approved_at": null
+    },
+    {
+      "scenario_gold_id": "M1F-G02",
+      "scenario_group_id": "M1F-S02",
+      "scenario_label": "JWT claims versus server authority",
+      "expected_role": "Security Analyst",
+      "expected_domain": "security",
+      "relevant_evidence_ids": [
+        "src_ecad6843b8fcb99b_c0000"
+      ],
+      "expected_answer_points": [
+        "JWT claims must not replace server-side authorization policy; the application remains responsible for deciding permission."
+      ],
+      "expected_missing_information": null,
+      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "reviewer_status": "PENDING_HUMAN_APPROVAL",
+      "reviewer_id_or_initials": "",
+      "reviewer_notes": "",
+      "approved_at": null
+    },
+    {
+      "scenario_gold_id": "M1F-G03",
+      "scenario_group_id": "M1F-S03",
+      "scenario_label": "Identity evidence and action permission",
+      "expected_role": "Security Analyst",
+      "expected_domain": "security",
+      "relevant_evidence_ids": [
+        "src_ecad6843b8fcb99b_c0000"
+      ],
+      "expected_answer_points": [
+        "The review must keep identity establishment and permission for an action as separate security decisions."
+      ],
+      "expected_missing_information": null,
+      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "reviewer_status": "PENDING_HUMAN_APPROVAL",
+      "reviewer_id_or_initials": "",
+      "reviewer_notes": "",
+      "approved_at": null
+    },
+    {
+      "scenario_gold_id": "M1F-G04",
+      "scenario_group_id": "M1F-S04",
+      "scenario_label": "Protected REST call security boundary",
+      "expected_role": "Security Analyst",
+      "expected_domain": "security",
+      "relevant_evidence_ids": [
+        "src_ecad6843b8fcb99b_c0000"
+      ],
+      "expected_answer_points": [
+        "A protected service request may use bearer-token identity evidence, but access must still be decided by server-side policy."
+      ],
+      "expected_missing_information": null,
+      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "reviewer_status": "PENDING_HUMAN_APPROVAL",
+      "reviewer_id_or_initials": "",
+      "reviewer_notes": "",
+      "approved_at": null
+    },
+    {
+      "scenario_gold_id": "M1F-G05",
+      "scenario_group_id": "M1F-S05",
+      "scenario_label": "Server authority with JWT claims",
+      "expected_role": "Security Analyst",
+      "expected_domain": "security",
+      "relevant_evidence_ids": [
+        "src_ecad6843b8fcb99b_c0000"
+      ],
+      "expected_answer_points": [
+        "JWT contents are not a substitute for the application's server-side authorization policy."
+      ],
+      "expected_missing_information": null,
+      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "reviewer_status": "PENDING_HUMAN_APPROVAL",
+      "reviewer_id_or_initials": "",
+      "reviewer_notes": "",
+      "approved_at": null
+    },
+    {
+      "scenario_gold_id": "M1F-G06",
+      "scenario_group_id": "M1F-S06",
+      "scenario_label": "Bearer-token security review scope",
+      "expected_role": "Security Analyst",
+      "expected_domain": "security",
+      "relevant_evidence_ids": [
+        "src_ecad6843b8fcb99b_c0000"
+      ],
+      "expected_answer_points": [
+        "The review scope includes bearer-token identity evidence and a separate server-enforced permission decision."
+      ],
+      "expected_missing_information": null,
+      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "reviewer_status": "PENDING_HUMAN_APPROVAL",
+      "reviewer_id_or_initials": "",
+      "reviewer_notes": "",
+      "approved_at": null
+    },
+    {
+      "scenario_gold_id": "M1F-G07",
+      "scenario_group_id": "M1F-S07",
+      "scenario_label": "Authentication and authorization responsibility map",
+      "expected_role": "Security Analyst",
+      "expected_domain": "security",
+      "relevant_evidence_ids": [
+        "src_ecad6843b8fcb99b_c0000"
+      ],
+      "expected_answer_points": [
+        "Security review should route identity handling and permission enforcement as distinct responsibilities while preserving their relationship."
+      ],
+      "expected_missing_information": null,
+      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "reviewer_status": "PENDING_HUMAN_APPROVAL",
+      "reviewer_id_or_initials": "",
+      "reviewer_notes": "",
+      "approved_at": null
+    },
+    {
+      "scenario_gold_id": "M1F-G08",
+      "scenario_group_id": "M1F-S08",
+      "scenario_label": "Token-authenticated protected operation",
+      "expected_role": "Security Analyst",
+      "expected_domain": "security",
+      "relevant_evidence_ids": [
+        "src_ecad6843b8fcb99b_c0000"
+      ],
+      "expected_answer_points": [
+        "The evidence chain should connect bearer-token identity context to an explicit server-owned decision to allow the action."
+      ],
+      "expected_missing_information": null,
+      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "reviewer_status": "PENDING_HUMAN_APPROVAL",
+      "reviewer_id_or_initials": "",
+      "reviewer_notes": "",
+      "approved_at": null
+    },
+    {
+      "scenario_gold_id": "M1F-G09",
+      "scenario_group_id": "M1F-S09",
+      "scenario_label": "Access-token lifetime evidence gap",
+      "expected_role": "Security Analyst",
+      "expected_domain": "security",
+      "relevant_evidence_ids": [],
+      "expected_answer_points": [
+        "The supplied corpus does not state an access-token lifetime; do not infer an expiration interval."
+      ],
+      "expected_missing_information": "access-token lifetime or expiration policy",
+      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "reviewer_status": "PENDING_HUMAN_APPROVAL",
+      "reviewer_id_or_initials": "",
+      "reviewer_notes": "",
+      "approved_at": null
+    },
+    {
+      "scenario_gold_id": "M1F-G10",
+      "scenario_group_id": "M1F-S10",
+      "scenario_label": "Multi-factor policy evidence gap",
+      "expected_role": "Security Analyst",
+      "expected_domain": "security",
+      "relevant_evidence_ids": [],
+      "expected_answer_points": [
+        "The supplied corpus does not define a multi-factor authentication rule; do not invent an enrollment or second-factor requirement."
+      ],
+      "expected_missing_information": "multi-factor authentication or second-factor policy",
+      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "reviewer_status": "PENDING_HUMAN_APPROVAL",
+      "reviewer_id_or_initials": "",
+      "reviewer_notes": "",
+      "approved_at": null
+    },
+    {
+      "scenario_gold_id": "M1F-G11",
+      "scenario_group_id": "M1F-S11",
+      "scenario_label": "Identifier-heavy user-record workload",
+      "expected_role": "Database Analyst",
+      "expected_domain": "database",
+      "relevant_evidence_ids": [
+        "src_1055b8f580d99531_c0000"
+      ],
+      "expected_answer_points": [
+        "Frequently used identifier filters in the relational workload are appropriate targets for index review, without assuming an unconditional index."
+      ],
+      "expected_missing_information": null,
+      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "reviewer_status": "PENDING_HUMAN_APPROVAL",
+      "reviewer_id_or_initials": "",
+      "reviewer_notes": "",
+      "approved_at": null
+    },
+    {
+      "scenario_gold_id": "M1F-G12",
+      "scenario_group_id": "M1F-S12",
+      "scenario_label": "Relational query-path evidence",
+      "expected_role": "Database Analyst",
+      "expected_domain": "database",
+      "relevant_evidence_ids": [
+        "src_1055b8f580d99531_c0000"
+      ],
+      "expected_answer_points": [
+        "The evidence supports reviewing frequently used identifier filters for appropriate indexes; it does not justify assuming a schema change."
+      ],
+      "expected_missing_information": null,
+      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "reviewer_status": "PENDING_HUMAN_APPROVAL",
+      "reviewer_id_or_initials": "",
+      "reviewer_notes": "",
+      "approved_at": null
+    },
+    {
+      "scenario_gold_id": "M1F-G13",
+      "scenario_group_id": "M1F-S13",
+      "scenario_label": "Multi-write consistency risk",
+      "expected_role": "Database Analyst",
+      "expected_domain": "database",
+      "relevant_evidence_ids": [
+        "src_1055b8f580d99531_c0000"
+      ],
+      "expected_answer_points": [
+        "Multi-step writes that must remain consistent require a transaction boundary across the operation."
+      ],
+      "expected_missing_information": null,
+      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "reviewer_status": "PENDING_HUMAN_APPROVAL",
+      "reviewer_id_or_initials": "",
+      "reviewer_notes": "",
+      "approved_at": null
+    },
+    {
+      "scenario_gold_id": "M1F-G14",
+      "scenario_group_id": "M1F-S14",
+      "scenario_label": "Workload signal for index review",
+      "expected_role": "Database Analyst",
+      "expected_domain": "database",
+      "relevant_evidence_ids": [
+        "src_1055b8f580d99531_c0000"
+      ],
+      "expected_answer_points": [
+        "Frequency of identifier-filtered queries is the relevant workload signal for deciding whether index review is appropriate."
+      ],
+      "expected_missing_information": null,
+      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "reviewer_status": "PENDING_HUMAN_APPROVAL",
+      "reviewer_id_or_initials": "",
+      "reviewer_notes": "",
+      "approved_at": null
+    },
+    {
+      "scenario_gold_id": "M1F-G15",
+      "scenario_group_id": "M1F-S15",
+      "scenario_label": "Consistency across a write sequence",
+      "expected_role": "Database Analyst",
+      "expected_domain": "database",
+      "relevant_evidence_ids": [
+        "src_1055b8f580d99531_c0000"
+      ],
+      "expected_answer_points": [
+        "A consistency-sensitive sequence of writes should be reviewed as one transaction-scoped operation."
+      ],
+      "expected_missing_information": null,
+      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "reviewer_status": "PENDING_HUMAN_APPROVAL",
+      "reviewer_id_or_initials": "",
+      "reviewer_notes": "",
+      "approved_at": null
+    },
+    {
+      "scenario_gold_id": "M1F-G16",
+      "scenario_group_id": "M1F-S16",
+      "scenario_label": "Three-layer relational review",
+      "expected_role": "Database Analyst",
+      "expected_domain": "database",
+      "relevant_evidence_ids": [
+        "src_1055b8f580d99531_c0000"
+      ],
+      "expected_answer_points": [
+        "The review should keep data storage, identifier-filter access, and consistency-sensitive writes as distinct database concerns."
+      ],
+      "expected_missing_information": null,
+      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "reviewer_status": "PENDING_HUMAN_APPROVAL",
+      "reviewer_id_or_initials": "",
+      "reviewer_notes": "",
+      "approved_at": null
+    },
+    {
+      "scenario_gold_id": "M1F-G17",
+      "scenario_group_id": "M1F-S17",
+      "scenario_label": "Index-change justification",
+      "expected_role": "Database Analyst",
+      "expected_domain": "database",
+      "relevant_evidence_ids": [
+        "src_1055b8f580d99531_c0000"
+      ],
+      "expected_answer_points": [
+        "An index decision should be based on review of frequently used identifier filters, not on an unconditional creation rule."
+      ],
+      "expected_missing_information": null,
+      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "reviewer_status": "PENDING_HUMAN_APPROVAL",
+      "reviewer_id_or_initials": "",
+      "reviewer_notes": "",
+      "approved_at": null
+    },
+    {
+      "scenario_gold_id": "M1F-G18",
+      "scenario_group_id": "M1F-S18",
+      "scenario_label": "Read workload and write integrity",
+      "expected_role": "Database Analyst",
+      "expected_domain": "database",
+      "relevant_evidence_ids": [
+        "src_1055b8f580d99531_c0000"
+      ],
+      "expected_answer_points": [
+        "The database review covers index suitability for frequent identifier reads and transaction boundaries for consistency-sensitive multi-step writes."
+      ],
+      "expected_missing_information": null,
+      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "reviewer_status": "PENDING_HUMAN_APPROVAL",
+      "reviewer_id_or_initials": "",
+      "reviewer_notes": "",
+      "approved_at": null
+    },
+    {
+      "scenario_gold_id": "M1F-G19",
+      "scenario_group_id": "M1F-S19",
+      "scenario_label": "Database engine evidence gap",
+      "expected_role": "Database Analyst",
+      "expected_domain": "database",
+      "relevant_evidence_ids": [],
+      "expected_answer_points": [
+        "The supplied corpus does not identify a database engine or product; do not infer one."
+      ],
+      "expected_missing_information": "database engine or product identity",
+      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "reviewer_status": "PENDING_HUMAN_APPROVAL",
+      "reviewer_id_or_initials": "",
+      "reviewer_notes": "",
+      "approved_at": null
+    },
+    {
+      "scenario_gold_id": "M1F-G20",
+      "scenario_group_id": "M1F-S20",
+      "scenario_label": "Backup-retention evidence gap",
+      "expected_role": "Database Analyst",
+      "expected_domain": "database",
+      "relevant_evidence_ids": [],
+      "expected_answer_points": [
+        "The supplied corpus does not state a backup-retention period; do not infer a recovery policy."
+      ],
+      "expected_missing_information": "database backup or recovery retention period",
+      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "reviewer_status": "PENDING_HUMAN_APPROVAL",
+      "reviewer_id_or_initials": "",
+      "reviewer_notes": "",
+      "approved_at": null
+    },
+    {
+      "scenario_gold_id": "M1F-G21",
+      "scenario_group_id": "M1F-S21",
+      "scenario_label": "REST caller-facing boundary",
+      "expected_role": "API/Architecture Analyst",
+      "expected_domain": "api_architecture",
+      "relevant_evidence_ids": [
+        "src_c7f92b35e6b484c5_c0000"
+      ],
+      "expected_answer_points": [
+        "The corpus identifies REST endpoints and requires their API contracts to make validation, error responses, and authorization requirements explicit."
+      ],
+      "expected_missing_information": null,
+      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "reviewer_status": "PENDING_HUMAN_APPROVAL",
+      "reviewer_id_or_initials": "",
+      "reviewer_notes": "",
+      "approved_at": null
+    },
+    {
+      "scenario_gold_id": "M1F-G22",
+      "scenario_group_id": "M1F-S22",
+      "scenario_label": "Producer-consumer dependency contract",
+      "expected_role": "API/Architecture Analyst",
+      "expected_domain": "api_architecture",
+      "relevant_evidence_ids": [
+        "src_c7f92b35e6b484c5_c0000"
+      ],
+      "expected_answer_points": [
+        "Architectural dependencies should be explicit when one task or component requires output produced by another."
+      ],
+      "expected_missing_information": null,
+      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "reviewer_status": "PENDING_HUMAN_APPROVAL",
+      "reviewer_id_or_initials": "",
+      "reviewer_notes": "",
+      "approved_at": null
+    },
+    {
+      "scenario_gold_id": "M1F-G23",
+      "scenario_group_id": "M1F-S23",
+      "scenario_label": "Input validation and failure semantics",
+      "expected_role": "API/Architecture Analyst",
+      "expected_domain": "api_architecture",
+      "relevant_evidence_ids": [
+        "src_c7f92b35e6b484c5_c0000"
+      ],
+      "expected_answer_points": [
+        "API contracts should define request validation and error responses at the REST boundary."
+      ],
+      "expected_missing_information": null,
+      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "reviewer_status": "PENDING_HUMAN_APPROVAL",
+      "reviewer_id_or_initials": "",
+      "reviewer_notes": "",
+      "approved_at": null
+    },
+    {
+      "scenario_gold_id": "M1F-G24",
+      "scenario_group_id": "M1F-S24",
+      "scenario_label": "Validation and authorization contract fields",
+      "expected_role": "API/Architecture Analyst",
+      "expected_domain": "api_architecture",
+      "relevant_evidence_ids": [
+        "src_c7f92b35e6b484c5_c0000"
+      ],
+      "expected_answer_points": [
+        "The API contract should make request validation and authorization requirements explicit, alongside error responses where applicable."
+      ],
+      "expected_missing_information": null,
+      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "reviewer_status": "PENDING_HUMAN_APPROVAL",
+      "reviewer_id_or_initials": "",
+      "reviewer_notes": "",
+      "approved_at": null
+    },
+    {
+      "scenario_gold_id": "M1F-G25",
+      "scenario_group_id": "M1F-S25",
+      "scenario_label": "Integration dependency trace",
+      "expected_role": "API/Architecture Analyst",
+      "expected_domain": "api_architecture",
+      "relevant_evidence_ids": [
+        "src_c7f92b35e6b484c5_c0000"
+      ],
+      "expected_answer_points": [
+        "The integration boundary should state which upstream output the dependent component requires."
+      ],
+      "expected_missing_information": null,
+      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "reviewer_status": "PENDING_HUMAN_APPROVAL",
+      "reviewer_id_or_initials": "",
+      "reviewer_notes": "",
+      "approved_at": null
+    },
+    {
+      "scenario_gold_id": "M1F-G26",
+      "scenario_group_id": "M1F-S26",
+      "scenario_label": "Three-part REST contract review",
+      "expected_role": "API/Architecture Analyst",
+      "expected_domain": "api_architecture",
+      "relevant_evidence_ids": [
+        "src_c7f92b35e6b484c5_c0000"
+      ],
+      "expected_answer_points": [
+        "A REST contract should state request validation, error responses, and authorization requirements as visible contract elements."
+      ],
+      "expected_missing_information": null,
+      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "reviewer_status": "PENDING_HUMAN_APPROVAL",
+      "reviewer_id_or_initials": "",
+      "reviewer_notes": "",
+      "approved_at": null
+    },
+    {
+      "scenario_gold_id": "M1F-G27",
+      "scenario_group_id": "M1F-S27",
+      "scenario_label": "Rate-limit evidence gap",
+      "expected_role": "API/Architecture Analyst",
+      "expected_domain": "api_architecture",
+      "relevant_evidence_ids": [],
+      "expected_answer_points": [
+        "The supplied corpus does not state a request quota or throttling rule; do not infer one."
+      ],
+      "expected_missing_information": "API request-rate, quota, or throttling limit",
+      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "reviewer_status": "PENDING_HUMAN_APPROVAL",
+      "reviewer_id_or_initials": "",
+      "reviewer_notes": "",
+      "approved_at": null
+    },
+    {
+      "scenario_gold_id": "M1F-G28",
+      "scenario_group_id": "M1F-S28",
+      "scenario_label": "Request-timeout evidence gap",
+      "expected_role": "API/Architecture Analyst",
+      "expected_domain": "api_architecture",
+      "relevant_evidence_ids": [],
+      "expected_answer_points": [
+        "The supplied corpus does not define a request timeout or response-time limit; do not infer one."
+      ],
+      "expected_missing_information": "API request or response timeout value",
+      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "reviewer_status": "PENDING_HUMAN_APPROVAL",
+      "reviewer_id_or_initials": "",
+      "reviewer_notes": "",
+      "approved_at": null
+    },
+    {
+      "scenario_gold_id": "M1F-G29",
+      "scenario_group_id": "M1F-S29",
+      "scenario_label": "API-versioning evidence gap",
+      "expected_role": "API/Architecture Analyst",
+      "expected_domain": "api_architecture",
+      "relevant_evidence_ids": [],
+      "expected_answer_points": [
+        "The supplied corpus does not define an API versioning or compatibility policy; do not infer one."
+      ],
+      "expected_missing_information": "API version identifier or compatibility policy",
+      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "reviewer_status": "PENDING_HUMAN_APPROVAL",
+      "reviewer_id_or_initials": "",
+      "reviewer_notes": "",
+      "approved_at": null
+    },
+    {
+      "scenario_gold_id": "M1F-G30",
+      "scenario_group_id": "M1F-S30",
+      "scenario_label": "Request-size evidence gap",
+      "expected_role": "API/Architecture Analyst",
+      "expected_domain": "api_architecture",
+      "relevant_evidence_ids": [],
+      "expected_answer_points": [
+        "The supplied corpus does not state a maximum request-body size; do not infer a payload limit."
+      ],
+      "expected_missing_information": "maximum API request payload or body-size limit",
+      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "reviewer_status": "PENDING_HUMAN_APPROVAL",
+      "reviewer_id_or_initials": "",
+      "reviewer_notes": "",
+      "approved_at": null
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "schema_version": "m1-final-corpus-evidence-manifest-v1",
+  "snapshot_id": "m1-pilot-authorized-v1",
+  "corpus_manifest_path": "reports/pre_pilot_freeze/corpus-manifest.json",
+  "source_manifest_path": "data/m1-pilot-authorized-v1/sources.json",
+  "source_manifest_sha256": "274241507c91aa8ffaf8ca8f5ad9b3568879a4f99a691c9bd98bfe5dd52af265",
+  "note": "Metadata-only resolver for human review; canonical chunk text remains in the frozen source snapshot.",
+  "chunks": [
+    {
+      "chunk_id": "src_c7f92b35e6b484c5_c0000",
+      "source_id": "src_c7f92b35e6b484c5",
+      "source_name": "demo_api.md",
+      "index": 0
+    },
+    {
+      "chunk_id": "src_1055b8f580d99531_c0000",
+      "source_id": "src_1055b8f580d99531",
+      "source_name": "demo_database.md",
+      "index": 0
+    },
+    {
+      "chunk_id": "src_ecad6843b8fcb99b_c0000",
+      "source_id": "src_ecad6843b8fcb99b",
+      "source_name": "demo_security.md",
+      "index": 0
+    }
+  ]
+}

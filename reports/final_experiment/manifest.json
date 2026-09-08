@@ -1,0 +1,26 @@
+{
+  "schema_version": "m1-final-approval-packet-v1",
+  "dataset_id": "m1-final-experiment-v1",
+  "readiness_status": "PENDING_HUMAN_APPROVAL",
+  "execution_status": "NOT_RUN",
+  "scenario_group_count": 30,
+  "frozen_request_count": 120,
+  "variants_per_group": 4,
+  "gold_granularity": "SCENARIO",
+  "gold_row_count": 30,
+  "corpus_snapshot_id": "m1-pilot-authorized-v1",
+  "artifact_files": [
+    "datasets/final/final_benchmark_v1.json",
+    "datasets/final/final_gold_v1.json",
+    "reports/final_experiment/scenario-gold-template.csv",
+    "reports/final_experiment/corpus-evidence-manifest.json",
+    "reports/final_experiment/final_dataset_approval.md",
+    "reports/final_experiment/human-review-checklist.md",
+    "docs/M1_FINAL_DATASET_READINESS.md",
+    "scripts/validate_m1_final_dataset.py",
+    "tests/test_m1_final_dataset_readiness.py"
+  ],
+  "reviewer_fields_blank": true,
+  "self_approval": false,
+  "runtime_gold_import": false
+}
