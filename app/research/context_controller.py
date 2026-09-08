@@ -1,7 +1,11 @@
 from __future__ import annotations
 import hashlib
 from app.core.types import SourceChunk
-from app.retrieval.text import estimate_tokens, normalize_text
+from app.retrieval.text import (
+    estimate_tokens,
+    normalize_text,
+    truncate_to_token_budget,
+)
 
 
 class OverlapTracker:
@@ -98,7 +102,7 @@ class ContextController:
                 continue
 
             if not selected and remaining > 0:
-                excerpt = self._truncate_to_budget(chunk.text, remaining)
+                excerpt = truncate_to_token_budget(chunk.text, remaining)
                 allocated = estimate_tokens(excerpt)
                 if excerpt:
                     seen_exact.add(digest)
@@ -166,14 +170,9 @@ class ContextController:
 
     @staticmethod
     def _truncate_to_budget(text: str, max_tokens: int) -> str:
-        clean = normalize_text(text)
-        if max_tokens <= 0 or not clean:
-            return ""
+        """Keep the legacy private hook on the shared token implementation."""
 
-        excerpt = clean[: max_tokens * 3]
-        while excerpt and estimate_tokens(excerpt) > max_tokens:
-            excerpt = excerpt[:-1]
-        return excerpt
+        return truncate_to_token_budget(text, max_tokens)
 
     def _select_by_chars(self, candidates: list[SourceChunk]) -> tuple[list[SourceChunk], list[dict]]:
         """Keep the original character-budget behavior for existing callers."""

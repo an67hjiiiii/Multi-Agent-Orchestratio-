@@ -11,11 +11,21 @@ from app.providers.factory import get_provider
 from app.research.context_controller import ContextController, OverlapTracker
 from app.research.decomposer import decompose
 from app.research.normalizer import normalize_tasks_with_trace
-from app.research.planning_retrieval import PlanningRetriever
+from app.research.planning_retrieval import (
+    PLANNING_RETRIEVAL_SCORING_VERSION,
+    PlanningRetriever,
+)
 from app.research.worker import execute_task
 from app.research.synthesizer import synthesize
 from app.research.vanilla import answer_vanilla
-from app.retrieval.text import retrieve, apply_token_budget, estimate_tokens, terms
+from app.retrieval.text import (
+    DOMAIN_RANKING_VERSION,
+    RETRIEVAL_SCORING_VERSION,
+    apply_token_budget,
+    estimate_context_tokens,
+    retrieve,
+    terms,
+)
 from app.storage.source_store import SourceStore
 from app.storage.run_store import RunStore
 
@@ -23,6 +33,11 @@ CONDITIONS = {"A", "B", "C", "C-P", "C-N", "C-O"}
 TASK_QUERY_FORMULATION_VERSION = "task-query-v2-anchor-preserving"
 TASK_QUERY_FALLBACK_REASON = "task_query_no_results_fallback_to_user_request"
 TASK_QUERY_DOMAIN_FALLBACK_REASON = "task_query_no_results_fallback_to_task_domain"
+SCORING_VERSION_METADATA = {
+    "planning_retrieval": PLANNING_RETRIEVAL_SCORING_VERSION,
+    "answer_retrieval": RETRIEVAL_SCORING_VERSION,
+    "domain_ranking": DOMAIN_RANKING_VERSION,
+}
 
 class ResearchPipeline:
     def __init__(self, source_store: SourceStore, run_store: RunStore):
@@ -62,6 +77,7 @@ class ResearchPipeline:
                 "max_run_tokens": cfg.max_run_tokens,
                 "retry_limit": cfg.retry_limit,
                 "retrieval_min_score": cfg.retrieval_min_score,
+                "scoring_versions": dict(SCORING_VERSION_METADATA),
             }
             run = {
                 "run_id": run_id,
@@ -80,6 +96,10 @@ class ResearchPipeline:
                 "metrics": metrics.to_dict(),
                 "events": events,
                 "effective_config": effective,
+                "scoring_versions": dict(SCORING_VERSION_METADATA),
+                "planning_retrieval_scoring_version": PLANNING_RETRIEVAL_SCORING_VERSION,
+                "retrieval_scoring_version": RETRIEVAL_SCORING_VERSION,
+                "domain_ranking_version": DOMAIN_RANKING_VERSION,
             }
             self.run_store.save(run)
             return run
@@ -93,6 +113,7 @@ class ResearchPipeline:
             source_snapshot_id=source_snapshot,
             config_hash=cfg.config_hash(),
             flags=flags,
+            scoring_versions=dict(SCORING_VERSION_METADATA),
         )
         all_chunks = self.source_store.chunks()
         try:
@@ -105,12 +126,15 @@ class ResearchPipeline:
                 metrics.selected_chunks += len(selected)
                 metrics.dropped_chunks += len(budget_dropped)
                 metrics.context_chars += sum(len(c.text) for c in selected)
-                metrics.context_tokens_est += sum(estimate_tokens(c.text) for c in selected)
+                context_tokens = estimate_context_tokens(selected)
+                metrics.context_tokens_est += context_tokens
                 event(
                     "vanilla_retrieval",
                     candidates=[c.chunk_id for c in candidates],
                     selected=[c.chunk_id for c in selected],
                     dropped=budget_dropped,
+                    context_tokens=context_tokens,
+                    scoring_version=RETRIEVAL_SCORING_VERSION,
                 )
                 task = Task(task_id="T1", goal=query, domain="general")
                 g0 = time.perf_counter()
@@ -123,7 +147,11 @@ class ResearchPipeline:
                 if flags["P"]:
                     planning_hits = self.planning.search(query, top_k=cfg.planning_top_k)
                     planning_context = "\n\n".join(f"[{c.chunk_id}] {c.text}" for c in planning_hits)
-                    event("planning_retrieval", selected=[c.chunk_id for c in planning_hits])
+                    event(
+                        "planning_retrieval",
+                        selected=[c.chunk_id for c in planning_hits],
+                        scoring_version=PLANNING_RETRIEVAL_SCORING_VERSION,
+                    )
                 g0 = time.perf_counter()
                 decomposition = await decompose(provider, query, planning_context, metrics)
                 tasks = _runtime_tasks(decomposition)
@@ -151,7 +179,7 @@ class ResearchPipeline:
                 task_results = []
                 completed: dict[str, TaskResult] = {}
                 per_task_budget = max(256, cfg.max_context_tokens // max(1, len(tasks)))
-                controller = ContextController(max_chars=per_task_budget * 3)
+                controller = ContextController(max_tokens=per_task_budget)
                 overlap_tracker = OverlapTracker() if flags["O"] else None
                 for task in ordered:
                     dependency_context = " ".join(completed[d].answer for d in task.depends_on if d in completed)
@@ -184,11 +212,11 @@ class ResearchPipeline:
                         )
                     else:
                         # O-off baseline retains only invariant dedup/cap guards.
-                        selected, dropped = ContextController(max_tokens=per_task_budget).select(candidates)
+                        selected, dropped = controller.select(candidates)
                         selected_log = []
                     metrics.selected_chunks += len(selected)
                     metrics.dropped_chunks += len(dropped)
-                    context_tokens = sum(estimate_tokens(c.text) for c in selected)
+                    context_tokens = estimate_context_tokens(selected)
                     metrics.context_chars += sum(len(c.text) for c in selected)
                     metrics.context_tokens_est += context_tokens
                     overlap = overlap_tracker.observe(task.task_id, selected) if overlap_tracker else {
@@ -209,6 +237,8 @@ class ResearchPipeline:
                         reused_from_task_ids=overlap["reused_from_task_ids"],
                         context_tokens=context_tokens,
                         total_context_tokens=metrics.context_tokens_est,
+                        scoring_version=RETRIEVAL_SCORING_VERSION,
+                        domain_ranking_version=DOMAIN_RANKING_VERSION,
                     )
                     g0 = time.perf_counter()
                     result = await execute_task(provider, task, selected, metrics)
@@ -280,17 +310,35 @@ def _retrieve_task_candidates(
 ) -> tuple[list[SourceChunk], str | None]:
     """Keep task/domain anchors before using the broad request fallback."""
 
-    candidates = retrieve(task_query, chunks, top_k=top_k, min_score=min_score)
+    candidates = retrieve(
+        task_query,
+        chunks,
+        top_k=top_k,
+        min_score=min_score,
+        task_domain=task_domain,
+    )
     if candidates:
         return candidates, None
 
     if task_domain and task_domain.strip():
         domain_query = f"{task_domain.strip()} {task_query}".strip()
-        domain_candidates = retrieve(domain_query, chunks, top_k=top_k, min_score=min_score)
+        domain_candidates = retrieve(
+            domain_query,
+            chunks,
+            top_k=top_k,
+            min_score=min_score,
+            task_domain=task_domain,
+        )
         if domain_candidates:
             return domain_candidates, TASK_QUERY_DOMAIN_FALLBACK_REASON
 
-    fallback = retrieve(original_request, chunks, top_k=top_k, min_score=min_score)
+    fallback = retrieve(
+        original_request,
+        chunks,
+        top_k=top_k,
+        min_score=min_score,
+        task_domain=task_domain,
+    )
     if fallback:
         return fallback, TASK_QUERY_FALLBACK_REASON
     return [], None

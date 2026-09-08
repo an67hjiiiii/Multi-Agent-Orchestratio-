@@ -4,9 +4,11 @@ import hashlib
 import math
 import re
 import unicodedata
+from collections.abc import Iterable
 from dataclasses import replace
 
 from app.core.types import SourceChunk
+from app.research.registry import REGISTRY
 
 
 STOP = {
@@ -41,6 +43,12 @@ STOP = {
 }
 
 _TOKEN_RE = re.compile(r"[^\W_]+(?:[_'-][^\W_]+)*", re.UNICODE)
+
+# These identities describe the deterministic ranking layers.  Domain-aware
+# ordering is kept separate from the lexical score so existing score consumers
+# retain the original semantics.
+RETRIEVAL_SCORING_VERSION = "lexical-overlap-v1"
+DOMAIN_RANKING_VERSION = "canonical-registry-domain-v1"
 
 
 def normalize_text(text: str) -> str:
@@ -105,6 +113,50 @@ def terms(text: str) -> set[str]:
     return normalized
 
 
+def _canonical_domain_terms() -> dict[str, frozenset[str]]:
+    """Build searchable terms from the canonical domain registry metadata."""
+
+    result: dict[str, frozenset[str]] = {}
+    for domain, metadata in REGISTRY.items():
+        values: list[str] = [domain]
+        for field_name in ("name", "scope"):
+            value = metadata.get(field_name)
+            if isinstance(value, str):
+                values.append(value)
+        capabilities = metadata.get("capabilities", [])
+        if isinstance(capabilities, (list, tuple, set, frozenset)):
+            values.extend(value for value in capabilities if isinstance(value, str))
+        result[domain] = frozenset(
+            token for value in values for token in terms(value)
+        )
+    return result
+
+
+_CANONICAL_DOMAIN_TERMS = _canonical_domain_terms()
+
+
+def domain_compatibility(chunk: SourceChunk, task_domain: str | None) -> int:
+    """Return a conservative compatibility rank for one task domain.
+
+    A source-name match is the strongest available local metadata signal. A
+    content match is weaker because content can legitimately serve multiple
+    domains. A zero result means no canonical metadata signal was found; it
+    never means that the candidate is unsafe to discard.
+    """
+
+    if not isinstance(task_domain, str) or not task_domain.strip():
+        return 0
+    canonical_terms = _CANONICAL_DOMAIN_TERMS.get(task_domain.strip())
+    if not canonical_terms:
+        return 0
+    source_name_terms = terms(chunk.source_name)
+    if source_name_terms.intersection(canonical_terms):
+        return 2
+    if terms(chunk.text).intersection(canonical_terms):
+        return 1
+    return 0
+
+
 def chunk_text(text: str, max_chars: int = 1200) -> list[str]:
     if isinstance(max_chars, bool) or not isinstance(max_chars, int) or max_chars < 1:
         raise ValueError("max_chars must be a positive integer")
@@ -167,6 +219,9 @@ def retrieve(
     chunks: list[SourceChunk],
     top_k: int = 6,
     min_score: float = 0.0,
+    *,
+    domain: str | None = None,
+    task_domain: str | None = None,
 ) -> list[SourceChunk]:
     if isinstance(top_k, bool) or not isinstance(top_k, int) or top_k < 1:
         raise ValueError("top_k must be a positive integer")
@@ -177,6 +232,9 @@ def retrieve(
         or min_score < 0
     ):
         raise ValueError("min_score must be a finite non-negative number")
+    if domain is not None and task_domain is not None and domain != task_domain:
+        raise ValueError("domain and task_domain must identify the same domain")
+    requested_domain = task_domain if task_domain is not None else domain
 
     scored: list[SourceChunk] = []
     seen_ids: set[str] = set()
@@ -189,7 +247,15 @@ def retrieve(
         score = lexical_score(query, chunk)
         if score >= min_score and score > 0:
             scored.append(replace(chunk, score=score))
-    scored.sort(key=lambda x: (-x.score, x.chunk_id, x.source_id, x.index))
+    scored.sort(
+        key=lambda x: (
+            -domain_compatibility(x, requested_domain),
+            -x.score,
+            x.chunk_id,
+            x.source_id,
+            x.index,
+        )
+    )
     return scored[:top_k]
 
 
@@ -217,8 +283,7 @@ def apply_token_budget(
             continue
         if not selected and cost > max_tokens:
             # Preserve a bounded excerpt instead of silently exceeding the cap.
-            char_cap = max(1, max_tokens * 3)
-            excerpt = chunk.text[:char_cap]
+            excerpt = truncate_to_token_budget(chunk.text, max_tokens)
             selected.append(replace(chunk, text=excerpt))
             used += estimate_tokens(excerpt)
             dropped.append(
@@ -232,3 +297,29 @@ def apply_token_budget(
         selected.append(chunk)
         used += cost
     return selected, dropped
+
+
+def estimate_context_tokens(chunks: Iterable[SourceChunk]) -> int:
+    """Return the shared pre-call token estimate for selected context."""
+
+    total = 0
+    for chunk in chunks:
+        if not isinstance(chunk, SourceChunk):
+            raise TypeError("chunks must contain SourceChunk values")
+        total += estimate_tokens(chunk.text)
+    return total
+
+
+def truncate_to_token_budget(text: str, max_tokens: int) -> str:
+    """Return normalized text whose shared estimate fits the requested cap."""
+
+    if isinstance(max_tokens, bool) or not isinstance(max_tokens, int) or max_tokens < 0:
+        raise ValueError("max_tokens must be a non-negative integer")
+    clean = normalize_text(text)
+    if max_tokens == 0 or not clean:
+        return ""
+
+    excerpt = clean[: max_tokens * 3]
+    while excerpt and estimate_tokens(excerpt) > max_tokens:
+        excerpt = excerpt[:-1]
+    return excerpt
