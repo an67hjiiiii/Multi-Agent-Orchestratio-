@@ -16,6 +16,7 @@ try:
     from app.research.task_schema import (
         CANONICAL_TASK_DOMAINS,
         DecompositionResult,
+        RequiredObligation,
         TaskItem,
         TaskPlan,
     )
@@ -36,6 +37,13 @@ except ModuleNotFoundError as exc:
         domain: str
         role_profile: str
         depends_on: list[str] = field(default_factory=list)
+        covers_obligations: list[str] = field(default_factory=list)
+
+    @dataclass
+    class RequiredObligation:
+        obligation_id: str
+        canonical_kind: str | None
+        source_anchor: str
 
     @dataclass
     class DecompositionResult:
@@ -44,6 +52,11 @@ except ModuleNotFoundError as exc:
         planning_evidence_ids: list[str] = field(default_factory=list)
         status: str = "FAILED"
         warnings: list[str] = field(default_factory=list)
+        required_obligations: list[RequiredObligation] = field(default_factory=list)
+        covered_obligations: list[str] = field(default_factory=list)
+        missing_obligations: list[str] = field(default_factory=list)
+        repair_attempted: bool = False
+        coverage_validation_reason: str | None = None
 
     @dataclass
     class TaskPlan:
@@ -60,6 +73,26 @@ _REPEATED_OBLIGATIONS_PATTERN = re.compile(
     r"\b(?:shared evidence|using shared evidence)\b",
     re.IGNORECASE,
 )
+_SEPARATE_OBLIGATIONS_PATTERN = re.compile(
+    r"\b(?:each|every)\b[^.!?]*\b(?:separate|separately)\b|"
+    r"\bseparate\s+(?:each|every)\b",
+    re.IGNORECASE,
+)
+_LIST_BODY_PATTERNS = (
+    re.compile(
+        r"\b(?:combine|include|cover|address)\s+(?P<body>[^.!?]+)",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:review|assess|analy[sz]e)\b[^.!?]*?\bfor\s+(?P<body>[^.!?]+)",
+        re.IGNORECASE,
+    ),
+)
+_LIST_SEPARATOR_PATTERN = re.compile(
+    r"\s*,\s*(?:and\s+)?|\s+\band\b\s+",
+    re.IGNORECASE,
+)
+_TRAILING_OBLIGATION_LABEL = re.compile(r"\s+obligations?\s*$", re.IGNORECASE)
 # These are request-level domain hints, not worker roles. They make the
 # planner boundary fail closed when a multi-domain request is reduced to
 # planning categories for only one domain.
@@ -143,12 +176,18 @@ _TASK_SCHEMA = (
     '"expected_output":"expected structured output",'
     '"domain":"declared domain",'
     '"role_profile":"declared role profile",'
-    '"depends_on":[]}]}'
+    '"depends_on":[],"covers_obligations":["O1"]}]}'
 )
-PROMPT_VERSION = "p-lite-decomposer-v6"
-STRUCTURED_OUTPUT_CONFIG_VERSION = "ollama-task-plan-schema-v2"
+PROMPT_VERSION = "p-lite-decomposer-v7"
+STRUCTURED_OUTPUT_CONFIG_VERSION = "ollama-task-plan-schema-v3"
 PLANNER_TEMPERATURE = 0.0
 TASK_PLAN_JSON_SCHEMA = TaskPlan.model_json_schema()
+_TASK_ITEM_OUTPUT_SCHEMA = TASK_PLAN_JSON_SCHEMA.get("$defs", {}).get("TaskItem")
+if isinstance(_TASK_ITEM_OUTPUT_SCHEMA, dict):
+    _required_output_fields = list(_TASK_ITEM_OUTPUT_SCHEMA.get("required", []))
+    if "covers_obligations" not in _required_output_fields:
+        _required_output_fields.append("covers_obligations")
+    _TASK_ITEM_OUTPUT_SCHEMA["required"] = _required_output_fields
 _SYSTEM_PROMPT = (
     "TASK_DECOMPOSER. Follow the structured task-decomposition protocol in the "
     "user message. Do not invent requirements."
@@ -176,8 +215,9 @@ _STATIC_PROMPT_PREFIX = (
     "execution, retrieval, or answer evidence. For explicitly ordered or dependent "
     "obligations, emit separate tasks with separate expected outputs and put the "
     "predecessor task ID in depends_on. Every task must include every schema field; "
-    "use depends_on: [] when it has no predecessor. Never emit blank placeholder "
-    "tasks."
+    "use depends_on: [] when it has no predecessor. Every task must list the request-"
+    "derived obligation IDs it covers in covers_obligations. Never emit blank "
+    "placeholder tasks."
 )
 
 
@@ -185,10 +225,78 @@ class _DecompositionOutputError(ValueError):
     """Raised when a model response cannot satisfy the P-lite contract."""
 
 
+@dataclass
+class _CoverageState:
+    covered_ids: list[str]
+    missing_ids: list[str]
+    reason: str
+
+
+class _CoverageValidationError(_DecompositionOutputError):
+    def __init__(self, state: _CoverageState):
+        super().__init__(state.reason)
+        self.state = state
+
+
 def _extract_planning_evidence_ids(planning_context: str) -> list[str]:
     """Preserve only evidence identifiers present in the bounded context."""
 
     return list(dict.fromkeys(_PLANNING_ID_PATTERN.findall(planning_context)))
+
+
+def _canonical_obligation_kind(source_anchor: str) -> str | None:
+    anchor_terms = lexical_terms(source_anchor)
+    matches = [
+        domain
+        for domain, hints in _DOMAIN_OBLIGATION_HINTS.items()
+        if anchor_terms & hints
+    ]
+    return matches[0] if len(matches) == 1 else None
+
+
+def _derive_required_obligations(request: str) -> list[RequiredObligation]:
+    """Extract a bounded explicit list while retaining exact request anchors.
+
+    The request is the only source. If it does not contain a clear list clause,
+    the complete request remains one traceable obligation rather than being
+    expanded from domain templates or planning evidence.
+    """
+
+    body: str | None = None
+    for pattern in _LIST_BODY_PATTERNS:
+        match = pattern.search(request)
+        if match:
+            candidate = match.group("body").strip()
+            if "," in candidate or re.search(r"\band\b", candidate, re.IGNORECASE):
+                body = candidate
+                break
+
+    anchors: list[str] = []
+    if body:
+        for raw_anchor in _LIST_SEPARATOR_PATTERN.split(body):
+            anchor = raw_anchor.strip(" \t\r\n,;:-")
+            anchor = _TRAILING_OBLIGATION_LABEL.sub("", anchor).strip()
+            if anchor:
+                anchors.append(anchor)
+    if len(anchors) < 2:
+        anchors = [request.strip()]
+
+    return [
+        RequiredObligation(
+            obligation_id=f"O{index}",
+            canonical_kind=_canonical_obligation_kind(anchor),
+            source_anchor=anchor,
+        )
+        for index, anchor in enumerate(anchors, start=1)
+    ]
+
+
+def _format_obligations(obligations: list[RequiredObligation]) -> str:
+    return "\n".join(
+        f"- {item.obligation_id} | canonical_kind={item.canonical_kind or 'unknown'} "
+        f"| source_anchor={item.source_anchor}"
+        for item in obligations
+    )
 
 
 def _extract_json(text: object) -> dict[str, Any]:
@@ -254,6 +362,21 @@ def _parse_tasks(parsed: dict[str, Any]) -> list[TaskItem]:
                 )
             dependencies.append(dependency.strip())
 
+        raw_coverage = raw.get("covers_obligations", [])
+        if not isinstance(raw_coverage, list):
+            raise _DecompositionOutputError(
+                f"task {index} covers_obligations must be a list"
+            )
+        coverage_ids: list[str] = []
+        for obligation_id in raw_coverage:
+            if not isinstance(obligation_id, str) or not obligation_id.strip():
+                raise _DecompositionOutputError(
+                    f"task {index} covers_obligations must contain non-empty strings"
+                )
+            normalized_id = obligation_id.strip()
+            if normalized_id not in coverage_ids:
+                coverage_ids.append(normalized_id)
+
         canonical_domain = _canonical_domain(values["domain"])
         if canonical_domain is None or canonical_domain not in CANONICAL_TASK_DOMAINS:
             raise _DecompositionOutputError(
@@ -261,7 +384,13 @@ def _parse_tasks(parsed: dict[str, Any]) -> list[TaskItem]:
             )
         values["domain"] = canonical_domain
         try:
-            tasks.append(TaskItem(**values, depends_on=dependencies))
+            tasks.append(
+                TaskItem(
+                    **values,
+                    depends_on=dependencies,
+                    covers_obligations=coverage_ids,
+                )
+            )
         except (TypeError, ValueError) as exc:
             raise _DecompositionOutputError(
                 f"task {index} did not satisfy the canonical task schema"
@@ -370,9 +499,91 @@ def _validate_request_alignment(request: str, tasks: list[TaskItem]) -> None:
             )
 
 
-def _validate_obligation_coverage(request: str, tasks: list[TaskItem]) -> None:
-    """Reject a collapsed plan when the user states an explicit ordered chain."""
+def _validate_explicit_coverage(
+    request: str,
+    tasks: list[TaskItem],
+    required_obligations: list[RequiredObligation],
+) -> _CoverageState:
+    required_by_id = {
+        obligation.obligation_id: obligation for obligation in required_obligations
+    }
+    covered: set[str] = set()
+    invalid_reasons: list[str] = []
+    requires_separate_tasks = bool(_SEPARATE_OBLIGATIONS_PATTERN.search(request))
 
+    for task in tasks:
+        coverage_ids = list(dict.fromkeys(task.covers_obligations))
+        if not coverage_ids and len(required_obligations) == 1:
+            only = required_obligations[0]
+            task_text = f"{task.title} {task.objective} {task.expected_output}"
+            domain_matches = (
+                only.canonical_kind is None or task.domain == only.canonical_kind
+            )
+            if domain_matches and lexical_terms(task_text) & lexical_terms(
+                only.source_anchor
+            ):
+                coverage_ids = [only.obligation_id]
+                task.covers_obligations = coverage_ids
+
+        if requires_separate_tasks and len(coverage_ids) > 1:
+            invalid_reasons.append(
+                f"task {task.task_id} combines obligations that the request requires separately"
+            )
+            continue
+
+        task_text_terms = lexical_terms(
+            f"{task.title} {task.objective} {task.expected_output}"
+        )
+        for obligation_id in coverage_ids:
+            obligation = required_by_id.get(obligation_id)
+            if obligation is None:
+                invalid_reasons.append(
+                    f"task {task.task_id} references unknown obligation {obligation_id}"
+                )
+                continue
+            if not task_text_terms.intersection(lexical_terms(obligation.source_anchor)):
+                invalid_reasons.append(
+                    f"task {task.task_id} does not retain source anchor for {obligation_id}"
+                )
+                continue
+            if (
+                obligation.canonical_kind is not None
+                and task.domain != obligation.canonical_kind
+            ):
+                invalid_reasons.append(
+                    f"task {task.task_id} domain does not match {obligation_id}"
+                )
+                continue
+            covered.add(obligation_id)
+
+    covered_ids = [
+        obligation.obligation_id
+        for obligation in required_obligations
+        if obligation.obligation_id in covered
+    ]
+    missing_ids = [
+        obligation.obligation_id
+        for obligation in required_obligations
+        if obligation.obligation_id not in covered
+    ]
+    if invalid_reasons or missing_ids:
+        reason_parts = invalid_reasons
+        if missing_ids:
+            reason_parts.append("missing required obligations: " + ", ".join(missing_ids))
+        raise _CoverageValidationError(
+            _CoverageState(covered_ids, missing_ids, "; ".join(reason_parts))
+        )
+    return _CoverageState(covered_ids, [], "complete obligation coverage")
+
+
+def _validate_obligation_coverage(
+    request: str,
+    tasks: list[TaskItem],
+    required_obligations: list[RequiredObligation],
+) -> _CoverageState:
+    """Validate explicit request coverage plus the existing dependency contract."""
+
+    coverage = _validate_explicit_coverage(request, tasks, required_obligations)
     _validate_request_alignment(request, tasks)
     ordered = bool(_ORDERED_OBLIGATIONS_PATTERN.search(request))
     if ordered:
@@ -384,7 +595,7 @@ def _validate_obligation_coverage(request: str, tasks: list[TaskItem]) -> None:
             raise _DecompositionOutputError(
                 "explicitly ordered obligations require a dependency"
             )
-        return
+        return coverage
 
     if _REPEATED_OBLIGATIONS_PATTERN.search(request) and any(
         task.depends_on for task in tasks
@@ -393,6 +604,7 @@ def _validate_obligation_coverage(request: str, tasks: list[TaskItem]) -> None:
             "repeated or shared-evidence obligations are independent unless "
             "the request states an order or dependency"
         )
+    return coverage
 
 
 def _supports_generation_keyword(provider: object, keyword: str) -> bool:
@@ -417,21 +629,44 @@ async def _generate_structured(provider: object, system: str, user: str):
     return await provider.generate(**kwargs)
 
 
-def _prompt(query: str, planning_context: str, retry_reason: str | None = None) -> str:
+def _prompt(
+    query: str,
+    planning_context: str,
+    required_obligations: list[RequiredObligation],
+    retry_reason: str | None = None,
+    previous_plan: str = "",
+    coverage: _CoverageState | None = None,
+) -> str:
     retry_note = ""
     if retry_reason:
+        covered_ids = coverage.covered_ids if coverage else []
+        missing_ids = coverage.missing_ids if coverage else [
+            item.obligation_id for item in required_obligations
+        ]
+        missing_set = set(missing_ids)
+        missing_obligations = [
+            item for item in required_obligations if item.obligation_id in missing_set
+        ]
         retry_note = (
-            "\n\nREPAIR DATA:\n"
-            f"Previous validation failure: {retry_reason}. Correct the invalid "
-            "fields while preserving every distinct obligation and required "
-            "dependency from the planner rules. Return a corrected JSON object only."
+            "\n\nPREVIOUS INVALID TASK PLAN:\n"
+            f"{previous_plan}\n\n"
+            "COVERAGE REPAIR:\n"
+            f"Previous validation failure: {retry_reason}\n"
+            f"Already covered obligation IDs: {', '.join(covered_ids) or 'none'}\n"
+            "Missing obligations:\n"
+            f"{_format_obligations(missing_obligations)}\n"
+            "Return one corrected complete plan. Preserve every already-covered "
+            "obligation and add coverage for every missing obligation. Do not replace "
+            "one covered set with another. Return a corrected JSON object only."
         )
     return (
         f"{_STATIC_PROMPT_PREFIX}\n\n"
         "CURRENT REQUEST:\n"
         f"{query}\n\n"
         "PLANNING EVIDENCE (guidance only; not answer evidence):\n"
-        f"{planning_context}"
+        f"{planning_context}\n\n"
+        "REQUIRED OBLIGATIONS (derived only from the current request):\n"
+        f"{_format_obligations(required_obligations)}"
         f"{retry_note}"
     )
 
@@ -446,13 +681,27 @@ def _failed_result(
     query: str,
     planning_evidence_ids: list[str],
     warning: str,
+    *,
+    required_obligations: list[RequiredObligation] | None = None,
+    coverage: _CoverageState | None = None,
+    repair_attempted: bool = False,
 ) -> DecompositionResult:
+    required = required_obligations or []
     return DecompositionResult(
         request=query,
         tasks=[],
         planning_evidence_ids=planning_evidence_ids,
         status="FAILED",
         warnings=[warning],
+        required_obligations=required,
+        covered_obligations=list(coverage.covered_ids) if coverage else [],
+        missing_obligations=(
+            list(coverage.missing_ids)
+            if coverage
+            else [item.obligation_id for item in required]
+        ),
+        repair_attempted=repair_attempted,
+        coverage_validation_reason=warning,
     )
 
 
@@ -476,34 +725,91 @@ async def decompose(
 
     request = query
     planning_evidence_ids = _extract_planning_evidence_ids(planning_context)
+    required_obligations = _derive_required_obligations(request)
     system = _SYSTEM_PROMPT
     retry_reason: str | None = None
+    previous_plan = ""
+    coverage = _CoverageState(
+        [],
+        [item.obligation_id for item in required_obligations],
+        "coverage not validated",
+    )
 
     for attempt in range(2):
         try:
             result = await _generate_structured(
                 provider,
                 system,
-                _prompt(request, planning_context, retry_reason),
+                _prompt(
+                    request,
+                    planning_context,
+                    required_obligations,
+                    retry_reason,
+                    previous_plan,
+                    coverage,
+                ),
             )
             metrics.add_usage(result.usage)
+            previous_plan = result.text if isinstance(result.text, str) else ""
             tasks = _parse_tasks(_extract_json(result.text))
-            _validate_obligation_coverage(request, tasks)
+            coverage = _validate_obligation_coverage(
+                request,
+                tasks,
+                required_obligations,
+            )
             return DecompositionResult(
                 request=request,
                 tasks=tasks,
                 planning_evidence_ids=planning_evidence_ids,
                 status="COMPLETE",
                 warnings=[],
+                required_obligations=required_obligations,
+                covered_obligations=coverage.covered_ids,
+                missing_obligations=[],
+                repair_attempted=attempt > 0,
+                coverage_validation_reason=coverage.reason,
             )
+        except _CoverageValidationError as exc:
+            coverage = exc.state
+            retry_reason = _safe_warning(exc)
+            if attempt == 1:
+                return _failed_result(
+                    request,
+                    planning_evidence_ids,
+                    retry_reason,
+                    required_obligations=required_obligations,
+                    coverage=coverage,
+                    repair_attempted=True,
+                )
         except _DecompositionOutputError as exc:
             retry_reason = _safe_warning(exc)
             if attempt == 1:
-                return _failed_result(request, planning_evidence_ids, retry_reason)
+                return _failed_result(
+                    request,
+                    planning_evidence_ids,
+                    retry_reason,
+                    required_obligations=required_obligations,
+                    coverage=coverage,
+                    repair_attempted=True,
+                )
         except Exception as exc:
-            return _failed_result(request, planning_evidence_ids, _safe_warning(exc))
+            return _failed_result(
+                request,
+                planning_evidence_ids,
+                _safe_warning(exc),
+                required_obligations=required_obligations,
+                coverage=coverage,
+                repair_attempted=bool(retry_reason),
+            )
 
-    return _failed_result(request, planning_evidence_ids, "planner output could not be validated")
+    return _failed_result(
+        request,
+        planning_evidence_ids,
+        "planner output could not be validated",
+        required_obligations=required_obligations,
+        coverage=coverage,
+        repair_attempted=True,
+    )
 
 
 __all__ = ["DecompositionResult", "TaskItem", "decompose"]

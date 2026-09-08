@@ -94,7 +94,32 @@ def test_decompose_returns_locked_contract_and_uses_bounded_context():
 
 
 def test_decompose_prompt_preserves_distinct_dependent_obligations():
-    provider = _ThinkAwareProvider([_valid_response()])
+    response = json.dumps(
+        {
+            "tasks": [
+                {
+                    "task_id": "T1",
+                    "title": "Review the data model",
+                    "objective": "Review the requested data model.",
+                    "expected_output": "Data-model findings.",
+                    "domain": "database",
+                    "role_profile": "Database Analyst",
+                    "depends_on": [],
+                    "covers_obligations": ["O1"],
+                },
+                {
+                    "task_id": "T2",
+                    "title": "Review the query access path",
+                    "objective": "Review the requested query access path.",
+                    "expected_output": "Query-access findings.",
+                    "domain": "database",
+                    "role_profile": "Database Analyst",
+                    "depends_on": ["T1"],
+                },
+            ]
+        }
+    )
+    provider = _ThinkAwareProvider([response])
 
     result = asyncio.run(
         decompose(
@@ -107,7 +132,7 @@ def test_decompose_prompt_preserves_distinct_dependent_obligations():
 
     assert result.status == "COMPLETE"
     prompt = provider.calls[0]["user"]
-    assert "PROMPT VERSION: p-lite-decomposer-v6" in prompt
+    assert "PROMPT VERSION: p-lite-decomposer-v7" in prompt
     assert prompt.index("OUTPUT PROTOCOL") < prompt.index("CURRENT REQUEST")
     assert prompt.index("PLANNER RULES") < prompt.index("PLANNING EVIDENCE")
     assert "separate tasks" in prompt
@@ -146,7 +171,32 @@ def test_decompose_retries_a_collapsed_explicitly_ordered_plan():
             ]
         }
     )
-    provider = _Provider([collapsed, _valid_response()])
+    repaired = json.dumps(
+        {
+            "tasks": [
+                {
+                    "task_id": "T1",
+                    "title": "Review the data model",
+                    "objective": "Review the requested data model.",
+                    "expected_output": "Data-model findings.",
+                    "domain": "database",
+                    "role_profile": "Database Analyst",
+                    "depends_on": [],
+                    "covers_obligations": ["O1"],
+                },
+                {
+                    "task_id": "T2",
+                    "title": "Review the query access path",
+                    "objective": "Review the requested query access path.",
+                    "expected_output": "Query-access findings.",
+                    "domain": "database",
+                    "role_profile": "Database Analyst",
+                    "depends_on": ["T1"],
+                },
+            ]
+        }
+    )
+    provider = _Provider([collapsed, repaired])
 
     result = asyncio.run(
         decompose(
@@ -162,7 +212,7 @@ def test_decompose_retries_a_collapsed_explicitly_ordered_plan():
     assert result.tasks[1].depends_on == ["T1"]
     assert len(provider.calls) == 2
     assert "explicitly ordered obligations" in provider.calls[1]["user"]
-    assert "preserving every distinct obligation" in provider.calls[1]["user"]
+    assert "Preserve every already-covered obligation" in provider.calls[1]["user"]
 
 
 def test_decompose_allows_one_structured_retry_and_counts_usage():
@@ -327,6 +377,7 @@ def test_decompose_accepts_separate_security_and_api_obligations():
                     "domain": "security",
                     "role_profile": "Security Analyst",
                     "depends_on": [],
+                    "covers_obligations": ["O1"],
                 },
                 {
                     "task_id": "T2",
@@ -336,6 +387,7 @@ def test_decompose_accepts_separate_security_and_api_obligations():
                     "domain": "security",
                     "role_profile": "Security Analyst",
                     "depends_on": [],
+                    "covers_obligations": ["O2"],
                 },
                 {
                     "task_id": "T3",
@@ -345,6 +397,7 @@ def test_decompose_accepts_separate_security_and_api_obligations():
                     "domain": "api_architecture",
                     "role_profile": "API Analyst",
                     "depends_on": [],
+                    "covers_obligations": ["O3"],
                 },
                 {
                     "task_id": "T4",
@@ -354,6 +407,7 @@ def test_decompose_accepts_separate_security_and_api_obligations():
                     "domain": "api_architecture",
                     "role_profile": "API Analyst",
                     "depends_on": [],
+                    "covers_obligations": ["O4"],
                 },
             ]
         }
@@ -372,21 +426,24 @@ def test_decompose_accepts_separate_security_and_api_obligations():
 
     assert result.status == "COMPLETE"
     assert [task.task_id for task in result.tasks] == ["T1", "T2", "T3", "T4"]
+    assert result.covered_obligations == ["O1", "O2", "O3", "O4"]
+    assert result.missing_obligations == []
     assert len(provider.calls) == 1
 
 
-def test_decompose_repair_names_missing_request_domains():
+def test_decompose_repairs_missing_explicit_obligations_once():
     collapsed = json.dumps(
         {
             "tasks": [
                 {
                     "task_id": "T1",
-                    "title": "Review API write",
-                    "objective": "Review the multi-step API write.",
-                    "expected_output": "API write findings.",
+                    "title": "Review request validation and error responses",
+                    "objective": "Review request validation and error responses for the API write.",
+                    "expected_output": "Validation and error-response findings.",
                     "domain": "api_architecture",
                     "role_profile": "API Analyst",
                     "depends_on": [],
+                    "covers_obligations": ["O3", "O4"],
                 }
             ]
         }
@@ -402,6 +459,7 @@ def test_decompose_repair_names_missing_request_domains():
                     "domain": "security",
                     "role_profile": "Security Analyst",
                     "depends_on": [],
+                    "covers_obligations": ["O1", "O2"],
                 },
                 {
                     "task_id": "T2",
@@ -411,6 +469,7 @@ def test_decompose_repair_names_missing_request_domains():
                     "domain": "api_architecture",
                     "role_profile": "API Analyst",
                     "depends_on": [],
+                    "covers_obligations": ["O3", "O4"],
                 },
                 {
                     "task_id": "T3",
@@ -420,6 +479,7 @@ def test_decompose_repair_names_missing_request_domains():
                     "domain": "database",
                     "role_profile": "Database Analyst",
                     "depends_on": [],
+                    "covers_obligations": ["O5"],
                 },
             ]
         }
@@ -442,7 +502,131 @@ def test_decompose_repair_names_missing_request_domains():
         "database",
         "api_architecture",
     }
-    assert "missing canonical request domains: database, security" in provider.calls[1]["user"]
+    assert result.covered_obligations == ["O1", "O2", "O3", "O4", "O5"]
+    assert result.repair_attempted is True
+    repair_prompt = provider.calls[1]["user"]
+    assert "PREVIOUS INVALID TASK PLAN" in repair_prompt
+    assert "Already covered obligation IDs: O3, O4" in repair_prompt
+    assert "O1 | canonical_kind=security | source_anchor=authentication" in repair_prompt
+    assert "O5 | canonical_kind=database | source_anchor=transaction-boundary" in repair_prompt
+
+
+def test_decompose_allows_one_task_to_cover_related_obligations():
+    response = json.dumps(
+        {
+            "tasks": [
+                {
+                    "task_id": "T1",
+                    "title": "Review authentication and authorization",
+                    "objective": "Review authentication and authorization requirements.",
+                    "expected_output": "Authentication and authorization findings.",
+                    "domain": "security",
+                    "role_profile": "Security Analyst",
+                    "depends_on": [],
+                    "covers_obligations": ["O1", "O2"],
+                }
+            ]
+        }
+    )
+    provider = _Provider([response])
+
+    result = asyncio.run(
+        decompose(
+            provider,
+            "Combine authentication and authorization obligations.",
+            "",
+            RunMetrics(),
+        )
+    )
+
+    assert result.status == "COMPLETE"
+    assert result.covered_obligations == ["O1", "O2"]
+    assert result.tasks[0].covers_obligations == ["O1", "O2"]
+    assert len(provider.calls) == 1
+
+
+def test_decompose_preserves_unknown_obligation_without_inventing_a_domain():
+    response = json.dumps(
+        {
+            "tasks": [
+                {
+                    "task_id": "T1",
+                    "title": "Review authentication",
+                    "objective": "Review authentication requirements.",
+                    "expected_output": "Authentication findings.",
+                    "domain": "security",
+                    "role_profile": "Security Analyst",
+                    "depends_on": [],
+                    "covers_obligations": ["O1"],
+                },
+                {
+                    "task_id": "T2",
+                    "title": "Review retention policy",
+                    "objective": "Review the requested retention policy.",
+                    "expected_output": "Retention-policy findings.",
+                    "domain": "api_architecture",
+                    "role_profile": "API Analyst",
+                    "depends_on": [],
+                    "covers_obligations": ["O2"],
+                },
+            ]
+        }
+    )
+    provider = _Provider([response])
+
+    result = asyncio.run(
+        decompose(
+            provider,
+            "Combine authentication and retention policy obligations.",
+            "",
+            RunMetrics(),
+        )
+    )
+
+    assert result.status == "COMPLETE"
+    assert result.required_obligations[1].canonical_kind is None
+    assert result.required_obligations[1].source_anchor == "retention policy"
+    assert result.covered_obligations == ["O1", "O2"]
+
+
+def test_decompose_rejects_missing_obligation_after_one_bounded_repair():
+    incomplete = json.dumps(
+        {
+            "tasks": [
+                {
+                    "task_id": "T1",
+                    "title": "Review authentication",
+                    "objective": "Review authentication requirements.",
+                    "expected_output": "Authentication findings.",
+                    "domain": "security",
+                    "role_profile": "Security Analyst",
+                    "depends_on": [],
+                    "covers_obligations": ["O1"],
+                }
+            ]
+        }
+    )
+    provider = _Provider([incomplete, incomplete])
+
+    result = asyncio.run(
+        decompose(
+            provider,
+            "Combine authentication and authorization obligations.",
+            "",
+            RunMetrics(),
+        )
+    )
+
+    assert result.status == "FAILED"
+    assert result.repair_attempted is True
+    assert result.covered_obligations == ["O1"]
+    assert result.missing_obligations == ["O2"]
+    assert len(provider.calls) == 2
+    assert "Missing obligations" in provider.calls[1]["user"]
+    assert (
+        "O2 | canonical_kind=security | source_anchor=authorization"
+        in provider.calls[1]["user"]
+    )
 
 
 def test_decompose_rejects_dependency_for_repeated_obligation_without_order():

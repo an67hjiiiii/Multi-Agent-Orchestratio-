@@ -222,7 +222,26 @@ class ResearchPipeline:
                 decomposition = await decompose(provider, query, planning_context, metrics)
                 tasks = _runtime_tasks(decomposition)
                 metrics.generation_latency_ms += int((time.perf_counter() - g0) * 1000)
-                event("decomposition", tasks=[asdict(t) for t in tasks])
+                event(
+                    "decomposition",
+                    tasks=[asdict(t) for t in tasks],
+                    required_obligations=_obligation_trace_records(decomposition),
+                    task_obligation_coverage=_task_obligation_coverage(decomposition),
+                    covered_obligations=list(
+                        getattr(decomposition, "covered_obligations", [])
+                    ),
+                    missing_obligations=list(
+                        getattr(decomposition, "missing_obligations", [])
+                    ),
+                    repair_attempted=bool(
+                        getattr(decomposition, "repair_attempted", False)
+                    ),
+                    coverage_validation_reason=getattr(
+                        decomposition,
+                        "coverage_validation_reason",
+                        None,
+                    ),
+                )
                 if getattr(decomposition, "status", "COMPLETE") != "COMPLETE" or not tasks:
                     event(
                         "decomposition_failed",
@@ -435,6 +454,29 @@ def _runtime_tasks(decomposition: object) -> list[Task]:
             )
         )
     return tasks
+
+
+def _obligation_trace_records(decomposition: object) -> list[dict[str, object]]:
+    records: list[dict[str, object]] = []
+    for obligation in getattr(decomposition, "required_obligations", []):
+        model_dump = getattr(obligation, "model_dump", None)
+        if callable(model_dump):
+            records.append(dict(model_dump()))
+        elif hasattr(obligation, "__dataclass_fields__"):
+            records.append(dict(asdict(obligation)))
+    return records
+
+
+def _task_obligation_coverage(decomposition: object) -> list[dict[str, object]]:
+    return [
+        {
+            "task_id": getattr(task, "task_id", ""),
+            "covers_obligations": list(
+                getattr(task, "covers_obligations", [])
+            ),
+        }
+        for task in getattr(decomposition, "tasks", [])
+    ]
 
 
 def _call_retriever(

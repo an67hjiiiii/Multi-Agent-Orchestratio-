@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Final, Literal, TypeAlias
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 
 CANONICAL_TASK_DOMAINS: Final[frozenset[str]] = frozenset(
@@ -30,6 +30,14 @@ class PlanningRetrievalResult(BaseModel):
     context: str
 
 
+class RequiredObligation(BaseModel):
+    """One stable obligation derived from text explicitly present in a request."""
+
+    obligation_id: str
+    canonical_kind: CanonicalTaskDomain | None = None
+    source_anchor: str
+
+
 class TaskItem(BaseModel):
     task_id: str
     title: str
@@ -38,6 +46,7 @@ class TaskItem(BaseModel):
     domain: CanonicalTaskDomain
     role_profile: str
     depends_on: list[str]
+    covers_obligations: list[str] = Field(default_factory=list)
 
 
 class TaskPlan(BaseModel):
@@ -83,6 +92,11 @@ class DecompositionResult(BaseModel):
     planning_evidence_ids: list[str]
     status: str
     warnings: list[str]
+    required_obligations: list[RequiredObligation] = Field(default_factory=list)
+    covered_obligations: list[str] = Field(default_factory=list)
+    missing_obligations: list[str] = Field(default_factory=list)
+    repair_attempted: bool = False
+    coverage_validation_reason: str | None = None
 
     @model_validator(mode="after")
     def validate_dependencies(self) -> DecompositionResult:

@@ -206,3 +206,75 @@ def test_failed_decomposition_is_explicit_not_an_empty_partial(tmp_path: Path, m
     assert run["status"] == "FAILED"
     assert run["tasks"] == []
     assert any(event["stage"] == "decomposition_failed" for event in run["events"])
+
+
+def test_pipeline_traces_explicit_obligation_coverage(tmp_path: Path, monkeypatch):
+    from app.research import pipeline as pipeline_module
+    from app.research.task_schema import (
+        DecompositionResult,
+        RequiredObligation,
+        TaskItem,
+    )
+
+    async def covered_decompose(*_args):
+        return DecompositionResult(
+            request="Combine authentication and authorization obligations.",
+            tasks=[
+                TaskItem(
+                    task_id="T1",
+                    title="Review authentication and authorization",
+                    objective="Review authentication and authorization requirements.",
+                    expected_output="Security findings.",
+                    domain="security",
+                    role_profile="Security Analyst",
+                    depends_on=[],
+                    covers_obligations=["O1", "O2"],
+                )
+            ],
+            planning_evidence_ids=[],
+            status="COMPLETE",
+            warnings=[],
+            required_obligations=[
+                RequiredObligation(
+                    obligation_id="O1",
+                    canonical_kind="security",
+                    source_anchor="authentication",
+                ),
+                RequiredObligation(
+                    obligation_id="O2",
+                    canonical_kind="security",
+                    source_anchor="authorization",
+                ),
+            ],
+            covered_obligations=["O1", "O2"],
+            missing_obligations=[],
+            repair_attempted=True,
+            coverage_validation_reason="complete obligation coverage",
+        )
+
+    monkeypatch.setenv("IMPLEMENTATION_PROFILE", "dev")
+    monkeypatch.setattr(pipeline_module, "decompose", covered_decompose)
+    sources = SourceStore(str(tmp_path / "data"))
+    sources.import_text(
+        "security.md",
+        "Authentication verifies identity and authorization checks permissions.",
+    )
+
+    run = asyncio.run(
+        ResearchPipeline(sources, RunStore(str(tmp_path / "runs"))).run(
+            "Combine authentication and authorization obligations.", "B", "fake"
+        )
+    )
+
+    event = next(item for item in run["events"] if item["stage"] == "decomposition")
+    assert [item["obligation_id"] for item in event["required_obligations"]] == [
+        "O1",
+        "O2",
+    ]
+    assert event["task_obligation_coverage"] == [
+        {"task_id": "T1", "covers_obligations": ["O1", "O2"]}
+    ]
+    assert event["covered_obligations"] == ["O1", "O2"]
+    assert event["missing_obligations"] == []
+    assert event["repair_attempted"] is True
+    assert event["coverage_validation_reason"] == "complete obligation coverage"

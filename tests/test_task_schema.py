@@ -6,6 +6,7 @@ from app.research.task_schema import (
     DecompositionResult,
     PlanningKnowledgeItem,
     PlanningRetrievalResult,
+    RequiredObligation,
     TaskItem,
     validate_task_dependencies,
 )
@@ -43,10 +44,24 @@ def test_locked_models_store_contract_fields() -> None:
         planning_evidence_ids=retrieval.item_ids,
         status="SUCCEEDED",
         warnings=[],
+        required_obligations=[
+            RequiredObligation(
+                obligation_id="O1",
+                canonical_kind="api_architecture",
+                source_anchor="API",
+            )
+        ],
+        covered_obligations=["O1"],
+        repair_attempted=True,
+        coverage_validation_reason="complete obligation coverage",
     )
 
     assert result.tasks[0].task_id == "T1"
     assert retrieval.scores == [0.9]
+    assert result.required_obligations[0].obligation_id == "O1"
+    assert result.covered_obligations == ["O1"]
+    assert result.missing_obligations == []
+    assert result.repair_attempted is True
 
 
 def test_duplicate_task_ids_are_rejected() -> None:
