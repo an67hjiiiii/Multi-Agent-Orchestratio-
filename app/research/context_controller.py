@@ -4,6 +4,7 @@ from app.core.types import SourceChunk
 from app.retrieval.text import (
     estimate_tokens,
     normalize_text,
+    terms as lexical_terms,
     truncate_to_token_budget,
 )
 
@@ -126,8 +127,8 @@ class ContextController:
         retained: list[SourceChunk] = []
         dropped: list[dict] = []
         for chunk in sorted(candidates, key=lambda item: (-item.score, item.chunk_id)):
-            terms = set(normalize_text(chunk.text).casefold().split())
-            if chunk.score <= 0 or (task_terms and not task_terms.intersection(terms)):
+            chunk_terms = lexical_terms(chunk.text)
+            if chunk.score <= 0 or (task_terms and not task_terms.intersection(chunk_terms)):
                 dropped.append(self._drop_record(chunk, "low_relevance", estimate_tokens(chunk.text)))
             else:
                 retained.append(chunk)

@@ -240,7 +240,7 @@ def test_decompose_rejects_dependency_cycles():
 
 def test_decompose_retries_noncanonical_domain_to_canonical_contract():
     invalid = json.loads(_valid_response())
-    invalid["tasks"][0]["domain"] = "Security"
+    invalid["tasks"][0]["domain"] = "Security Policy"
     provider = _Provider([json.dumps(invalid), _valid_response()])
 
     result = asyncio.run(
@@ -256,6 +256,63 @@ def test_decompose_retries_noncanonical_domain_to_canonical_contract():
     assert result.tasks[0].domain == "security"
     assert len(provider.calls) == 2
     assert "canonical task domains" in provider.calls[1]["user"]
+
+
+def test_decompose_normalizes_observed_qwen_domain_aliases():
+    response = json.loads(_valid_response())
+    response["tasks"][0]["domain"] = "Security and Identity Management"
+    response["tasks"][1]["domain"] = "API design"
+    provider = _Provider([json.dumps(response)])
+
+    result = asyncio.run(
+        decompose(
+            provider,
+            "Review authentication and the API contract.",
+            "",
+            RunMetrics(),
+        )
+    )
+
+    assert result.status == "COMPLETE"
+    assert [task.domain for task in result.tasks] == ["security", "api_architecture"]
+    assert len(provider.calls) == 1
+
+
+def test_decompose_allows_security_obligations_in_api_context():
+    response = json.loads(_valid_response())
+    response["tasks"] = [
+        {
+            "task_id": "T1",
+            "title": "Review authentication",
+            "objective": "Review authentication in the API.",
+            "expected_output": "Authentication findings.",
+            "domain": "security",
+            "role_profile": "Security Analyst",
+            "depends_on": [],
+        },
+        {
+            "task_id": "T2",
+            "title": "Review authorization",
+            "objective": "Review authorization in the API.",
+            "expected_output": "Authorization findings.",
+            "domain": "security",
+            "role_profile": "Security Analyst",
+            "depends_on": [],
+        },
+    ]
+    provider = _Provider([json.dumps(response)])
+
+    result = asyncio.run(
+        decompose(
+            provider,
+            "Explain how authentication and authorization relate in this API.",
+            "",
+            RunMetrics(),
+        )
+    )
+
+    assert result.status == "COMPLETE"
+    assert [task.domain for task in result.tasks] == ["security", "security"]
 
 
 def test_decompose_rejects_dependency_for_repeated_obligation_without_order():

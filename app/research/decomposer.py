@@ -105,6 +105,30 @@ _DOMAIN_LABEL_HINTS = {
     "database": frozenset({"database", "db"}),
     "api_architecture": frozenset({"api", "endpoint", "rest", "service", "sla"}),
 }
+# A domain label in the request is not always an independent obligation.  In
+# particular, "API" and "endpoint" commonly provide context for security or
+# data-access work.  Require an API task only when the request also names an
+# API-contract concern, while keeping security/database anchors explicit.
+_DOMAIN_OBLIGATION_HINTS = {
+    "security": _CANONICAL_DOMAIN_HINTS["security"] - _DOMAIN_LABEL_HINTS["security"],
+    "database": _CANONICAL_DOMAIN_HINTS["database"],
+    "api_architecture": frozenset(
+        {"contract", "design", "architecture", "validation", "error", "response", "sla"}
+    ),
+}
+# qwen3:4b has emitted these presentation labels in real Ollama traces.  They
+# are deterministic aliases, not new domains; unknown labels remain rejected.
+_CANONICAL_DOMAIN_ALIASES = {
+    "security": "security",
+    "security and identity management": "security",
+    "security identity management": "security",
+    "database": "database",
+    "database management": "database",
+    "database system": "database",
+    "database systems": "database",
+    "api design": "api_architecture",
+    "api architecture": "api_architecture",
+}
 _REQUIRED_TASK_FIELDS = (
     "task_id",
     "title",
@@ -197,6 +221,13 @@ def _required_text(raw: dict[str, Any], field_name: str, task_index: int) -> str
     return value.strip()
 
 
+def _canonical_domain(value: str) -> str | None:
+    """Map only observed presentation labels to the locked domain IDs."""
+
+    normalized = re.sub(r"[^a-z0-9]+", " ", value.casefold()).strip()
+    return _CANONICAL_DOMAIN_ALIASES.get(normalized)
+
+
 def _parse_tasks(parsed: dict[str, Any]) -> list[TaskItem]:
     raw_tasks = parsed.get("tasks")
     if not isinstance(raw_tasks, list) or not raw_tasks:
@@ -223,10 +254,12 @@ def _parse_tasks(parsed: dict[str, Any]) -> list[TaskItem]:
                 )
             dependencies.append(dependency.strip())
 
-        if values["domain"] not in CANONICAL_TASK_DOMAINS:
+        canonical_domain = _canonical_domain(values["domain"])
+        if canonical_domain is None or canonical_domain not in CANONICAL_TASK_DOMAINS:
             raise _DecompositionOutputError(
                 f"task {index} domain must be one of the canonical task domains"
             )
+        values["domain"] = canonical_domain
         try:
             tasks.append(TaskItem(**values, depends_on=dependencies))
         except (TypeError, ValueError) as exc:
@@ -283,7 +316,7 @@ def _validate_request_alignment(request: str, tasks: list[TaskItem]) -> None:
     request_terms = lexical_terms(request)
     requested_domains = {
         domain
-        for domain, hints in _CANONICAL_DOMAIN_HINTS.items()
+        for domain, hints in _DOMAIN_OBLIGATION_HINTS.items()
         if request_terms & hints
     }
     if len(requested_domains) < 2:

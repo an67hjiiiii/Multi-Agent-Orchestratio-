@@ -33,6 +33,17 @@ def test_o_lite_logs_low_relevance_without_running_semantic_dedup():
     assert dropped[0]["reason"] == "low_relevance"
 
 
+def test_o_lite_matches_normalized_task_terms_to_authentication_evidence():
+    chunk = _chunk("auth", "s1", "Authentication verifies identities", score=0.5)
+
+    selected, dropped, _ = ContextController(max_tokens=100).select_for_task(
+        [chunk], task_terms={"authentication", "identity"}, max_tokens=100
+    )
+
+    assert [item.chunk_id for item in selected] == ["auth"]
+    assert dropped == []
+
+
 def test_overlap_tracker_keeps_legitimate_shared_evidence_and_reports_reuse():
     tracker = OverlapTracker()
     evidence = _chunk("c1", "s1", "Authentication identity verification evidence")
