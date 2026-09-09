@@ -1,0 +1,2440 @@
+{
+  "schema_version": "blinded-human-review-manifest-v1",
+  "dataset_id": "m1-final-experiment-v1",
+  "dataset_revision": "FINAL_DATASET_V2_TARGETED_REWORK",
+  "selection_rule": {
+    "name": "first_frozen_variant_per_group",
+    "variant_field": "variant_order",
+    "selected_value": 1,
+    "output_independent": true,
+    "frozen_before_execution": true,
+    "selection_version": "human-review-v1"
+  },
+  "scenario_groups": 30,
+  "variants_per_group": 1,
+  "conditions": [
+    "A",
+    "B",
+    "C",
+    "C-P",
+    "C-N",
+    "C-O"
+  ],
+  "repeat": 1,
+  "expected_review_count": 180,
+  "reviewer_facing_artifact": "reports/final_experiment/human_review_template.csv",
+  "evaluator_only_mapping": true,
+  "mapping_status": "PENDING_FINAL_RUN",
+  "dataset_sha256": "553b7e4de97bb3063d5f8f22994f368021b12a1439d8e4ea3d94b33dcbcd08ac",
+  "gold_sha256": "558f96f77aeddbee3dd815fdb09ea8c5e30c59988ef902bd0498b0e60122ce8d",
+  "approval": {
+    "benchmark_set_status": "FROZEN_PENDING_HUMAN_APPROVAL",
+    "gold_status": "PENDING_HUMAN_APPROVAL",
+    "reviewer": null,
+    "approved_at": null
+  },
+  "selected_variants": [
+    {
+      "scenario_group_id": "M1F-S01",
+      "scenario_gold_id": "M1F-S01",
+      "selected_case_id": "M1F-S01-V01",
+      "variant_order": 1,
+      "blind_ids": [
+        "BLIND-001",
+        "BLIND-002",
+        "BLIND-003",
+        "BLIND-004",
+        "BLIND-005",
+        "BLIND-006"
+      ]
+    },
+    {
+      "scenario_group_id": "M1F-S02",
+      "scenario_gold_id": "M1F-S02",
+      "selected_case_id": "M1F-S02-V01",
+      "variant_order": 1,
+      "blind_ids": [
+        "BLIND-007",
+        "BLIND-008",
+        "BLIND-009",
+        "BLIND-010",
+        "BLIND-011",
+        "BLIND-012"
+      ]
+    },
+    {
+      "scenario_group_id": "M1F-S03",
+      "scenario_gold_id": "M1F-S03",
+      "selected_case_id": "M1F-S03-V01",
+      "variant_order": 1,
+      "blind_ids": [
+        "BLIND-013",
+        "BLIND-014",
+        "BLIND-015",
+        "BLIND-016",
+        "BLIND-017",
+        "BLIND-018"
+      ]
+    },
+    {
+      "scenario_group_id": "M1F-S04",
+      "scenario_gold_id": "M1F-S04",
+      "selected_case_id": "M1F-S04-V01",
+      "variant_order": 1,
+      "blind_ids": [
+        "BLIND-019",
+        "BLIND-020",
+        "BLIND-021",
+        "BLIND-022",
+        "BLIND-023",
+        "BLIND-024"
+      ]
+    },
+    {
+      "scenario_group_id": "M1F-S05",
+      "scenario_gold_id": "M1F-S05",
+      "selected_case_id": "M1F-S05-V01",
+      "variant_order": 1,
+      "blind_ids": [
+        "BLIND-025",
+        "BLIND-026",
+        "BLIND-027",
+        "BLIND-028",
+        "BLIND-029",
+        "BLIND-030"
+      ]
+    },
+    {
+      "scenario_group_id": "M1F-S06",
+      "scenario_gold_id": "M1F-S06",
+      "selected_case_id": "M1F-S06-V01",
+      "variant_order": 1,
+      "blind_ids": [
+        "BLIND-031",
+        "BLIND-032",
+        "BLIND-033",
+        "BLIND-034",
+        "BLIND-035",
+        "BLIND-036"
+      ]
+    },
+    {
+      "scenario_group_id": "M1F-S07",
+      "scenario_gold_id": "M1F-S07",
+      "selected_case_id": "M1F-S07-V01",
+      "variant_order": 1,
+      "blind_ids": [
+        "BLIND-037",
+        "BLIND-038",
+        "BLIND-039",
+        "BLIND-040",
+        "BLIND-041",
+        "BLIND-042"
+      ]
+    },
+    {
+      "scenario_group_id": "M1F-S08",
+      "scenario_gold_id": "M1F-S08",
+      "selected_case_id": "M1F-S08-V01",
+      "variant_order": 1,
+      "blind_ids": [
+        "BLIND-043",
+        "BLIND-044",
+        "BLIND-045",
+        "BLIND-046",
+        "BLIND-047",
+        "BLIND-048"
+      ]
+    },
+    {
+      "scenario_group_id": "M1F-S09",
+      "scenario_gold_id": "M1F-S09",
+      "selected_case_id": "M1F-S09-V01",
+      "variant_order": 1,
+      "blind_ids": [
+        "BLIND-049",
+        "BLIND-050",
+        "BLIND-051",
+        "BLIND-052",
+        "BLIND-053",
+        "BLIND-054"
+      ]
+    },
+    {
+      "scenario_group_id": "M1F-S10",
+      "scenario_gold_id": "M1F-S10",
+      "selected_case_id": "M1F-S10-V01",
+      "variant_order": 1,
+      "blind_ids": [
+        "BLIND-055",
+        "BLIND-056",
+        "BLIND-057",
+        "BLIND-058",
+        "BLIND-059",
+        "BLIND-060"
+      ]
+    },
+    {
+      "scenario_group_id": "M1F-S11",
+      "scenario_gold_id": "M1F-S11",
+      "selected_case_id": "M1F-S11-V01",
+      "variant_order": 1,
+      "blind_ids": [
+        "BLIND-061",
+        "BLIND-062",
+        "BLIND-063",
+        "BLIND-064",
+        "BLIND-065",
+        "BLIND-066"
+      ]
+    },
+    {
+      "scenario_group_id": "M1F-S12",
+      "scenario_gold_id": "M1F-S12",
+      "selected_case_id": "M1F-S12-V01",
+      "variant_order": 1,
+      "blind_ids": [
+        "BLIND-067",
+        "BLIND-068",
+        "BLIND-069",
+        "BLIND-070",
+        "BLIND-071",
+        "BLIND-072"
+      ]
+    },
+    {
+      "scenario_group_id": "M1F-S13",
+      "scenario_gold_id": "M1F-S13",
+      "selected_case_id": "M1F-S13-V01",
+      "variant_order": 1,
+      "blind_ids": [
+        "BLIND-073",
+        "BLIND-074",
+        "BLIND-075",
+        "BLIND-076",
+        "BLIND-077",
+        "BLIND-078"
+      ]
+    },
+    {
+      "scenario_group_id": "M1F-S14",
+      "scenario_gold_id": "M1F-S14",
+      "selected_case_id": "M1F-S14-V01",
+      "variant_order": 1,
+      "blind_ids": [
+        "BLIND-079",
+        "BLIND-080",
+        "BLIND-081",
+        "BLIND-082",
+        "BLIND-083",
+        "BLIND-084"
+      ]
+    },
+    {
+      "scenario_group_id": "M1F-S15",
+      "scenario_gold_id": "M1F-S15",
+      "selected_case_id": "M1F-S15-V01",
+      "variant_order": 1,
+      "blind_ids": [
+        "BLIND-085",
+        "BLIND-086",
+        "BLIND-087",
+        "BLIND-088",
+        "BLIND-089",
+        "BLIND-090"
+      ]
+    },
+    {
+      "scenario_group_id": "M1F-S16",
+      "scenario_gold_id": "M1F-S16",
+      "selected_case_id": "M1F-S16-V01",
+      "variant_order": 1,
+      "blind_ids": [
+        "BLIND-091",
+        "BLIND-092",
+        "BLIND-093",
+        "BLIND-094",
+        "BLIND-095",
+        "BLIND-096"
+      ]
+    },
+    {
+      "scenario_group_id": "M1F-S17",
+      "scenario_gold_id": "M1F-S17",
+      "selected_case_id": "M1F-S17-V01",
+      "variant_order": 1,
+      "blind_ids": [
+        "BLIND-097",
+        "BLIND-098",
+        "BLIND-099",
+        "BLIND-100",
+        "BLIND-101",
+        "BLIND-102"
+      ]
+    },
+    {
+      "scenario_group_id": "M1F-S18",
+      "scenario_gold_id": "M1F-S18",
+      "selected_case_id": "M1F-S18-V01",
+      "variant_order": 1,
+      "blind_ids": [
+        "BLIND-103",
+        "BLIND-104",
+        "BLIND-105",
+        "BLIND-106",
+        "BLIND-107",
+        "BLIND-108"
+      ]
+    },
+    {
+      "scenario_group_id": "M1F-S19",
+      "scenario_gold_id": "M1F-S19",
+      "selected_case_id": "M1F-S19-V01",
+      "variant_order": 1,
+      "blind_ids": [
+        "BLIND-109",
+        "BLIND-110",
+        "BLIND-111",
+        "BLIND-112",
+        "BLIND-113",
+        "BLIND-114"
+      ]
+    },
+    {
+      "scenario_group_id": "M1F-S20",
+      "scenario_gold_id": "M1F-S20",
+      "selected_case_id": "M1F-S20-V01",
+      "variant_order": 1,
+      "blind_ids": [
+        "BLIND-115",
+        "BLIND-116",
+        "BLIND-117",
+        "BLIND-118",
+        "BLIND-119",
+        "BLIND-120"
+      ]
+    },
+    {
+      "scenario_group_id": "M1F-S21",
+      "scenario_gold_id": "M1F-S21",
+      "selected_case_id": "M1F-S21-V01",
+      "variant_order": 1,
+      "blind_ids": [
+        "BLIND-121",
+        "BLIND-122",
+        "BLIND-123",
+        "BLIND-124",
+        "BLIND-125",
+        "BLIND-126"
+      ]
+    },
+    {
+      "scenario_group_id": "M1F-S22",
+      "scenario_gold_id": "M1F-S22",
+      "selected_case_id": "M1F-S22-V01",
+      "variant_order": 1,
+      "blind_ids": [
+        "BLIND-127",
+        "BLIND-128",
+        "BLIND-129",
+        "BLIND-130",
+        "BLIND-131",
+        "BLIND-132"
+      ]
+    },
+    {
+      "scenario_group_id": "M1F-S23",
+      "scenario_gold_id": "M1F-S23",
+      "selected_case_id": "M1F-S23-V01",
+      "variant_order": 1,
+      "blind_ids": [
+        "BLIND-133",
+        "BLIND-134",
+        "BLIND-135",
+        "BLIND-136",
+        "BLIND-137",
+        "BLIND-138"
+      ]
+    },
+    {
+      "scenario_group_id": "M1F-S24",
+      "scenario_gold_id": "M1F-S24",
+      "selected_case_id": "M1F-S24-V01",
+      "variant_order": 1,
+      "blind_ids": [
+        "BLIND-139",
+        "BLIND-140",
+        "BLIND-141",
+        "BLIND-142",
+        "BLIND-143",
+        "BLIND-144"
+      ]
+    },
+    {
+      "scenario_group_id": "M1F-S25",
+      "scenario_gold_id": "M1F-S25",
+      "selected_case_id": "M1F-S25-V01",
+      "variant_order": 1,
+      "blind_ids": [
+        "BLIND-145",
+        "BLIND-146",
+        "BLIND-147",
+        "BLIND-148",
+        "BLIND-149",
+        "BLIND-150"
+      ]
+    },
+    {
+      "scenario_group_id": "M1F-S26",
+      "scenario_gold_id": "M1F-S26",
+      "selected_case_id": "M1F-S26-V01",
+      "variant_order": 1,
+      "blind_ids": [
+        "BLIND-151",
+        "BLIND-152",
+        "BLIND-153",
+        "BLIND-154",
+        "BLIND-155",
+        "BLIND-156"
+      ]
+    },
+    {
+      "scenario_group_id": "M1F-S27",
+      "scenario_gold_id": "M1F-S27",
+      "selected_case_id": "M1F-S27-V01",
+      "variant_order": 1,
+      "blind_ids": [
+        "BLIND-157",
+        "BLIND-158",
+        "BLIND-159",
+        "BLIND-160",
+        "BLIND-161",
+        "BLIND-162"
+      ]
+    },
+    {
+      "scenario_group_id": "M1F-S28",
+      "scenario_gold_id": "M1F-S28",
+      "selected_case_id": "M1F-S28-V01",
+      "variant_order": 1,
+      "blind_ids": [
+        "BLIND-163",
+        "BLIND-164",
+        "BLIND-165",
+        "BLIND-166",
+        "BLIND-167",
+        "BLIND-168"
+      ]
+    },
+    {
+      "scenario_group_id": "M1F-S29",
+      "scenario_gold_id": "M1F-S29",
+      "selected_case_id": "M1F-S29-V01",
+      "variant_order": 1,
+      "blind_ids": [
+        "BLIND-169",
+        "BLIND-170",
+        "BLIND-171",
+        "BLIND-172",
+        "BLIND-173",
+        "BLIND-174"
+      ]
+    },
+    {
+      "scenario_group_id": "M1F-S30",
+      "scenario_gold_id": "M1F-S30",
+      "selected_case_id": "M1F-S30-V01",
+      "variant_order": 1,
+      "blind_ids": [
+        "BLIND-175",
+        "BLIND-176",
+        "BLIND-177",
+        "BLIND-178",
+        "BLIND-179",
+        "BLIND-180"
+      ]
+    }
+  ],
+  "blind_to_run": [
+    {
+      "blind_id": "BLIND-001",
+      "review_order": 1,
+      "scenario_group_id": "M1F-S01",
+      "selected_case_id": "M1F-S01-V01",
+      "condition": "A",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S01-V01|A|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-002",
+      "review_order": 2,
+      "scenario_group_id": "M1F-S01",
+      "selected_case_id": "M1F-S01-V01",
+      "condition": "B",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S01-V01|B|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-003",
+      "review_order": 3,
+      "scenario_group_id": "M1F-S01",
+      "selected_case_id": "M1F-S01-V01",
+      "condition": "C",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S01-V01|C|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-004",
+      "review_order": 4,
+      "scenario_group_id": "M1F-S01",
+      "selected_case_id": "M1F-S01-V01",
+      "condition": "C-P",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S01-V01|C-P|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-005",
+      "review_order": 5,
+      "scenario_group_id": "M1F-S01",
+      "selected_case_id": "M1F-S01-V01",
+      "condition": "C-N",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S01-V01|C-N|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-006",
+      "review_order": 6,
+      "scenario_group_id": "M1F-S01",
+      "selected_case_id": "M1F-S01-V01",
+      "condition": "C-O",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S01-V01|C-O|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-007",
+      "review_order": 7,
+      "scenario_group_id": "M1F-S02",
+      "selected_case_id": "M1F-S02-V01",
+      "condition": "A",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S02-V01|A|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-008",
+      "review_order": 8,
+      "scenario_group_id": "M1F-S02",
+      "selected_case_id": "M1F-S02-V01",
+      "condition": "B",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S02-V01|B|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-009",
+      "review_order": 9,
+      "scenario_group_id": "M1F-S02",
+      "selected_case_id": "M1F-S02-V01",
+      "condition": "C",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S02-V01|C|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-010",
+      "review_order": 10,
+      "scenario_group_id": "M1F-S02",
+      "selected_case_id": "M1F-S02-V01",
+      "condition": "C-P",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S02-V01|C-P|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-011",
+      "review_order": 11,
+      "scenario_group_id": "M1F-S02",
+      "selected_case_id": "M1F-S02-V01",
+      "condition": "C-N",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S02-V01|C-N|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-012",
+      "review_order": 12,
+      "scenario_group_id": "M1F-S02",
+      "selected_case_id": "M1F-S02-V01",
+      "condition": "C-O",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S02-V01|C-O|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-013",
+      "review_order": 13,
+      "scenario_group_id": "M1F-S03",
+      "selected_case_id": "M1F-S03-V01",
+      "condition": "A",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S03-V01|A|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-014",
+      "review_order": 14,
+      "scenario_group_id": "M1F-S03",
+      "selected_case_id": "M1F-S03-V01",
+      "condition": "B",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S03-V01|B|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-015",
+      "review_order": 15,
+      "scenario_group_id": "M1F-S03",
+      "selected_case_id": "M1F-S03-V01",
+      "condition": "C",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S03-V01|C|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-016",
+      "review_order": 16,
+      "scenario_group_id": "M1F-S03",
+      "selected_case_id": "M1F-S03-V01",
+      "condition": "C-P",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S03-V01|C-P|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-017",
+      "review_order": 17,
+      "scenario_group_id": "M1F-S03",
+      "selected_case_id": "M1F-S03-V01",
+      "condition": "C-N",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S03-V01|C-N|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-018",
+      "review_order": 18,
+      "scenario_group_id": "M1F-S03",
+      "selected_case_id": "M1F-S03-V01",
+      "condition": "C-O",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S03-V01|C-O|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-019",
+      "review_order": 19,
+      "scenario_group_id": "M1F-S04",
+      "selected_case_id": "M1F-S04-V01",
+      "condition": "A",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S04-V01|A|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-020",
+      "review_order": 20,
+      "scenario_group_id": "M1F-S04",
+      "selected_case_id": "M1F-S04-V01",
+      "condition": "B",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S04-V01|B|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-021",
+      "review_order": 21,
+      "scenario_group_id": "M1F-S04",
+      "selected_case_id": "M1F-S04-V01",
+      "condition": "C",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S04-V01|C|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-022",
+      "review_order": 22,
+      "scenario_group_id": "M1F-S04",
+      "selected_case_id": "M1F-S04-V01",
+      "condition": "C-P",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S04-V01|C-P|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-023",
+      "review_order": 23,
+      "scenario_group_id": "M1F-S04",
+      "selected_case_id": "M1F-S04-V01",
+      "condition": "C-N",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S04-V01|C-N|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-024",
+      "review_order": 24,
+      "scenario_group_id": "M1F-S04",
+      "selected_case_id": "M1F-S04-V01",
+      "condition": "C-O",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S04-V01|C-O|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-025",
+      "review_order": 25,
+      "scenario_group_id": "M1F-S05",
+      "selected_case_id": "M1F-S05-V01",
+      "condition": "A",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S05-V01|A|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-026",
+      "review_order": 26,
+      "scenario_group_id": "M1F-S05",
+      "selected_case_id": "M1F-S05-V01",
+      "condition": "B",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S05-V01|B|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-027",
+      "review_order": 27,
+      "scenario_group_id": "M1F-S05",
+      "selected_case_id": "M1F-S05-V01",
+      "condition": "C",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S05-V01|C|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-028",
+      "review_order": 28,
+      "scenario_group_id": "M1F-S05",
+      "selected_case_id": "M1F-S05-V01",
+      "condition": "C-P",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S05-V01|C-P|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-029",
+      "review_order": 29,
+      "scenario_group_id": "M1F-S05",
+      "selected_case_id": "M1F-S05-V01",
+      "condition": "C-N",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S05-V01|C-N|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-030",
+      "review_order": 30,
+      "scenario_group_id": "M1F-S05",
+      "selected_case_id": "M1F-S05-V01",
+      "condition": "C-O",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S05-V01|C-O|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-031",
+      "review_order": 31,
+      "scenario_group_id": "M1F-S06",
+      "selected_case_id": "M1F-S06-V01",
+      "condition": "A",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S06-V01|A|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-032",
+      "review_order": 32,
+      "scenario_group_id": "M1F-S06",
+      "selected_case_id": "M1F-S06-V01",
+      "condition": "B",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S06-V01|B|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-033",
+      "review_order": 33,
+      "scenario_group_id": "M1F-S06",
+      "selected_case_id": "M1F-S06-V01",
+      "condition": "C",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S06-V01|C|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-034",
+      "review_order": 34,
+      "scenario_group_id": "M1F-S06",
+      "selected_case_id": "M1F-S06-V01",
+      "condition": "C-P",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S06-V01|C-P|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-035",
+      "review_order": 35,
+      "scenario_group_id": "M1F-S06",
+      "selected_case_id": "M1F-S06-V01",
+      "condition": "C-N",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S06-V01|C-N|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-036",
+      "review_order": 36,
+      "scenario_group_id": "M1F-S06",
+      "selected_case_id": "M1F-S06-V01",
+      "condition": "C-O",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S06-V01|C-O|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-037",
+      "review_order": 37,
+      "scenario_group_id": "M1F-S07",
+      "selected_case_id": "M1F-S07-V01",
+      "condition": "A",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S07-V01|A|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-038",
+      "review_order": 38,
+      "scenario_group_id": "M1F-S07",
+      "selected_case_id": "M1F-S07-V01",
+      "condition": "B",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S07-V01|B|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-039",
+      "review_order": 39,
+      "scenario_group_id": "M1F-S07",
+      "selected_case_id": "M1F-S07-V01",
+      "condition": "C",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S07-V01|C|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-040",
+      "review_order": 40,
+      "scenario_group_id": "M1F-S07",
+      "selected_case_id": "M1F-S07-V01",
+      "condition": "C-P",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S07-V01|C-P|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-041",
+      "review_order": 41,
+      "scenario_group_id": "M1F-S07",
+      "selected_case_id": "M1F-S07-V01",
+      "condition": "C-N",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S07-V01|C-N|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-042",
+      "review_order": 42,
+      "scenario_group_id": "M1F-S07",
+      "selected_case_id": "M1F-S07-V01",
+      "condition": "C-O",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S07-V01|C-O|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-043",
+      "review_order": 43,
+      "scenario_group_id": "M1F-S08",
+      "selected_case_id": "M1F-S08-V01",
+      "condition": "A",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S08-V01|A|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-044",
+      "review_order": 44,
+      "scenario_group_id": "M1F-S08",
+      "selected_case_id": "M1F-S08-V01",
+      "condition": "B",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S08-V01|B|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-045",
+      "review_order": 45,
+      "scenario_group_id": "M1F-S08",
+      "selected_case_id": "M1F-S08-V01",
+      "condition": "C",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S08-V01|C|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-046",
+      "review_order": 46,
+      "scenario_group_id": "M1F-S08",
+      "selected_case_id": "M1F-S08-V01",
+      "condition": "C-P",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S08-V01|C-P|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-047",
+      "review_order": 47,
+      "scenario_group_id": "M1F-S08",
+      "selected_case_id": "M1F-S08-V01",
+      "condition": "C-N",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S08-V01|C-N|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-048",
+      "review_order": 48,
+      "scenario_group_id": "M1F-S08",
+      "selected_case_id": "M1F-S08-V01",
+      "condition": "C-O",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S08-V01|C-O|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-049",
+      "review_order": 49,
+      "scenario_group_id": "M1F-S09",
+      "selected_case_id": "M1F-S09-V01",
+      "condition": "A",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S09-V01|A|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-050",
+      "review_order": 50,
+      "scenario_group_id": "M1F-S09",
+      "selected_case_id": "M1F-S09-V01",
+      "condition": "B",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S09-V01|B|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-051",
+      "review_order": 51,
+      "scenario_group_id": "M1F-S09",
+      "selected_case_id": "M1F-S09-V01",
+      "condition": "C",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S09-V01|C|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-052",
+      "review_order": 52,
+      "scenario_group_id": "M1F-S09",
+      "selected_case_id": "M1F-S09-V01",
+      "condition": "C-P",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S09-V01|C-P|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-053",
+      "review_order": 53,
+      "scenario_group_id": "M1F-S09",
+      "selected_case_id": "M1F-S09-V01",
+      "condition": "C-N",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S09-V01|C-N|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-054",
+      "review_order": 54,
+      "scenario_group_id": "M1F-S09",
+      "selected_case_id": "M1F-S09-V01",
+      "condition": "C-O",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S09-V01|C-O|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-055",
+      "review_order": 55,
+      "scenario_group_id": "M1F-S10",
+      "selected_case_id": "M1F-S10-V01",
+      "condition": "A",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S10-V01|A|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-056",
+      "review_order": 56,
+      "scenario_group_id": "M1F-S10",
+      "selected_case_id": "M1F-S10-V01",
+      "condition": "B",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S10-V01|B|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-057",
+      "review_order": 57,
+      "scenario_group_id": "M1F-S10",
+      "selected_case_id": "M1F-S10-V01",
+      "condition": "C",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S10-V01|C|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-058",
+      "review_order": 58,
+      "scenario_group_id": "M1F-S10",
+      "selected_case_id": "M1F-S10-V01",
+      "condition": "C-P",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S10-V01|C-P|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-059",
+      "review_order": 59,
+      "scenario_group_id": "M1F-S10",
+      "selected_case_id": "M1F-S10-V01",
+      "condition": "C-N",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S10-V01|C-N|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-060",
+      "review_order": 60,
+      "scenario_group_id": "M1F-S10",
+      "selected_case_id": "M1F-S10-V01",
+      "condition": "C-O",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S10-V01|C-O|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-061",
+      "review_order": 61,
+      "scenario_group_id": "M1F-S11",
+      "selected_case_id": "M1F-S11-V01",
+      "condition": "A",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S11-V01|A|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-062",
+      "review_order": 62,
+      "scenario_group_id": "M1F-S11",
+      "selected_case_id": "M1F-S11-V01",
+      "condition": "B",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S11-V01|B|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-063",
+      "review_order": 63,
+      "scenario_group_id": "M1F-S11",
+      "selected_case_id": "M1F-S11-V01",
+      "condition": "C",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S11-V01|C|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-064",
+      "review_order": 64,
+      "scenario_group_id": "M1F-S11",
+      "selected_case_id": "M1F-S11-V01",
+      "condition": "C-P",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S11-V01|C-P|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-065",
+      "review_order": 65,
+      "scenario_group_id": "M1F-S11",
+      "selected_case_id": "M1F-S11-V01",
+      "condition": "C-N",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S11-V01|C-N|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-066",
+      "review_order": 66,
+      "scenario_group_id": "M1F-S11",
+      "selected_case_id": "M1F-S11-V01",
+      "condition": "C-O",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S11-V01|C-O|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-067",
+      "review_order": 67,
+      "scenario_group_id": "M1F-S12",
+      "selected_case_id": "M1F-S12-V01",
+      "condition": "A",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S12-V01|A|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-068",
+      "review_order": 68,
+      "scenario_group_id": "M1F-S12",
+      "selected_case_id": "M1F-S12-V01",
+      "condition": "B",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S12-V01|B|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-069",
+      "review_order": 69,
+      "scenario_group_id": "M1F-S12",
+      "selected_case_id": "M1F-S12-V01",
+      "condition": "C",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S12-V01|C|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-070",
+      "review_order": 70,
+      "scenario_group_id": "M1F-S12",
+      "selected_case_id": "M1F-S12-V01",
+      "condition": "C-P",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S12-V01|C-P|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-071",
+      "review_order": 71,
+      "scenario_group_id": "M1F-S12",
+      "selected_case_id": "M1F-S12-V01",
+      "condition": "C-N",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S12-V01|C-N|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-072",
+      "review_order": 72,
+      "scenario_group_id": "M1F-S12",
+      "selected_case_id": "M1F-S12-V01",
+      "condition": "C-O",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S12-V01|C-O|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-073",
+      "review_order": 73,
+      "scenario_group_id": "M1F-S13",
+      "selected_case_id": "M1F-S13-V01",
+      "condition": "A",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S13-V01|A|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-074",
+      "review_order": 74,
+      "scenario_group_id": "M1F-S13",
+      "selected_case_id": "M1F-S13-V01",
+      "condition": "B",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S13-V01|B|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-075",
+      "review_order": 75,
+      "scenario_group_id": "M1F-S13",
+      "selected_case_id": "M1F-S13-V01",
+      "condition": "C",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S13-V01|C|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-076",
+      "review_order": 76,
+      "scenario_group_id": "M1F-S13",
+      "selected_case_id": "M1F-S13-V01",
+      "condition": "C-P",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S13-V01|C-P|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-077",
+      "review_order": 77,
+      "scenario_group_id": "M1F-S13",
+      "selected_case_id": "M1F-S13-V01",
+      "condition": "C-N",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S13-V01|C-N|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-078",
+      "review_order": 78,
+      "scenario_group_id": "M1F-S13",
+      "selected_case_id": "M1F-S13-V01",
+      "condition": "C-O",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S13-V01|C-O|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-079",
+      "review_order": 79,
+      "scenario_group_id": "M1F-S14",
+      "selected_case_id": "M1F-S14-V01",
+      "condition": "A",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S14-V01|A|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-080",
+      "review_order": 80,
+      "scenario_group_id": "M1F-S14",
+      "selected_case_id": "M1F-S14-V01",
+      "condition": "B",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S14-V01|B|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-081",
+      "review_order": 81,
+      "scenario_group_id": "M1F-S14",
+      "selected_case_id": "M1F-S14-V01",
+      "condition": "C",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S14-V01|C|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-082",
+      "review_order": 82,
+      "scenario_group_id": "M1F-S14",
+      "selected_case_id": "M1F-S14-V01",
+      "condition": "C-P",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S14-V01|C-P|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-083",
+      "review_order": 83,
+      "scenario_group_id": "M1F-S14",
+      "selected_case_id": "M1F-S14-V01",
+      "condition": "C-N",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S14-V01|C-N|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-084",
+      "review_order": 84,
+      "scenario_group_id": "M1F-S14",
+      "selected_case_id": "M1F-S14-V01",
+      "condition": "C-O",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S14-V01|C-O|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-085",
+      "review_order": 85,
+      "scenario_group_id": "M1F-S15",
+      "selected_case_id": "M1F-S15-V01",
+      "condition": "A",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S15-V01|A|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-086",
+      "review_order": 86,
+      "scenario_group_id": "M1F-S15",
+      "selected_case_id": "M1F-S15-V01",
+      "condition": "B",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S15-V01|B|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-087",
+      "review_order": 87,
+      "scenario_group_id": "M1F-S15",
+      "selected_case_id": "M1F-S15-V01",
+      "condition": "C",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S15-V01|C|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-088",
+      "review_order": 88,
+      "scenario_group_id": "M1F-S15",
+      "selected_case_id": "M1F-S15-V01",
+      "condition": "C-P",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S15-V01|C-P|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-089",
+      "review_order": 89,
+      "scenario_group_id": "M1F-S15",
+      "selected_case_id": "M1F-S15-V01",
+      "condition": "C-N",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S15-V01|C-N|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-090",
+      "review_order": 90,
+      "scenario_group_id": "M1F-S15",
+      "selected_case_id": "M1F-S15-V01",
+      "condition": "C-O",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S15-V01|C-O|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-091",
+      "review_order": 91,
+      "scenario_group_id": "M1F-S16",
+      "selected_case_id": "M1F-S16-V01",
+      "condition": "A",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S16-V01|A|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-092",
+      "review_order": 92,
+      "scenario_group_id": "M1F-S16",
+      "selected_case_id": "M1F-S16-V01",
+      "condition": "B",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S16-V01|B|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-093",
+      "review_order": 93,
+      "scenario_group_id": "M1F-S16",
+      "selected_case_id": "M1F-S16-V01",
+      "condition": "C",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S16-V01|C|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-094",
+      "review_order": 94,
+      "scenario_group_id": "M1F-S16",
+      "selected_case_id": "M1F-S16-V01",
+      "condition": "C-P",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S16-V01|C-P|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-095",
+      "review_order": 95,
+      "scenario_group_id": "M1F-S16",
+      "selected_case_id": "M1F-S16-V01",
+      "condition": "C-N",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S16-V01|C-N|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-096",
+      "review_order": 96,
+      "scenario_group_id": "M1F-S16",
+      "selected_case_id": "M1F-S16-V01",
+      "condition": "C-O",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S16-V01|C-O|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-097",
+      "review_order": 97,
+      "scenario_group_id": "M1F-S17",
+      "selected_case_id": "M1F-S17-V01",
+      "condition": "A",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S17-V01|A|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-098",
+      "review_order": 98,
+      "scenario_group_id": "M1F-S17",
+      "selected_case_id": "M1F-S17-V01",
+      "condition": "B",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S17-V01|B|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-099",
+      "review_order": 99,
+      "scenario_group_id": "M1F-S17",
+      "selected_case_id": "M1F-S17-V01",
+      "condition": "C",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S17-V01|C|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-100",
+      "review_order": 100,
+      "scenario_group_id": "M1F-S17",
+      "selected_case_id": "M1F-S17-V01",
+      "condition": "C-P",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S17-V01|C-P|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-101",
+      "review_order": 101,
+      "scenario_group_id": "M1F-S17",
+      "selected_case_id": "M1F-S17-V01",
+      "condition": "C-N",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S17-V01|C-N|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-102",
+      "review_order": 102,
+      "scenario_group_id": "M1F-S17",
+      "selected_case_id": "M1F-S17-V01",
+      "condition": "C-O",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S17-V01|C-O|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-103",
+      "review_order": 103,
+      "scenario_group_id": "M1F-S18",
+      "selected_case_id": "M1F-S18-V01",
+      "condition": "A",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S18-V01|A|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-104",
+      "review_order": 104,
+      "scenario_group_id": "M1F-S18",
+      "selected_case_id": "M1F-S18-V01",
+      "condition": "B",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S18-V01|B|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-105",
+      "review_order": 105,
+      "scenario_group_id": "M1F-S18",
+      "selected_case_id": "M1F-S18-V01",
+      "condition": "C",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S18-V01|C|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-106",
+      "review_order": 106,
+      "scenario_group_id": "M1F-S18",
+      "selected_case_id": "M1F-S18-V01",
+      "condition": "C-P",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S18-V01|C-P|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-107",
+      "review_order": 107,
+      "scenario_group_id": "M1F-S18",
+      "selected_case_id": "M1F-S18-V01",
+      "condition": "C-N",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S18-V01|C-N|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-108",
+      "review_order": 108,
+      "scenario_group_id": "M1F-S18",
+      "selected_case_id": "M1F-S18-V01",
+      "condition": "C-O",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S18-V01|C-O|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-109",
+      "review_order": 109,
+      "scenario_group_id": "M1F-S19",
+      "selected_case_id": "M1F-S19-V01",
+      "condition": "A",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S19-V01|A|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-110",
+      "review_order": 110,
+      "scenario_group_id": "M1F-S19",
+      "selected_case_id": "M1F-S19-V01",
+      "condition": "B",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S19-V01|B|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-111",
+      "review_order": 111,
+      "scenario_group_id": "M1F-S19",
+      "selected_case_id": "M1F-S19-V01",
+      "condition": "C",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S19-V01|C|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-112",
+      "review_order": 112,
+      "scenario_group_id": "M1F-S19",
+      "selected_case_id": "M1F-S19-V01",
+      "condition": "C-P",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S19-V01|C-P|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-113",
+      "review_order": 113,
+      "scenario_group_id": "M1F-S19",
+      "selected_case_id": "M1F-S19-V01",
+      "condition": "C-N",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S19-V01|C-N|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-114",
+      "review_order": 114,
+      "scenario_group_id": "M1F-S19",
+      "selected_case_id": "M1F-S19-V01",
+      "condition": "C-O",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S19-V01|C-O|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-115",
+      "review_order": 115,
+      "scenario_group_id": "M1F-S20",
+      "selected_case_id": "M1F-S20-V01",
+      "condition": "A",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S20-V01|A|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-116",
+      "review_order": 116,
+      "scenario_group_id": "M1F-S20",
+      "selected_case_id": "M1F-S20-V01",
+      "condition": "B",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S20-V01|B|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-117",
+      "review_order": 117,
+      "scenario_group_id": "M1F-S20",
+      "selected_case_id": "M1F-S20-V01",
+      "condition": "C",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S20-V01|C|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-118",
+      "review_order": 118,
+      "scenario_group_id": "M1F-S20",
+      "selected_case_id": "M1F-S20-V01",
+      "condition": "C-P",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S20-V01|C-P|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-119",
+      "review_order": 119,
+      "scenario_group_id": "M1F-S20",
+      "selected_case_id": "M1F-S20-V01",
+      "condition": "C-N",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S20-V01|C-N|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-120",
+      "review_order": 120,
+      "scenario_group_id": "M1F-S20",
+      "selected_case_id": "M1F-S20-V01",
+      "condition": "C-O",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S20-V01|C-O|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-121",
+      "review_order": 121,
+      "scenario_group_id": "M1F-S21",
+      "selected_case_id": "M1F-S21-V01",
+      "condition": "A",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S21-V01|A|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-122",
+      "review_order": 122,
+      "scenario_group_id": "M1F-S21",
+      "selected_case_id": "M1F-S21-V01",
+      "condition": "B",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S21-V01|B|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-123",
+      "review_order": 123,
+      "scenario_group_id": "M1F-S21",
+      "selected_case_id": "M1F-S21-V01",
+      "condition": "C",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S21-V01|C|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-124",
+      "review_order": 124,
+      "scenario_group_id": "M1F-S21",
+      "selected_case_id": "M1F-S21-V01",
+      "condition": "C-P",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S21-V01|C-P|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-125",
+      "review_order": 125,
+      "scenario_group_id": "M1F-S21",
+      "selected_case_id": "M1F-S21-V01",
+      "condition": "C-N",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S21-V01|C-N|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-126",
+      "review_order": 126,
+      "scenario_group_id": "M1F-S21",
+      "selected_case_id": "M1F-S21-V01",
+      "condition": "C-O",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S21-V01|C-O|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-127",
+      "review_order": 127,
+      "scenario_group_id": "M1F-S22",
+      "selected_case_id": "M1F-S22-V01",
+      "condition": "A",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S22-V01|A|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-128",
+      "review_order": 128,
+      "scenario_group_id": "M1F-S22",
+      "selected_case_id": "M1F-S22-V01",
+      "condition": "B",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S22-V01|B|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-129",
+      "review_order": 129,
+      "scenario_group_id": "M1F-S22",
+      "selected_case_id": "M1F-S22-V01",
+      "condition": "C",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S22-V01|C|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-130",
+      "review_order": 130,
+      "scenario_group_id": "M1F-S22",
+      "selected_case_id": "M1F-S22-V01",
+      "condition": "C-P",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S22-V01|C-P|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-131",
+      "review_order": 131,
+      "scenario_group_id": "M1F-S22",
+      "selected_case_id": "M1F-S22-V01",
+      "condition": "C-N",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S22-V01|C-N|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-132",
+      "review_order": 132,
+      "scenario_group_id": "M1F-S22",
+      "selected_case_id": "M1F-S22-V01",
+      "condition": "C-O",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S22-V01|C-O|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-133",
+      "review_order": 133,
+      "scenario_group_id": "M1F-S23",
+      "selected_case_id": "M1F-S23-V01",
+      "condition": "A",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S23-V01|A|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-134",
+      "review_order": 134,
+      "scenario_group_id": "M1F-S23",
+      "selected_case_id": "M1F-S23-V01",
+      "condition": "B",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S23-V01|B|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-135",
+      "review_order": 135,
+      "scenario_group_id": "M1F-S23",
+      "selected_case_id": "M1F-S23-V01",
+      "condition": "C",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S23-V01|C|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-136",
+      "review_order": 136,
+      "scenario_group_id": "M1F-S23",
+      "selected_case_id": "M1F-S23-V01",
+      "condition": "C-P",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S23-V01|C-P|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-137",
+      "review_order": 137,
+      "scenario_group_id": "M1F-S23",
+      "selected_case_id": "M1F-S23-V01",
+      "condition": "C-N",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S23-V01|C-N|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-138",
+      "review_order": 138,
+      "scenario_group_id": "M1F-S23",
+      "selected_case_id": "M1F-S23-V01",
+      "condition": "C-O",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S23-V01|C-O|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-139",
+      "review_order": 139,
+      "scenario_group_id": "M1F-S24",
+      "selected_case_id": "M1F-S24-V01",
+      "condition": "A",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S24-V01|A|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-140",
+      "review_order": 140,
+      "scenario_group_id": "M1F-S24",
+      "selected_case_id": "M1F-S24-V01",
+      "condition": "B",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S24-V01|B|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-141",
+      "review_order": 141,
+      "scenario_group_id": "M1F-S24",
+      "selected_case_id": "M1F-S24-V01",
+      "condition": "C",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S24-V01|C|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-142",
+      "review_order": 142,
+      "scenario_group_id": "M1F-S24",
+      "selected_case_id": "M1F-S24-V01",
+      "condition": "C-P",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S24-V01|C-P|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-143",
+      "review_order": 143,
+      "scenario_group_id": "M1F-S24",
+      "selected_case_id": "M1F-S24-V01",
+      "condition": "C-N",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S24-V01|C-N|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-144",
+      "review_order": 144,
+      "scenario_group_id": "M1F-S24",
+      "selected_case_id": "M1F-S24-V01",
+      "condition": "C-O",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S24-V01|C-O|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-145",
+      "review_order": 145,
+      "scenario_group_id": "M1F-S25",
+      "selected_case_id": "M1F-S25-V01",
+      "condition": "A",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S25-V01|A|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-146",
+      "review_order": 146,
+      "scenario_group_id": "M1F-S25",
+      "selected_case_id": "M1F-S25-V01",
+      "condition": "B",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S25-V01|B|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-147",
+      "review_order": 147,
+      "scenario_group_id": "M1F-S25",
+      "selected_case_id": "M1F-S25-V01",
+      "condition": "C",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S25-V01|C|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-148",
+      "review_order": 148,
+      "scenario_group_id": "M1F-S25",
+      "selected_case_id": "M1F-S25-V01",
+      "condition": "C-P",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S25-V01|C-P|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-149",
+      "review_order": 149,
+      "scenario_group_id": "M1F-S25",
+      "selected_case_id": "M1F-S25-V01",
+      "condition": "C-N",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S25-V01|C-N|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-150",
+      "review_order": 150,
+      "scenario_group_id": "M1F-S25",
+      "selected_case_id": "M1F-S25-V01",
+      "condition": "C-O",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S25-V01|C-O|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-151",
+      "review_order": 151,
+      "scenario_group_id": "M1F-S26",
+      "selected_case_id": "M1F-S26-V01",
+      "condition": "A",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S26-V01|A|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-152",
+      "review_order": 152,
+      "scenario_group_id": "M1F-S26",
+      "selected_case_id": "M1F-S26-V01",
+      "condition": "B",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S26-V01|B|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-153",
+      "review_order": 153,
+      "scenario_group_id": "M1F-S26",
+      "selected_case_id": "M1F-S26-V01",
+      "condition": "C",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S26-V01|C|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-154",
+      "review_order": 154,
+      "scenario_group_id": "M1F-S26",
+      "selected_case_id": "M1F-S26-V01",
+      "condition": "C-P",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S26-V01|C-P|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-155",
+      "review_order": 155,
+      "scenario_group_id": "M1F-S26",
+      "selected_case_id": "M1F-S26-V01",
+      "condition": "C-N",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S26-V01|C-N|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-156",
+      "review_order": 156,
+      "scenario_group_id": "M1F-S26",
+      "selected_case_id": "M1F-S26-V01",
+      "condition": "C-O",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S26-V01|C-O|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-157",
+      "review_order": 157,
+      "scenario_group_id": "M1F-S27",
+      "selected_case_id": "M1F-S27-V01",
+      "condition": "A",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S27-V01|A|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-158",
+      "review_order": 158,
+      "scenario_group_id": "M1F-S27",
+      "selected_case_id": "M1F-S27-V01",
+      "condition": "B",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S27-V01|B|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-159",
+      "review_order": 159,
+      "scenario_group_id": "M1F-S27",
+      "selected_case_id": "M1F-S27-V01",
+      "condition": "C",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S27-V01|C|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-160",
+      "review_order": 160,
+      "scenario_group_id": "M1F-S27",
+      "selected_case_id": "M1F-S27-V01",
+      "condition": "C-P",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S27-V01|C-P|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-161",
+      "review_order": 161,
+      "scenario_group_id": "M1F-S27",
+      "selected_case_id": "M1F-S27-V01",
+      "condition": "C-N",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S27-V01|C-N|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-162",
+      "review_order": 162,
+      "scenario_group_id": "M1F-S27",
+      "selected_case_id": "M1F-S27-V01",
+      "condition": "C-O",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S27-V01|C-O|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-163",
+      "review_order": 163,
+      "scenario_group_id": "M1F-S28",
+      "selected_case_id": "M1F-S28-V01",
+      "condition": "A",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S28-V01|A|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-164",
+      "review_order": 164,
+      "scenario_group_id": "M1F-S28",
+      "selected_case_id": "M1F-S28-V01",
+      "condition": "B",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S28-V01|B|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-165",
+      "review_order": 165,
+      "scenario_group_id": "M1F-S28",
+      "selected_case_id": "M1F-S28-V01",
+      "condition": "C",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S28-V01|C|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-166",
+      "review_order": 166,
+      "scenario_group_id": "M1F-S28",
+      "selected_case_id": "M1F-S28-V01",
+      "condition": "C-P",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S28-V01|C-P|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-167",
+      "review_order": 167,
+      "scenario_group_id": "M1F-S28",
+      "selected_case_id": "M1F-S28-V01",
+      "condition": "C-N",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S28-V01|C-N|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-168",
+      "review_order": 168,
+      "scenario_group_id": "M1F-S28",
+      "selected_case_id": "M1F-S28-V01",
+      "condition": "C-O",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S28-V01|C-O|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-169",
+      "review_order": 169,
+      "scenario_group_id": "M1F-S29",
+      "selected_case_id": "M1F-S29-V01",
+      "condition": "A",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S29-V01|A|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-170",
+      "review_order": 170,
+      "scenario_group_id": "M1F-S29",
+      "selected_case_id": "M1F-S29-V01",
+      "condition": "B",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S29-V01|B|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-171",
+      "review_order": 171,
+      "scenario_group_id": "M1F-S29",
+      "selected_case_id": "M1F-S29-V01",
+      "condition": "C",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S29-V01|C|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-172",
+      "review_order": 172,
+      "scenario_group_id": "M1F-S29",
+      "selected_case_id": "M1F-S29-V01",
+      "condition": "C-P",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S29-V01|C-P|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-173",
+      "review_order": 173,
+      "scenario_group_id": "M1F-S29",
+      "selected_case_id": "M1F-S29-V01",
+      "condition": "C-N",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S29-V01|C-N|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-174",
+      "review_order": 174,
+      "scenario_group_id": "M1F-S29",
+      "selected_case_id": "M1F-S29-V01",
+      "condition": "C-O",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S29-V01|C-O|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-175",
+      "review_order": 175,
+      "scenario_group_id": "M1F-S30",
+      "selected_case_id": "M1F-S30-V01",
+      "condition": "A",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S30-V01|A|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-176",
+      "review_order": 176,
+      "scenario_group_id": "M1F-S30",
+      "selected_case_id": "M1F-S30-V01",
+      "condition": "B",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S30-V01|B|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-177",
+      "review_order": 177,
+      "scenario_group_id": "M1F-S30",
+      "selected_case_id": "M1F-S30-V01",
+      "condition": "C",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S30-V01|C|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-178",
+      "review_order": 178,
+      "scenario_group_id": "M1F-S30",
+      "selected_case_id": "M1F-S30-V01",
+      "condition": "C-P",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S30-V01|C-P|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-179",
+      "review_order": 179,
+      "scenario_group_id": "M1F-S30",
+      "selected_case_id": "M1F-S30-V01",
+      "condition": "C-N",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S30-V01|C-N|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    },
+    {
+      "blind_id": "BLIND-180",
+      "review_order": 180,
+      "scenario_group_id": "M1F-S30",
+      "selected_case_id": "M1F-S30-V01",
+      "condition": "C-O",
+      "repeat": 1,
+      "canonical_attempt_key": "M1F-S30-V01|C-O|repeat-1",
+      "canonical_run_id": null,
+      "reviewer_visible": false
+    }
+  ]
+}
