@@ -86,7 +86,8 @@ _LIST_INTRO_PATTERN = re.compile(
     re.IGNORECASE,
 )
 _REVIEW_FOR_PATTERN = re.compile(
-    r"\b(?:review|assess|analy[sz]e|audit|inspect)\b[^.!?]*?\bfor\s+"
+    r"\b(?P<action>review|assess|analy[sz]e|audit|inspect)\b\s+"
+    r"(?P<target>[^.!?]+?)\s+\bfor\s+"
     r"(?P<body>[^.!?]+)",
     re.IGNORECASE,
 )
@@ -157,6 +158,7 @@ _CLAUSE_ACTION_ROOTS = frozenset(
         "optimiz",
         "order",
         "protect",
+        "perform",
         "record",
         "reject",
         "report",
@@ -427,6 +429,53 @@ def _has_clause_action(value: str) -> bool:
     )
 
 
+def _is_task_action_clause(value: str, *, allow_nominal_task_label: bool = False) -> bool:
+    """Accept only clauses that express an obligation, not a time/state marker."""
+
+    clean = _clean_anchor(value)
+    if not clean or re.search(r"\b(?:what|why|how|whether)\b", clean, re.IGNORECASE):
+        return False
+    if _has_clause_action(clean):
+        return True
+
+    # Modal clauses state an action even when its verb is outside the small
+    # imperative-root matcher above (for example, "must complete").  This
+    # intentionally requires an actual modal predicate, so a bare phase or
+    # gerund such as "release", "deployment", or "proceeding" is not enough.
+    modal_action = re.search(
+        r"\b(?:must|should|may|can|will|needs?\s+to|required\s+to)\s+"
+        r"(?:be\s+)?(?P<action>[A-Za-z]+)\b",
+        clean,
+        re.IGNORECASE,
+    )
+    if modal_action and modal_action.group("action").casefold() not in {
+        "be",
+        "been",
+        "being",
+        "have",
+        "has",
+        "had",
+    }:
+        return True
+
+    # The left side of "X before Y is executed" may be a task label rather
+    # than an imperative clause.  Accept a multi-word action-nominal label
+    # there only; the right side still needs an actual action predicate, which
+    # keeps time/state markers from becoming phantom obligations.
+    terms = lexical_terms(clean)
+    return bool(
+        allow_nominal_task_label
+        and len(terms) >= 2
+        and (
+            "task" in terms
+            or any(
+                re.search(r"(?:tion|sion|ment|ance|ence|ing)$", term)
+                for term in terms
+            )
+        )
+    )
+
+
 def _coordinated_anchor(value: str) -> str:
     """Trim shared conversational context while retaining the request wording."""
 
@@ -530,7 +579,8 @@ def _dependency_structure(request: str) -> _ObligationStructure | None:
             return _ObligationStructure((first, second), ((0, 1),))
 
     # "Before accepting ..., do X" is a lead-in, not an X -> accepting
-    # dependency. A relation needs meaningful text on both sides of "before".
+    # dependency. A relation needs task/action obligations on both sides of
+    # "before"; bare lifecycle states and explanatory prose stay in one anchor.
     if not re.match(r"^\s*before\b", clause_source, re.IGNORECASE):
         match = _DEPENDENCY_BEFORE_PATTERN.search(clause_source)
         if match:
@@ -542,7 +592,10 @@ def _dependency_structure(request: str) -> _ObligationStructure | None:
             )
             first = _clean_anchor(receive.group("object") if receive else first_raw)
             second = _clean_anchor(match.group("second").split(";", maxsplit=1)[0])
-            if first and second:
+            if (
+                _is_task_action_clause(first, allow_nominal_task_label=True)
+                and _is_task_action_clause(second)
+            ):
                 return _ObligationStructure((first, second), ((0, 1),))
 
     match = _DEPENDENCY_AFTER_PATTERN.search(clause_source)
@@ -574,11 +627,28 @@ def _coordinated_structure(request: str) -> _ObligationStructure | None:
     ):
         return None
 
+    review_for = _REVIEW_FOR_PATTERN.search(normalized)
+    if review_for and not _REPEATED_OBLIGATIONS_PATTERN.search(normalized):
+        action = _clean_anchor(review_for.group("action"))
+        target = _clean_anchor(review_for.group("target"))
+        attributes = _split_list_body(review_for.group("body"))
+        # The object under review remains part of every split anchor.  Only
+        # split a plain coordinated attribute list; embedded action clauses
+        # fall through to the existing clause extraction without over-splitting.
+        if (
+            action
+            and target
+            and len(attributes) >= 2
+            and all(not _has_clause_action(attribute) for attribute in attributes)
+        ):
+            return _ObligationStructure(
+                tuple(f"{action} {target} for {attribute}" for attribute in attributes)
+            )
+
     bodies: list[str] = []
     if ":" in normalized:
         bodies.append(clause_source)
     for pattern in (
-        _REVIEW_FOR_PATTERN,
         _MODAL_BODY_PATTERN,
         _LIST_INTRO_PATTERN,
         _COMMAND_BODY_PATTERN,
@@ -896,10 +966,19 @@ def _validate_explicit_coverage(
 def _retains_source_anchor(task_text: str, source_anchor: str) -> bool:
     """Require semantic text evidence; a matching domain label is not proof."""
 
-    task_terms = lexical_terms(task_text) - _ALIGNMENT_LOW_SIGNAL_TERMS
-    anchor_terms = lexical_terms(source_anchor) - _ALIGNMENT_LOW_SIGNAL_TERMS
-    if not anchor_terms:
-        anchor_terms = lexical_terms(source_anchor)
+    raw_task_terms = lexical_terms(task_text)
+    raw_anchor_terms = lexical_terms(source_anchor)
+    filtered_task_terms = raw_task_terms - _ALIGNMENT_LOW_SIGNAL_TERMS
+    filtered_anchor_terms = raw_anchor_terms - _ALIGNMENT_LOW_SIGNAL_TERMS
+    if filtered_task_terms and filtered_anchor_terms:
+        task_terms = filtered_task_terms
+        anchor_terms = filtered_anchor_terms
+    else:
+        # Filtering must be all-or-nothing for this comparison.  Falling back
+        # on only one side made a task that explicitly retained a low-signal
+        # request anchor look unrelated, while domain metadata never proves it.
+        task_terms = raw_task_terms
+        anchor_terms = raw_anchor_terms
     if task_terms.intersection(anchor_terms):
         return True
 
