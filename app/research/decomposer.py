@@ -65,7 +65,10 @@ except ModuleNotFoundError as exc:
 
 _PLANNING_ID_PATTERN = re.compile(r"\[([A-Za-z0-9_.:/-]+)\]")
 _ORDERED_OBLIGATIONS_PATTERN = re.compile(
-    r"\b(?:first|before)\b.+\b(?:then|after|next|subsequently)\b",
+    r"(?:\bfirst\b.+\b(?:then|next|subsequently)\b)|"
+    r"(?:\b.+\bbefore\b.+)|(?:\b.+\bafter\b.+)|"
+    r"(?:\b.+\b(?:is\s+(?:the\s+)?input\s+to|consumes?|receives?|requires?)\b.+)|"
+    r"(?:\bdependency\s+chain\b.+\bfrom\b.+\bto\b.+)",
     re.IGNORECASE | re.DOTALL,
 )
 _REPEATED_OBLIGATIONS_PATTERN = re.compile(
@@ -78,39 +81,128 @@ _SEPARATE_OBLIGATIONS_PATTERN = re.compile(
     r"\bseparate\s+(?:each|every)\b",
     re.IGNORECASE,
 )
-_LIST_BODY_PATTERNS = (
-    re.compile(
-        r"\b(?:combine|include|cover|address)\s+(?P<body>[^.!?]+)",
-        re.IGNORECASE,
-    ),
-    re.compile(
-        r"\b(?:review|assess|analy[sz]e)\b[^.!?]*?\bfor\s+(?P<body>[^.!?]+)",
-        re.IGNORECASE,
-    ),
-    re.compile(r":\s*(?P<body>[^.!?]+)", re.IGNORECASE),
-    re.compile(
-        r"\b(?:must|should|required\s+to|needs?\s+to)\s+(?P<body>[^.!?]+)",
-        re.IGNORECASE,
-    ),
-)
-_ORDERED_BODY_PATTERNS = (
-    re.compile(
-        r"^\s*first\s+(?P<first>.+?)\s*,?\s*\bthen\b\s+(?P<second>.+?)\s*$",
-        re.IGNORECASE,
-    ),
-    re.compile(
-        r"^\s*(?P<first>.+?)\s+first\s*,?\s*\bthen\b\s+(?P<second>.+?)\s*$",
-        re.IGNORECASE,
-    ),
-)
-_LIST_SEPARATOR_PATTERN = re.compile(
-    r"\s*,\s*(?:and\s+)?|\s+\band\b\s+",
+_LIST_INTRO_PATTERN = re.compile(
+    r"\b(?:combine|include|cover|address|map|list|specify)\s+(?P<body>[^.!?]+)",
     re.IGNORECASE,
 )
-_TRAILING_OBLIGATION_LABEL = re.compile(r"\s+obligations?\s*$", re.IGNORECASE)
-# These are request-level domain hints, not worker roles. They make the
-# planner boundary fail closed when a multi-domain request is reduced to
-# planning categories for only one domain.
+_REVIEW_FOR_PATTERN = re.compile(
+    r"\b(?:review|assess|analy[sz]e|audit|inspect)\b[^.!?]*?\bfor\s+"
+    r"(?P<body>[^.!?]+)",
+    re.IGNORECASE,
+)
+_COMMAND_BODY_PATTERN = re.compile(
+    r"^(?:review|assess|analy[sz]e|audit|inspect|validate)\s+"
+    r"(?P<body>[^.!?]+)$",
+    re.IGNORECASE,
+)
+_MODAL_BODY_PATTERN = re.compile(
+    r"\b(?:must|should|required\s+to|needs?\s+to)\s+"
+    r"(?:cover|include|address|identify|review|assess|check|validate|record)\s+"
+    r"(?P<body>[^.!?]+)",
+    re.IGNORECASE,
+)
+_COORDINATOR_PATTERN = re.compile(r"\s+\b(?:and|but|or)\b\s+", re.IGNORECASE)
+_DEPENDENCY_FROM_TO_PATTERN = re.compile(
+    r"\bfrom\s+(?P<first>.+?)\s+\bto\s+(?P<second>.+?)\s*$",
+    re.IGNORECASE,
+)
+_DEPENDENCY_INPUT_PATTERN = re.compile(
+    r"(?P<first>.+?)\s+\bis\s+(?:the\s+)?(?:input|prerequisite)\s+"
+    r"(?:to|for)\s+(?P<second>.+?)\s*$",
+    re.IGNORECASE,
+)
+_DEPENDENCY_CONSUMER_PATTERN = re.compile(
+    r"(?P<second>.+?)\s+\b(?:consumes?|uses?|receives?|requires?)\s+"
+    r"(?P<first>.+?)\s*$",
+    re.IGNORECASE,
+)
+_DEPENDENCY_BEFORE_PATTERN = re.compile(
+    r"(?P<first>.+?)\s+\bbefore\s+(?P<second>.+?)\s*$",
+    re.IGNORECASE,
+)
+_DEPENDENCY_AFTER_PATTERN = re.compile(
+    r"(?P<second>.+?)\s+\bafter\s+(?P<first>.+?)\s*$",
+    re.IGNORECASE,
+)
+_TRAILING_SCOPE_LABEL = re.compile(
+    r"\s+(?:obligations?|requirements?|controls?|tasks?)\s*$", re.IGNORECASE
+)
+_DEPENDENCY_ARGUMENT_PATTERN = re.compile(
+    r"\b(?:task|output|result|finding|evidence|assessment|decision)\b",
+    re.IGNORECASE,
+)
+_CLAUSE_ACTION_ROOTS = frozenset(
+    {
+        "address",
+        "analy",
+        "assess",
+        "audit",
+        "authoriz",
+        "build",
+        "check",
+        "confirm",
+        "connect",
+        "create",
+        "decide",
+        "design",
+        "determine",
+        "enforce",
+        "establish",
+        "evaluate",
+        "explain",
+        "identify",
+        "inspect",
+        "keep",
+        "map",
+        "optimiz",
+        "order",
+        "protect",
+        "record",
+        "reject",
+        "report",
+        "review",
+        "scope",
+        "specify",
+        "validat",
+        "verify",
+    }
+)
+_ALIGNMENT_LOW_SIGNAL_TERMS = frozenset(
+    {
+        "address",
+        "analyze",
+        "assess",
+        "audit",
+        "check",
+        "complete",
+        "current",
+        "database",
+        "db",
+        "determine",
+        "endpoint",
+        "evaluate",
+        "expected",
+        "finding",
+        "first",
+        "obligation",
+        "output",
+        "api",
+        "architecture",
+        "report",
+        "request",
+        "result",
+        "review",
+        "second",
+        "security",
+        "service",
+        "task",
+    }
+)
+_ACTION_WORD_SUFFIXES = frozenset(
+    {"", "s", "es", "ed", "d", "ing", "e", "ze", "zes", "zed", "zing"}
+)
+# These are request-level domain hints, not proof that a task covers an
+# obligation. Coverage is validated separately against the source anchor.
 _CANONICAL_DOMAIN_HINTS = {
     "security": frozenset(
         {
@@ -161,7 +253,19 @@ _DOMAIN_OBLIGATION_HINTS = {
     "security": _CANONICAL_DOMAIN_HINTS["security"] - _DOMAIN_LABEL_HINTS["security"],
     "database": _CANONICAL_DOMAIN_HINTS["database"],
     "api_architecture": frozenset(
-        {"contract", "design", "architecture", "validation", "error", "response", "sla"}
+        {
+            "contract",
+            "design",
+            "architecture",
+            "validation",
+            "validate",
+            "validated",
+            "invalid",
+            "malformed",
+            "error",
+            "response",
+            "sla",
+        }
     ),
 }
 # qwen3:4b has emitted these presentation labels in real Ollama traces.  They
@@ -269,44 +373,304 @@ def _canonical_obligation_kind(source_anchor: str) -> str | None:
     return matches[0] if len(matches) == 1 else None
 
 
-def _derive_required_obligations(request: str) -> list[RequiredObligation]:
-    """Extract a bounded explicit list while retaining exact request anchors.
+@dataclass(frozen=True)
+class _ObligationStructure:
+    anchors: tuple[str, ...]
+    dependency_pairs: tuple[tuple[int, int], ...] = ()
 
-    The request is the only source. If it does not contain a clear list clause,
-    the complete request remains one traceable obligation rather than being
-    expanded from domain templates or planning evidence.
+
+def _clean_anchor(value: str) -> str:
+    """Return a stable source excerpt without coordinator punctuation."""
+
+    clean = re.sub(r"\s+", " ", value).strip(" \t\r\n,;:.!?-")
+    clean = re.sub(
+        r"^(?:and|but|or|then|next|subsequently)\s+", "", clean, flags=re.IGNORECASE
+    )
+    return clean
+
+
+def _has_clause_action(value: str) -> bool:
+    """Detect a predicate without binding extraction to research domains."""
+
+    clean = value.strip()
+    if re.match(
+        r"^(?:for|before|after|when|while|if|using|within|in\s+order\s+to)\b",
+        clean,
+        re.IGNORECASE,
+    ):
+        return False
+    words = re.findall(r"[A-Za-z]+", clean.casefold())
+    for word in words[:2]:
+        for root in _CLAUSE_ACTION_ROOTS:
+            if word.startswith(root) and word[len(root) :] in _ACTION_WORD_SUFFIXES:
+                return True
+    modal_action = re.search(
+        r"\b(?:must|should|may|can|will|needs?\s+to|required\s+to)\s+"
+        r"(?:be\s+)?(?P<action>[A-Za-z]+)",
+        clean,
+        re.IGNORECASE,
+    )
+    if modal_action and any(
+        modal_action.group("action").casefold().startswith(root)
+        and modal_action.group("action").casefold()[len(root) :]
+        in _ACTION_WORD_SUFFIXES
+        for root in _CLAUSE_ACTION_ROOTS
+    ):
+        return True
+    return bool(
+        re.search(
+            r"\b(?:is|are|was|were|be|been|being)\s+"
+            r"(?:\w+\s+){0,2}\w+(?:ed|en)\b",
+            value,
+            re.IGNORECASE,
+        )
+    )
+
+
+def _coordinated_anchor(value: str) -> str:
+    """Trim shared conversational context while retaining the request wording."""
+
+    clean = _clean_anchor(value)
+    modal = re.search(
+        r"\b(?:must|should|needs?\s+to|required\s+to)\s+(?P<tail>.+)$",
+        clean,
+        re.IGNORECASE,
+    )
+    if modal and _has_clause_action(modal.group("tail")):
+        clean = _clean_anchor(modal.group("tail"))
+    by_clause = re.search(r"\bby\s+(?P<tail>.+)$", clean, re.IGNORECASE)
+    if by_clause and _has_clause_action(by_clause.group("tail")):
+        clean = _clean_anchor(by_clause.group("tail"))
+    return clean
+
+
+def _split_list_body(body: str) -> list[str]:
+    """Split an explicitly scoped list, including nominal list members."""
+
+    clean_body = _clean_anchor(body)
+    label = re.search(
+        r"\b(?:obligations?|requirements?|controls?|tasks?)\b", clean_body, re.IGNORECASE
+    )
+    if label:
+        before_label = clean_body[: label.start()].strip()
+        if "," in before_label or _COORDINATOR_PATTERN.search(before_label):
+            clean_body = before_label
+    clean_body = re.sub(
+        r"^(?:the|both|each|every|separate|distinct)\s+",
+        "",
+        clean_body,
+        flags=re.IGNORECASE,
+    )
+    values = re.split(r"\s*[;,]\s*|\s+\b(?:and|or)\b\s+", clean_body, flags=re.IGNORECASE)
+    return [anchor for raw in values if (anchor := _clean_anchor(raw))]
+
+
+def _dependency_structure(request: str) -> _ObligationStructure | None:
+    """Extract prerequisite-to-dependent arguments from explicit relation syntax."""
+
+    source = re.sub(r"\s+", " ", request).strip().rstrip(".!?")
+    clause_source = source.rsplit(":", maxsplit=1)[-1].strip()
+
+    leading_first = re.match(r"^first\s+(?P<body>.+)$", clause_source, re.IGNORECASE)
+    suffix_first = re.match(
+        r"^(?P<first>.+?)\s+first\s*,?\s*"
+        r"(?:then|next|subsequently)\s+(?P<rest>.+)$",
+        clause_source,
+        re.IGNORECASE,
+    )
+    ordered_parts: list[str] = []
+    if leading_first:
+        ordered_parts = re.split(
+            r"\s*,?\s*(?:and\s+)?\b(?:then|next|subsequently)\b\s+",
+            leading_first.group("body"),
+            flags=re.IGNORECASE,
+        )
+    elif suffix_first:
+        ordered_parts = [suffix_first.group("first")]
+        ordered_parts.extend(
+            re.split(
+                r"\s*,?\s*(?:and\s+)?\b(?:then|next|subsequently)\b\s+",
+                suffix_first.group("rest"),
+                flags=re.IGNORECASE,
+            )
+        )
+    elif re.search(r"\bthen\b", clause_source, re.IGNORECASE) and not (
+        re.match(r"^if\b", clause_source, re.IGNORECASE)
+        and re.search(r"\botherwise\b", clause_source, re.IGNORECASE)
+    ):
+        ordered_parts = re.split(
+            r"\s*[;,]\s*(?:and\s+)?(?:then\s+)?|\s+\bthen\b\s+",
+            clause_source,
+            flags=re.IGNORECASE,
+        )
+
+    if ordered_parts:
+        anchors = [_coordinated_anchor(part) for part in ordered_parts]
+        anchors = [anchor for anchor in anchors if anchor]
+        while len(anchors) >= 3 and not _has_clause_action(anchors[0]):
+            anchors.pop(0)
+        if len(anchors) >= 2:
+            pairs = tuple((index, index + 1) for index in range(len(anchors) - 1))
+            return _ObligationStructure(tuple(anchors), pairs)
+
+    if re.search(r"\b(?:dependency|chain|graph|flow)\b", source, re.IGNORECASE):
+        match = _DEPENDENCY_FROM_TO_PATTERN.search(clause_source)
+        if match:
+            first = _clean_anchor(match.group("first"))
+            second = _clean_anchor(match.group("second"))
+            if first and second:
+                return _ObligationStructure((first, second), ((0, 1),))
+
+    match = _DEPENDENCY_INPUT_PATTERN.search(clause_source)
+    if match:
+        first = re.split(r"\bwhere\b", match.group("first"), flags=re.IGNORECASE)[-1]
+        first = _clean_anchor(first)
+        second = _clean_anchor(match.group("second"))
+        if first and second:
+            return _ObligationStructure((first, second), ((0, 1),))
+
+    # "Before accepting ..., do X" is a lead-in, not an X -> accepting
+    # dependency. A relation needs meaningful text on both sides of "before".
+    if not re.match(r"^\s*before\b", clause_source, re.IGNORECASE):
+        match = _DEPENDENCY_BEFORE_PATTERN.search(clause_source)
+        if match:
+            first_raw = match.group("first")
+            receive = re.search(
+                r"\b(?:receive|receives|received)\s+(?P<object>.+)$",
+                first_raw,
+                re.IGNORECASE,
+            )
+            first = _clean_anchor(receive.group("object") if receive else first_raw)
+            second = _clean_anchor(match.group("second").split(";", maxsplit=1)[0])
+            if first and second:
+                return _ObligationStructure((first, second), ((0, 1),))
+
+    match = _DEPENDENCY_AFTER_PATTERN.search(clause_source)
+    if match:
+        first = _clean_anchor(match.group("first"))
+        second = _clean_anchor(match.group("second"))
+        if first and second:
+            return _ObligationStructure((first, second), ((0, 1),))
+
+    match = _DEPENDENCY_CONSUMER_PATTERN.search(clause_source)
+    if match and len(_DEPENDENCY_ARGUMENT_PATTERN.findall(clause_source)) >= 2:
+        first = _clean_anchor(match.group("first"))
+        second = re.split(r"\bso\b", match.group("second"), flags=re.IGNORECASE)[-1]
+        second = _clean_anchor(second)
+        if first and second:
+            return _ObligationStructure((first, second), ((0, 1),))
+    return None
+
+
+def _coordinated_structure(request: str) -> _ObligationStructure | None:
+    """Segment explicit lists and independent coordinated clauses."""
+
+    normalized = re.sub(r"\s+", " ", request).strip().rstrip(".!?")
+    clause_source = normalized.rsplit(":", maxsplit=1)[-1].strip()
+    if re.search(
+        r"[,;]\s*(?:but\s+)?(?:do\s+not|don't|without|avoid)\b",
+        clause_source,
+        re.IGNORECASE,
+    ):
+        return None
+
+    bodies: list[str] = []
+    if ":" in normalized:
+        bodies.append(clause_source)
+    for pattern in (
+        _REVIEW_FOR_PATTERN,
+        _MODAL_BODY_PATTERN,
+        _LIST_INTRO_PATTERN,
+        _COMMAND_BODY_PATTERN,
+    ):
+        match = pattern.search(normalized)
+        if match and not _REPEATED_OBLIGATIONS_PATTERN.search(normalized):
+            bodies.append(match.group("body"))
+    for body in bodies:
+        anchors = _split_list_body(body)
+        if len(anchors) >= 2:
+            return _ObligationStructure(tuple(anchors))
+
+    raw_parts = re.split(r"\s*[;,]\s*", clause_source)
+    if len(raw_parts) >= 2:
+        parts = [_coordinated_anchor(raw) for raw in raw_parts]
+        parts = [part for part in parts if part]
+        while len(parts) >= 2 and not _has_clause_action(parts[0]):
+            parts.pop(0)
+        expanded_parts: list[str] = []
+        for part in parts:
+            coordinated = [
+                anchor
+                for raw in _COORDINATOR_PATTERN.split(part)
+                if (anchor := _coordinated_anchor(raw))
+            ]
+            if len(coordinated) >= 2 and all(
+                _has_clause_action(anchor) for anchor in coordinated
+            ):
+                expanded_parts.extend(coordinated)
+            else:
+                expanded_parts.append(part)
+        parts = expanded_parts
+        action_count = sum(_has_clause_action(part) for part in parts)
+        if len(parts) >= 2 and (
+            action_count == len(parts) or (len(parts) >= 3 and action_count >= 1)
+        ):
+            return _ObligationStructure(tuple(parts))
+
+    explicit_multi = bool(
+        re.search(
+            r"\b(?:separate|distinct|multiple|both)\b|"
+            r"\b(?:obligations?|requirements?|controls?|tasks?)\b",
+            normalized,
+            re.IGNORECASE,
+        )
+    )
+    if explicit_multi:
+        tail = re.split(
+            r"\b(?:when|where|whether|with)\b", clause_source, flags=re.IGNORECASE
+        )[-1]
+        anchors = [
+            anchor
+            for raw in re.split(
+                r"\s*[;,]\s*|\s+\b(?:and|but|or)\b\s+",
+                tail,
+                flags=re.IGNORECASE,
+            )
+            if (anchor := _coordinated_anchor(raw))
+        ]
+        if len(anchors) >= 2:
+            return _ObligationStructure(tuple(anchors))
+
+    parts = [
+        anchor
+        for raw in _COORDINATOR_PATTERN.split(clause_source)
+        if (anchor := _coordinated_anchor(raw))
+    ]
+    if len(parts) >= 2 and all(_has_clause_action(part) for part in parts):
+        return _ObligationStructure(tuple(parts))
+    return None
+
+
+def _derive_obligation_structure(request: str) -> _ObligationStructure:
+    dependency = _dependency_structure(request)
+    if dependency is not None:
+        return dependency
+    coordinated = _coordinated_structure(request)
+    if coordinated is not None:
+        return coordinated
+    return _ObligationStructure((request.strip(),))
+
+
+def _derive_required_obligations(request: str) -> list[RequiredObligation]:
+    """Extract bounded atomic clauses while retaining request-derived anchors.
+
+    The segmenter uses only general coordination and dependency syntax. If the
+    request does not expose at least two supported clauses, the complete request
+    remains one traceable obligation rather than being expanded from domain
+    templates, scenario IDs, planning evidence, or evaluator gold.
     """
 
-    anchors: list[str] = []
-    clause_source = request.rsplit(":", maxsplit=1)[-1].strip().rstrip(".!?")
-    for pattern in _ORDERED_BODY_PATTERNS:
-        match = pattern.match(clause_source)
-        if match:
-            anchors = [match.group("first"), match.group("second")]
-            break
-
-    body: str | None = None
-    if not anchors:
-        for pattern in _LIST_BODY_PATTERNS:
-            match = pattern.search(request)
-            if match:
-                candidate = match.group("body").strip()
-                if "," in candidate or re.search(
-                    r"\band\b", candidate, re.IGNORECASE
-                ):
-                    body = candidate
-                    break
-
-    if body and not anchors:
-        for raw_anchor in _LIST_SEPARATOR_PATTERN.split(body):
-            anchor = raw_anchor.strip(" \t\r\n,;:-")
-            anchor = _TRAILING_OBLIGATION_LABEL.sub("", anchor).strip()
-            if anchor:
-                anchors.append(anchor)
-    else:
-        anchors = [anchor.strip(" \t\r\n,;:-") for anchor in anchors if anchor.strip()]
-    if len(anchors) < 2:
-        anchors = [request.strip()]
+    structure = _derive_obligation_structure(request)
 
     return [
         RequiredObligation(
@@ -314,7 +678,7 @@ def _derive_required_obligations(request: str) -> list[RequiredObligation]:
             canonical_kind=_canonical_obligation_kind(anchor),
             source_anchor=anchor,
         )
-        for index, anchor in enumerate(anchors, start=1)
+        for index, anchor in enumerate(structure.anchors, start=1)
     ]
 
 
@@ -423,7 +787,6 @@ def _parse_tasks(parsed: dict[str, Any]) -> list[TaskItem]:
                 f"task {index} did not satisfy the canonical task schema"
             ) from exc
 
-    _validate_dependencies(tasks)
     return tasks
 
 
@@ -459,73 +822,6 @@ def _validate_dependencies(tasks: list[TaskItem]) -> None:
         raise _DecompositionOutputError("task dependency graph contains a cycle")
 
 
-def _validate_request_alignment(request: str, tasks: list[TaskItem]) -> None:
-    """Keep multi-domain plans anchored to the obligations in the request.
-
-    Planning guidance can describe several categories for one domain.  It must
-    not turn those examples into tasks when the request names another domain or
-    a narrower obligation.  The check is intentionally conservative: it only
-    runs when at least two canonical domains are signalled by the request, and
-    it never merges distinct tasks.
-    """
-
-    request_terms = lexical_terms(request)
-    requested_domains = {
-        domain
-        for domain, hints in _DOMAIN_OBLIGATION_HINTS.items()
-        if request_terms & hints
-    }
-    if len(requested_domains) < 2:
-        if len(tasks) == 1:
-            expected_domain = next(iter(requested_domains), None)
-            if expected_domain is not None and tasks[0].domain != expected_domain:
-                raise _DecompositionOutputError(
-                    "single task domain must match the sole requested canonical domain"
-                )
-        return
-
-    task_domains = {task.domain for task in tasks}
-    missing_domains = sorted(requested_domains - task_domains)
-    if missing_domains:
-        raise _DecompositionOutputError(
-            "planner tasks must preserve each named request obligation/domain; "
-            "missing canonical request domains: " + ", ".join(missing_domains)
-        )
-
-    for domain in sorted(requested_domains):
-        domain_tasks = [task for task in tasks if task.domain == domain]
-        # A single canonical task is enough to represent a named domain even
-        # when its wording paraphrases the request (for example, a security
-        # task may omit one specific token/authentication synonym).  Anchor
-        # checks remain strict for repeated tasks, where planning categories
-        # can otherwise become unrequested extra work.
-        if len(domain_tasks) == 1:
-            continue
-
-        request_anchors = request_terms & _DOMAIN_OBLIGATION_HINTS[domain]
-        if not request_anchors:
-            raise _DecompositionOutputError(
-                "repeated domain tasks must retain concrete request anchors; "
-                "planning categories alone do not justify extra tasks"
-            )
-
-        anchored_tasks = [
-            task
-            for task in domain_tasks
-            if lexical_terms(f"{task.title} {task.objective}") & request_anchors
-        ]
-        if not anchored_tasks:
-            raise _DecompositionOutputError(
-                "planner tasks must preserve a concrete anchor for each named "
-                "request obligation"
-            )
-        if len(domain_tasks) > 1 and len(anchored_tasks) != len(domain_tasks):
-            raise _DecompositionOutputError(
-                "repeated domain tasks must retain distinct request anchors; "
-                "planning categories alone do not justify extra tasks"
-            )
-
-
 def _validate_explicit_coverage(
     request: str,
     tasks: list[TaskItem],
@@ -540,17 +836,21 @@ def _validate_explicit_coverage(
 
     for task in tasks:
         coverage_ids = list(dict.fromkeys(task.covers_obligations))
-        if not coverage_ids and len(required_obligations) == 1:
-            only = required_obligations[0]
+        if not coverage_ids:
             task_text = f"{task.title} {task.objective} {task.expected_output}"
-            domain_matches = (
-                only.canonical_kind is None or task.domain == only.canonical_kind
-            )
-            if domain_matches and lexical_terms(task_text) & lexical_terms(
-                only.source_anchor
-            ):
-                coverage_ids = [only.obligation_id]
+            coverage_ids = [
+                obligation.obligation_id
+                for obligation in required_obligations
+                if _retains_source_anchor(task_text, obligation.source_anchor)
+            ]
+            if coverage_ids:
                 task.covers_obligations = coverage_ids
+
+        if not coverage_ids:
+            invalid_reasons.append(
+                f"task {task.task_id} does not claim a request-derived obligation"
+            )
+            continue
 
         if requires_separate_tasks and len(coverage_ids) > 1:
             invalid_reasons.append(
@@ -558,9 +858,7 @@ def _validate_explicit_coverage(
             )
             continue
 
-        task_text_terms = lexical_terms(
-            f"{task.title} {task.objective} {task.expected_output}"
-        )
+        task_text = f"{task.title} {task.objective} {task.expected_output}"
         for obligation_id in coverage_ids:
             obligation = required_by_id.get(obligation_id)
             if obligation is None:
@@ -568,18 +866,7 @@ def _validate_explicit_coverage(
                     f"task {task.task_id} references unknown obligation {obligation_id}"
                 )
                 continue
-            anchor_matches = bool(
-                task_text_terms.intersection(lexical_terms(obligation.source_anchor))
-            )
-            domain_hint_matches = (
-                obligation.canonical_kind is not None
-                and task.domain == obligation.canonical_kind
-            )
-            if (
-                not anchor_matches
-                and obligation.canonical_kind is not None
-                and not domain_hint_matches
-            ):
+            if not _retains_source_anchor(task_text, obligation.source_anchor):
                 invalid_reasons.append(
                     f"task {task.task_id} does not retain source anchor for {obligation_id}"
                 )
@@ -606,6 +893,95 @@ def _validate_explicit_coverage(
     return _CoverageState(covered_ids, [], "complete obligation coverage")
 
 
+def _retains_source_anchor(task_text: str, source_anchor: str) -> bool:
+    """Require semantic text evidence; a matching domain label is not proof."""
+
+    task_terms = lexical_terms(task_text) - _ALIGNMENT_LOW_SIGNAL_TERMS
+    anchor_terms = lexical_terms(source_anchor) - _ALIGNMENT_LOW_SIGNAL_TERMS
+    if not anchor_terms:
+        anchor_terms = lexical_terms(source_anchor)
+    if task_terms.intersection(anchor_terms):
+        return True
+
+    # Cover ordinary inflectional variants without a scenario/domain synonym
+    # table: authorization/authorize, validation/validate, identity/identify.
+    def comparison_forms(term: str) -> tuple[str, ...]:
+        forms = [term]
+        for prefix in ("un", "in", "non"):
+            if term.startswith(prefix) and len(term) - len(prefix) >= 4:
+                forms.append(term[len(prefix) :])
+        return tuple(forms)
+
+    for raw_task_term in task_terms:
+        for raw_anchor_term in anchor_terms:
+            for task_term in comparison_forms(raw_task_term):
+                for anchor_term in comparison_forms(raw_anchor_term):
+                    limit = min(len(task_term), len(anchor_term))
+                    shared = next(
+                        (
+                            size
+                            for size in range(limit, 3, -1)
+                            if task_term[:size] == anchor_term[:size]
+                        ),
+                        0,
+                    )
+                    if shared >= 4 and shared / limit >= 0.55:
+                        return True
+    return False
+
+
+def _validate_dependency_direction(
+    request: str,
+    tasks: list[TaskItem],
+    required_obligations: list[RequiredObligation],
+) -> None:
+    """Validate each explicit prerequisite -> dependent obligation edge."""
+
+    structure = _derive_obligation_structure(request)
+    if not structure.dependency_pairs:
+        return
+
+    tasks_by_obligation: dict[str, list[TaskItem]] = {
+        obligation.obligation_id: [] for obligation in required_obligations
+    }
+    for task in tasks:
+        for obligation_id in task.covers_obligations:
+            if obligation_id in tasks_by_obligation:
+                tasks_by_obligation[obligation_id].append(task)
+
+    for prerequisite_index, dependent_index in structure.dependency_pairs:
+        prerequisite_id = required_obligations[prerequisite_index].obligation_id
+        dependent_id = required_obligations[dependent_index].obligation_id
+        prerequisite_tasks = tasks_by_obligation[prerequisite_id]
+        dependent_tasks = tasks_by_obligation[dependent_id]
+        if not prerequisite_tasks or not dependent_tasks:
+            continue
+        prerequisite_task_ids = {task.task_id for task in prerequisite_tasks}
+        dependent_task_ids = {task.task_id for task in dependent_tasks}
+        if prerequisite_task_ids.intersection(dependent_task_ids):
+            raise _DecompositionOutputError(
+                "explicitly ordered obligations require separate tasks"
+            )
+        if any(
+            dependency in dependent_task_ids
+            for task in prerequisite_tasks
+            for dependency in task.depends_on
+        ):
+            raise _DecompositionOutputError(
+                f"dependency direction is reversed: {dependent_id} must depend on "
+                f"{prerequisite_id}"
+            )
+        if not any(
+            dependency in prerequisite_task_ids
+            for task in dependent_tasks
+            for dependency in task.depends_on
+        ):
+            raise _DecompositionOutputError(
+                f"ordered obligation {dependent_id} must depend on prerequisite "
+                f"{prerequisite_id}"
+            )
+
+
 def _validate_obligation_coverage(
     request: str,
     tasks: list[TaskItem],
@@ -613,35 +989,48 @@ def _validate_obligation_coverage(
 ) -> _CoverageState:
     """Validate explicit request coverage plus the existing dependency contract."""
 
-    coverage = _validate_explicit_coverage(request, tasks, required_obligations)
+    coverage_error: _CoverageValidationError | None = None
     try:
-        # The legacy domain-shape guard remains only for requests that cannot be
-        # split into explicit obligations. Explicit coverage is authoritative for
-        # multi-obligation requests and permits legitimate cross-domain ownership.
-        if len(required_obligations) == 1:
-            _validate_request_alignment(request, tasks)
-        ordered = bool(_ORDERED_OBLIGATIONS_PATTERN.search(request))
-        if ordered and len(tasks) < 2:
-            raise _DecompositionOutputError(
-                "explicitly ordered obligations require separate tasks"
-            )
-        if ordered and not any(task.depends_on for task in tasks):
-            raise _DecompositionOutputError(
-                "explicitly ordered obligations require a dependency"
-            )
-        if not ordered and _REPEATED_OBLIGATIONS_PATTERN.search(request) and any(
-            task.depends_on for task in tasks
-        ):
-            raise _DecompositionOutputError(
-                "repeated or shared-evidence obligations are independent unless "
-                "the request states an order or dependency"
-            )
+        coverage = _validate_explicit_coverage(request, tasks, required_obligations)
+    except _CoverageValidationError as exc:
+        coverage = exc.state
+        coverage_error = exc
+
+    structural_reasons: list[str] = []
+    try:
+        _validate_dependencies(tasks)
     except _DecompositionOutputError as exc:
+        structural_reasons.append(str(exc))
+
+    if coverage_error is None and not structural_reasons:
+        try:
+            _validate_dependency_direction(request, tasks, required_obligations)
+        except _DecompositionOutputError as exc:
+            structural_reasons.append(str(exc))
+
+    ordered = bool(_derive_obligation_structure(request).dependency_pairs)
+    if not ordered and _REPEATED_OBLIGATIONS_PATTERN.search(request) and any(
+        task.depends_on for task in tasks
+    ):
+        structural_reasons.append(
+            "repeated or shared-evidence obligations are independent unless "
+            "the request states an order or dependency"
+        )
+
+    if coverage_error is not None or structural_reasons:
         # Preserve valid task-to-obligation claims so the one bounded repair
         # corrects only the structural defect instead of rebuilding the plan.
+        reasons = []
+        if coverage_error is not None:
+            reasons.append(coverage.reason)
+        reasons.extend(structural_reasons)
         raise _CoverageValidationError(
-            _CoverageState(coverage.covered_ids, coverage.missing_ids, str(exc))
-        ) from exc
+            _CoverageState(
+                coverage.covered_ids,
+                coverage.missing_ids,
+                "; ".join(dict.fromkeys(reasons)),
+            )
+        )
     return coverage
 
 
