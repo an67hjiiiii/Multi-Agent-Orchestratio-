@@ -87,6 +87,21 @@ _LIST_BODY_PATTERNS = (
         r"\b(?:review|assess|analy[sz]e)\b[^.!?]*?\bfor\s+(?P<body>[^.!?]+)",
         re.IGNORECASE,
     ),
+    re.compile(r":\s*(?P<body>[^.!?]+)", re.IGNORECASE),
+    re.compile(
+        r"\b(?:must|should|required\s+to|needs?\s+to)\s+(?P<body>[^.!?]+)",
+        re.IGNORECASE,
+    ),
+)
+_ORDERED_BODY_PATTERNS = (
+    re.compile(
+        r"^\s*first\s+(?P<first>.+?)\s*,?\s*\bthen\b\s+(?P<second>.+?)\s*$",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"^\s*(?P<first>.+?)\s+first\s*,?\s*\bthen\b\s+(?P<second>.+?)\s*$",
+        re.IGNORECASE,
+    ),
 )
 _LIST_SEPARATOR_PATTERN = re.compile(
     r"\s*,\s*(?:and\s+)?|\s+\band\b\s+",
@@ -262,22 +277,34 @@ def _derive_required_obligations(request: str) -> list[RequiredObligation]:
     expanded from domain templates or planning evidence.
     """
 
-    body: str | None = None
-    for pattern in _LIST_BODY_PATTERNS:
-        match = pattern.search(request)
-        if match:
-            candidate = match.group("body").strip()
-            if "," in candidate or re.search(r"\band\b", candidate, re.IGNORECASE):
-                body = candidate
-                break
-
     anchors: list[str] = []
-    if body:
+    clause_source = request.rsplit(":", maxsplit=1)[-1].strip().rstrip(".!?")
+    for pattern in _ORDERED_BODY_PATTERNS:
+        match = pattern.match(clause_source)
+        if match:
+            anchors = [match.group("first"), match.group("second")]
+            break
+
+    body: str | None = None
+    if not anchors:
+        for pattern in _LIST_BODY_PATTERNS:
+            match = pattern.search(request)
+            if match:
+                candidate = match.group("body").strip()
+                if "," in candidate or re.search(
+                    r"\band\b", candidate, re.IGNORECASE
+                ):
+                    body = candidate
+                    break
+
+    if body and not anchors:
         for raw_anchor in _LIST_SEPARATOR_PATTERN.split(body):
             anchor = raw_anchor.strip(" \t\r\n,;:-")
             anchor = _TRAILING_OBLIGATION_LABEL.sub("", anchor).strip()
             if anchor:
                 anchors.append(anchor)
+    else:
+        anchors = [anchor.strip(" \t\r\n,;:-") for anchor in anchors if anchor.strip()]
     if len(anchors) < 2:
         anchors = [request.strip()]
 
@@ -541,17 +568,20 @@ def _validate_explicit_coverage(
                     f"task {task.task_id} references unknown obligation {obligation_id}"
                 )
                 continue
-            if not task_text_terms.intersection(lexical_terms(obligation.source_anchor)):
-                invalid_reasons.append(
-                    f"task {task.task_id} does not retain source anchor for {obligation_id}"
-                )
-                continue
-            if (
+            anchor_matches = bool(
+                task_text_terms.intersection(lexical_terms(obligation.source_anchor))
+            )
+            domain_hint_matches = (
                 obligation.canonical_kind is not None
-                and task.domain != obligation.canonical_kind
+                and task.domain == obligation.canonical_kind
+            )
+            if (
+                not anchor_matches
+                and obligation.canonical_kind is not None
+                and not domain_hint_matches
             ):
                 invalid_reasons.append(
-                    f"task {task.task_id} domain does not match {obligation_id}"
+                    f"task {task.task_id} does not retain source anchor for {obligation_id}"
                 )
                 continue
             covered.add(obligation_id)
@@ -584,26 +614,34 @@ def _validate_obligation_coverage(
     """Validate explicit request coverage plus the existing dependency contract."""
 
     coverage = _validate_explicit_coverage(request, tasks, required_obligations)
-    _validate_request_alignment(request, tasks)
-    ordered = bool(_ORDERED_OBLIGATIONS_PATTERN.search(request))
-    if ordered:
-        if len(tasks) < 2:
+    try:
+        # The legacy domain-shape guard remains only for requests that cannot be
+        # split into explicit obligations. Explicit coverage is authoritative for
+        # multi-obligation requests and permits legitimate cross-domain ownership.
+        if len(required_obligations) == 1:
+            _validate_request_alignment(request, tasks)
+        ordered = bool(_ORDERED_OBLIGATIONS_PATTERN.search(request))
+        if ordered and len(tasks) < 2:
             raise _DecompositionOutputError(
                 "explicitly ordered obligations require separate tasks"
             )
-        if not any(task.depends_on for task in tasks):
+        if ordered and not any(task.depends_on for task in tasks):
             raise _DecompositionOutputError(
                 "explicitly ordered obligations require a dependency"
             )
-        return coverage
-
-    if _REPEATED_OBLIGATIONS_PATTERN.search(request) and any(
-        task.depends_on for task in tasks
-    ):
-        raise _DecompositionOutputError(
-            "repeated or shared-evidence obligations are independent unless "
-            "the request states an order or dependency"
-        )
+        if not ordered and _REPEATED_OBLIGATIONS_PATTERN.search(request) and any(
+            task.depends_on for task in tasks
+        ):
+            raise _DecompositionOutputError(
+                "repeated or shared-evidence obligations are independent unless "
+                "the request states an order or dependency"
+            )
+    except _DecompositionOutputError as exc:
+        # Preserve valid task-to-obligation claims so the one bounded repair
+        # corrects only the structural defect instead of rebuilding the plan.
+        raise _CoverageValidationError(
+            _CoverageState(coverage.covered_ids, coverage.missing_ids, str(exc))
+        ) from exc
     return coverage
 
 
