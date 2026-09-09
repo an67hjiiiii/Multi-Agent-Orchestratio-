@@ -7,14 +7,14 @@
 
 ## Gate and scope
 
-The final benchmark and semantic gold are still `PENDING_HUMAN_APPROVAL`.
-This document defines the review procedure; it does not approve, rewrite, or
-inject gold into generation. The 30-group set is the proposed final experiment
-set, distinct from the approved 15-case M1 development/validation subset. A
-human owner must approve the dataset and gold before the final experiment can
-run. On approval, record reviewer identity, approval date, dataset revision,
-benchmark SHA-256, and gold SHA-256 in the freeze record; after that, do not
-change the 30 groups without a new approval.
+This protocol was authored while the final benchmark and semantic gold were
+`PENDING_HUMAN_APPROVAL`; the owner has now recorded `HUMAN_APPROVED` for all
+30 scenario groups in the freeze records. This document defines the review
+procedure and does not rewrite or inject gold into generation. The approved
+30-group set is distinct from the approved 15-case M1 development/validation
+subset. The exact approval identity/date/revision and SHA-256 values are held
+in the packet manifests; after approval, do not change the 30 groups without a
+new approval.
 
 The research framing is fixed: complex multi-obligation request handling is
 the primary problem; P is Retrieval-Guided Task Decomposition, N is
@@ -158,10 +158,10 @@ post-hoc hypothesis, significance claim, or self-grading is permitted.
 ## Freeze and stop conditions
 
 Before final execution, validate the benchmark/gold hashes and the manifest's
-180-row Cartesian mapping. If the human approval gate is still pending, stop:
-`READY_TO_RUN_FINAL_EXPERIMENT = NO`. After approval, update only the approval
-record and immutable hashes, then let the existing runner execute; do not put
-gold in prompts. This task does not run Ollama or any experiment.
+180-row Cartesian mapping. The current approval record is complete, so the
+protocol gate is satisfied; the final runner must still be launched explicitly
+with its approved statuses and remains a separate action. Do not put gold in
+prompts. This task did not run Ollama or any experiment.
 
 The legacy runner fixture that hard-codes an earlier M1/Pilot query is
 classified `HISTORICAL_TEST_STALE` because the current frozen dataset revision

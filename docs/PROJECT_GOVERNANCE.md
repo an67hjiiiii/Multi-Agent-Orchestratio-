@@ -54,6 +54,9 @@ integrity enabled in every condition.
 
 ## Approval record
 
-Current state is recorded in `.project/project-state.yaml`. Human review,
-milestone promotion, and framework selection remain pending; no agent may
-self-approve any of them.
+Current state is recorded in `.project/project-state.yaml`. The project owner
+recorded final dataset/gold approval on 2026-09-09 for 30/30 scenario groups;
+the exact hashes and reviewer identity are recorded there and in the final
+experiment manifests. This approval freezes the input/gold bytes but does not
+promote an empirical milestone or authorize an agent to self-approve one.
+Framework selection and empirical results remain separate gates.

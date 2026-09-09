@@ -1,23 +1,31 @@
 {
   "schema_version": "m1-final-frozen-requests-v1",
+  "dataset_revision": "FINAL_DATASET_V2_TARGETED_REWORK",
   "dataset_id": "m1-final-experiment-v1",
   "split": "final_experiment",
   "status": "FROZEN_PENDING_HUMAN_APPROVAL",
   "frozen_before_execution": true,
-  "execution_consumption": "Requests are frozen inputs; scenario gold is evaluation-only and must not be imported before generation.",
   "source_development_dataset": "datasets/pilot/m1_dev_cases.json",
   "holdout_policy": {
     "required_group_count": 30,
     "variants_per_group": 4,
-    "exclusion_rule": "No request text is reused from the 15-case development subset; each group carries a distinct holdout_basis and receives a static exact/near-text check.",
-    "semantic_review_boundary": "Static text checks cannot prove semantic non-paraphrase; human review remains required before execution."
+    "holdout_definition": "Held-out request / structure / composition set over a frozen corpus; underlying knowledge facts are not claimed to be unseen.",
+    "exclusion_rule": "No request text is reused from the 15-case development subset; each group carries a distinct holdout_basis and receives exact/near-text and semantic-overlap review.",
+    "semantic_review_boundary": "Static text checks cannot prove semantic non-paraphrase; human review remains required before execution.",
+    "archetype_distribution": {
+      "SIMPLE_SINGLE_OBLIGATION": 5,
+      "MULTI_OBLIGATION_CROSS_DOMAIN": 5,
+      "DEPENDENCY_TASK_GRAPH": 5,
+      "DUPLICATE_OVERLAPPING_OBLIGATION_N": 5,
+      "SHARED_OVERLAPPING_EVIDENCE_O": 5,
+      "PARTIAL_INTENTIONAL_NO_EVIDENCE": 5
+    },
+    "cross_domain_requirement": "At least five groups must contain two or more frozen corpus domains; S06-S10 satisfy the required cross-domain set."
   },
   "corpus_snapshot": {
     "snapshot_id": "m1-pilot-authorized-v1",
-    "manifest_path": "reports/pre_pilot_freeze/corpus-manifest.json",
-    "evidence_manifest_path": "reports/final_experiment/corpus-evidence-manifest.json",
-    "source_manifest_path": "data/m1-pilot-authorized-v1/sources.json",
     "source_manifest_sha256": "274241507c91aa8ffaf8ca8f5ad9b3568879a4f99a691c9bd98bfe5dd52af265",
+    "evidence_manifest_path": "reports/final_experiment/corpus-evidence-manifest.json",
     "chunk_count": 3
   },
   "role_domain_vocab": {
@@ -48,2170 +56,2758 @@
   "scenario_groups": [
     {
       "scenario_group_id": "M1F-S01",
-      "scenario_label": "Bearer-token to policy handoff",
+      "scenario_label": "Token intake and caller context",
+      "primary_archetype": "SIMPLE_SINGLE_OBLIGATION",
       "canonical_domain": "security",
+      "domain_scope": [
+        "security"
+      ],
       "role_profile": "Security Analyst",
+      "role_profiles": [
+        "Security Analyst"
+      ],
       "evidence_expectation": "EVIDENCE_PRESENT",
-      "holdout_basis": "security-boundary-audit",
+      "holdout_basis": "v2-simple_single_obligation-01",
+      "scenario_gold_id": "M1F-G01",
+      "mechanism_expectations": {
+        "dependency": "NOT_APPLICABLE",
+        "normalization": "NOT_APPLICABLE",
+        "overlap": "NOT_APPLICABLE"
+      },
       "provenance": {
-        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT",
+        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2",
         "corpus_snapshot_id": "m1-pilot-authorized-v1",
         "source_manifest_path": "data/m1-pilot-authorized-v1/sources.json",
         "source_evidence_ids": [
           "src_ecad6843b8fcb99b_c0000"
         ],
-        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED"
+        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED",
+        "semantic_holdout_review": "PENDING_HUMAN_REVIEW"
       },
       "variants": [
         {
           "case_id": "M1F-S01-V01",
           "variant_id": "V01",
           "variant_order": 1,
-          "request_text": "Trace the security handoff from a bearer token arriving to the server's final access decision.",
+          "request_text": "Assess what caller context a bearer token gives the service at request intake.",
           "provenance": {
             "scenario_group_id": "M1F-S01",
             "source_evidence_ids": [
               "src_ecad6843b8fcb99b_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S01-V02",
           "variant_id": "V02",
           "variant_order": 2,
-          "request_text": "Audit where token identity evidence ends and server permission policy begins.",
+          "request_text": "For a token-bearing call, state the identity-related conclusion supported by the security note.",
           "provenance": {
             "scenario_group_id": "M1F-S01",
             "source_evidence_ids": [
               "src_ecad6843b8fcb99b_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S01-V03",
           "variant_id": "V03",
           "variant_order": 3,
-          "request_text": "Review the boundary between bearer-token handling and an enforced access policy.",
+          "request_text": "Summarize the security obligation attached to receiving an access token.",
           "provenance": {
             "scenario_group_id": "M1F-S01",
             "source_evidence_ids": [
               "src_ecad6843b8fcb99b_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S01-V04",
           "variant_id": "V04",
           "variant_order": 4,
-          "request_text": "Map a protected-action path from token intake through the server's policy decision.",
+          "request_text": "What can the service establish about the caller from the bearer-token evidence?",
           "provenance": {
             "scenario_group_id": "M1F-S01",
             "source_evidence_ids": [
               "src_ecad6843b8fcb99b_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         }
       ]
     },
     {
       "scenario_group_id": "M1F-S02",
-      "scenario_label": "JWT claims versus server authority",
+      "scenario_label": "Access review after token parsing",
+      "primary_archetype": "SIMPLE_SINGLE_OBLIGATION",
       "canonical_domain": "security",
+      "domain_scope": [
+        "security"
+      ],
       "role_profile": "Security Analyst",
+      "role_profiles": [
+        "Security Analyst"
+      ],
       "evidence_expectation": "EVIDENCE_PRESENT",
-      "holdout_basis": "token-authority-risk-review",
+      "holdout_basis": "v2-simple_single_obligation-02",
+      "scenario_gold_id": "M1F-G02",
+      "mechanism_expectations": {
+        "dependency": "NOT_APPLICABLE",
+        "normalization": "NOT_APPLICABLE",
+        "overlap": "NOT_APPLICABLE"
+      },
       "provenance": {
-        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT",
+        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2",
         "corpus_snapshot_id": "m1-pilot-authorized-v1",
         "source_manifest_path": "data/m1-pilot-authorized-v1/sources.json",
         "source_evidence_ids": [
           "src_ecad6843b8fcb99b_c0000"
         ],
-        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED"
+        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED",
+        "semantic_holdout_review": "PENDING_HUMAN_REVIEW"
       },
       "variants": [
         {
           "case_id": "M1F-S02-V01",
           "variant_id": "V01",
           "variant_order": 1,
-          "request_text": "Assess whether a JWT claim can stand in for a server-side authorization decision.",
+          "request_text": "Review an access-control audit note for reliance on token claims and name the control that remains necessary.",
           "provenance": {
             "scenario_group_id": "M1F-S02",
             "source_evidence_ids": [
               "src_ecad6843b8fcb99b_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S02-V02",
           "variant_id": "V02",
           "variant_order": 2,
-          "request_text": "Examine the authority boundary between a signed token and application access policy.",
+          "request_text": "When a service reads a JWT, identify the authority boundary the audit should check.",
           "provenance": {
             "scenario_group_id": "M1F-S02",
             "source_evidence_ids": [
               "src_ecad6843b8fcb99b_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S02-V03",
           "variant_id": "V03",
           "variant_order": 3,
-          "request_text": "Review a token-based flow for accidental trust in claims as permission.",
+          "request_text": "State the security safeguard that prevents token claims from becoming the whole permission decision.",
           "provenance": {
             "scenario_group_id": "M1F-S02",
             "source_evidence_ids": [
               "src_ecad6843b8fcb99b_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S02-V04",
           "variant_id": "V04",
           "variant_order": 4,
-          "request_text": "Identify where the service must enforce permission after reading a JWT.",
+          "request_text": "Evaluate whether a signed claim alone closes the server's protected-action review.",
           "provenance": {
             "scenario_group_id": "M1F-S02",
             "source_evidence_ids": [
               "src_ecad6843b8fcb99b_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         }
       ]
     },
     {
       "scenario_group_id": "M1F-S03",
-      "scenario_label": "Identity evidence and action permission",
-      "canonical_domain": "security",
-      "role_profile": "Security Analyst",
+      "scenario_label": "REST validation checkpoint",
+      "primary_archetype": "SIMPLE_SINGLE_OBLIGATION",
+      "canonical_domain": "api_architecture",
+      "domain_scope": [
+        "api_architecture"
+      ],
+      "role_profile": "API/Architecture Analyst",
+      "role_profiles": [
+        "API/Architecture Analyst"
+      ],
       "evidence_expectation": "EVIDENCE_PRESENT",
-      "holdout_basis": "identity-permission-separation",
+      "holdout_basis": "v2-simple_single_obligation-03",
+      "scenario_gold_id": "M1F-G03",
+      "mechanism_expectations": {
+        "dependency": "NOT_APPLICABLE",
+        "normalization": "NOT_APPLICABLE",
+        "overlap": "NOT_APPLICABLE"
+      },
       "provenance": {
-        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT",
+        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2",
         "corpus_snapshot_id": "m1-pilot-authorized-v1",
         "source_manifest_path": "data/m1-pilot-authorized-v1/sources.json",
         "source_evidence_ids": [
-          "src_ecad6843b8fcb99b_c0000"
+          "src_c7f92b35e6b484c5_c0000"
         ],
-        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED"
+        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED",
+        "semantic_holdout_review": "PENDING_HUMAN_REVIEW"
       },
       "variants": [
         {
           "case_id": "M1F-S03-V01",
           "variant_id": "V01",
           "variant_order": 1,
-          "request_text": "Classify the security evidence needed to distinguish identity proof from action permission.",
+          "request_text": "Identify the request-validation check that belongs at the REST contract boundary.",
           "provenance": {
             "scenario_group_id": "M1F-S03",
             "source_evidence_ids": [
-              "src_ecad6843b8fcb99b_c0000"
+              "src_c7f92b35e6b484c5_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S03-V02",
           "variant_id": "V02",
           "variant_order": 2,
-          "request_text": "Separate evidence for recognizing a caller from evidence for allowing a protected action.",
+          "request_text": "For a REST endpoint review, state the single obligation for validating incoming requests.",
           "provenance": {
             "scenario_group_id": "M1F-S03",
             "source_evidence_ids": [
-              "src_ecad6843b8fcb99b_c0000"
+              "src_c7f92b35e6b484c5_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S03-V03",
           "variant_id": "V03",
           "variant_order": 3,
-          "request_text": "Audit a login-to-action review without collapsing identity and permission checks.",
+          "request_text": "What input-validation responsibility is documented for this API contract?",
           "provenance": {
             "scenario_group_id": "M1F-S03",
             "source_evidence_ids": [
-              "src_ecad6843b8fcb99b_c0000"
+              "src_c7f92b35e6b484c5_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S03-V04",
           "variant_id": "V04",
           "variant_order": 4,
-          "request_text": "Describe the two security decisions a protected request must account for.",
+          "request_text": "Summarize only the validation step required before REST service work proceeds.",
           "provenance": {
             "scenario_group_id": "M1F-S03",
             "source_evidence_ids": [
-              "src_ecad6843b8fcb99b_c0000"
+              "src_c7f92b35e6b484c5_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         }
       ]
     },
     {
       "scenario_group_id": "M1F-S04",
-      "scenario_label": "Protected REST call security boundary",
-      "canonical_domain": "security",
-      "role_profile": "Security Analyst",
+      "scenario_label": "Record storage and access review",
+      "primary_archetype": "SIMPLE_SINGLE_OBLIGATION",
+      "canonical_domain": "database",
+      "domain_scope": [
+        "database"
+      ],
+      "role_profile": "Database Analyst",
+      "role_profiles": [
+        "Database Analyst"
+      ],
       "evidence_expectation": "EVIDENCE_PRESENT",
-      "holdout_basis": "protected-request-control-path",
+      "holdout_basis": "v2-simple_single_obligation-04",
+      "scenario_gold_id": "M1F-G04",
+      "mechanism_expectations": {
+        "dependency": "NOT_APPLICABLE",
+        "normalization": "NOT_APPLICABLE",
+        "overlap": "NOT_APPLICABLE"
+      },
       "provenance": {
-        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT",
+        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2",
         "corpus_snapshot_id": "m1-pilot-authorized-v1",
         "source_manifest_path": "data/m1-pilot-authorized-v1/sources.json",
         "source_evidence_ids": [
-          "src_ecad6843b8fcb99b_c0000"
+          "src_1055b8f580d99531_c0000"
         ],
-        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED"
+        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED",
+        "semantic_holdout_review": "PENDING_HUMAN_REVIEW"
       },
       "variants": [
         {
           "case_id": "M1F-S04-V01",
           "variant_id": "V01",
           "variant_order": 1,
-          "request_text": "Review bearer-token handling for a protected REST call from intake to policy enforcement.",
+          "request_text": "For a user-record service, summarize the database access review triggered by a frequently used identifier filter.",
           "provenance": {
             "scenario_group_id": "M1F-S04",
             "source_evidence_ids": [
-              "src_ecad6843b8fcb99b_c0000"
+              "src_1055b8f580d99531_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S04-V02",
           "variant_id": "V02",
           "variant_order": 2,
-          "request_text": "Audit the security boundary around an access token used on a service request.",
+          "request_text": "What database follow-up belongs after identifying a hot lookup field in the user-record store?",
           "provenance": {
             "scenario_group_id": "M1F-S04",
             "source_evidence_ids": [
-              "src_ecad6843b8fcb99b_c0000"
+              "src_1055b8f580d99531_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S04-V03",
           "variant_id": "V03",
           "variant_order": 3,
-          "request_text": "Trace how token evidence should be connected to a server permission decision in an API call.",
+          "request_text": "Review the storage note and state the access-path check for repeated identifier searches.",
           "provenance": {
             "scenario_group_id": "M1F-S04",
             "source_evidence_ids": [
-              "src_ecad6843b8fcb99b_c0000"
+              "src_1055b8f580d99531_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S04-V04",
           "variant_id": "V04",
           "variant_order": 4,
-          "request_text": "Examine a protected endpoint flow for a missing server-side policy step.",
+          "request_text": "When a relational service repeatedly filters on one identifier, which database concern should be examined?",
           "provenance": {
             "scenario_group_id": "M1F-S04",
             "source_evidence_ids": [
-              "src_ecad6843b8fcb99b_c0000"
+              "src_1055b8f580d99531_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         }
       ]
     },
     {
       "scenario_group_id": "M1F-S05",
-      "scenario_label": "Server authority with JWT claims",
-      "canonical_domain": "security",
-      "role_profile": "Security Analyst",
+      "scenario_label": "Consistency invariant for a write",
+      "primary_archetype": "SIMPLE_SINGLE_OBLIGATION",
+      "canonical_domain": "database",
+      "domain_scope": [
+        "database"
+      ],
+      "role_profile": "Database Analyst",
+      "role_profiles": [
+        "Database Analyst"
+      ],
       "evidence_expectation": "EVIDENCE_PRESENT",
-      "holdout_basis": "claims-policy-authority",
+      "holdout_basis": "v2-simple_single_obligation-05",
+      "scenario_gold_id": "M1F-G05",
+      "mechanism_expectations": {
+        "dependency": "NOT_APPLICABLE",
+        "normalization": "NOT_APPLICABLE",
+        "overlap": "NOT_APPLICABLE"
+      },
       "provenance": {
-        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT",
+        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2",
         "corpus_snapshot_id": "m1-pilot-authorized-v1",
         "source_manifest_path": "data/m1-pilot-authorized-v1/sources.json",
         "source_evidence_ids": [
-          "src_ecad6843b8fcb99b_c0000"
+          "src_1055b8f580d99531_c0000"
         ],
-        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED"
+        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED",
+        "semantic_holdout_review": "PENDING_HUMAN_REVIEW"
       },
       "variants": [
         {
           "case_id": "M1F-S05-V01",
           "variant_id": "V01",
           "variant_order": 1,
-          "request_text": "Evaluate whether server authorization remains authoritative when JWT claims are present.",
+          "request_text": "State the database safeguard that keeps a consistency-sensitive multi-step write together.",
           "provenance": {
             "scenario_group_id": "M1F-S05",
             "source_evidence_ids": [
-              "src_ecad6843b8fcb99b_c0000"
+              "src_1055b8f580d99531_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S05-V02",
           "variant_id": "V02",
           "variant_order": 2,
-          "request_text": "Check a service design for policy enforcement that does not delegate permission to token claims.",
+          "request_text": "For a write with several dependent changes, identify the boundary required by the database evidence.",
           "provenance": {
             "scenario_group_id": "M1F-S05",
             "source_evidence_ids": [
-              "src_ecad6843b8fcb99b_c0000"
+              "src_1055b8f580d99531_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S05-V03",
           "variant_id": "V03",
           "variant_order": 3,
-          "request_text": "Review the security risk of treating JWT contents as the complete access policy.",
+          "request_text": "What protects a multi-step update whose intermediate state must not escape?",
           "provenance": {
             "scenario_group_id": "M1F-S05",
             "source_evidence_ids": [
-              "src_ecad6843b8fcb99b_c0000"
+              "src_1055b8f580d99531_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S05-V04",
           "variant_id": "V04",
           "variant_order": 4,
-          "request_text": "Assess the evidence for an application-owned permission decision after token parsing.",
+          "request_text": "Summarize the consistency obligation for a sequence of relational writes.",
           "provenance": {
             "scenario_group_id": "M1F-S05",
             "source_evidence_ids": [
-              "src_ecad6843b8fcb99b_c0000"
+              "src_1055b8f580d99531_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         }
       ]
     },
     {
       "scenario_group_id": "M1F-S06",
-      "scenario_label": "Bearer-token security review scope",
+      "scenario_label": "Protected write across API, security, and database",
+      "primary_archetype": "MULTI_OBLIGATION_CROSS_DOMAIN",
       "canonical_domain": "security",
+      "domain_scope": [
+        "security",
+        "api_architecture",
+        "database"
+      ],
       "role_profile": "Security Analyst",
+      "role_profiles": [
+        "Security Analyst",
+        "API/Architecture Analyst",
+        "Database Analyst"
+      ],
       "evidence_expectation": "EVIDENCE_PRESENT",
-      "holdout_basis": "security-review-scope",
+      "holdout_basis": "v2-multi_obligation_cross_domain-06",
+      "scenario_gold_id": "M1F-G06",
+      "mechanism_expectations": {
+        "dependency": "The review has four obligations but no required output dependency beyond keeping them distinct.",
+        "normalization": "NOT_APPLICABLE",
+        "overlap": "NOT_APPLICABLE"
+      },
       "provenance": {
-        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT",
+        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2",
         "corpus_snapshot_id": "m1-pilot-authorized-v1",
         "source_manifest_path": "data/m1-pilot-authorized-v1/sources.json",
         "source_evidence_ids": [
-          "src_ecad6843b8fcb99b_c0000"
+          "src_ecad6843b8fcb99b_c0000",
+          "src_c7f92b35e6b484c5_c0000",
+          "src_1055b8f580d99531_c0000"
         ],
-        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED"
+        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED",
+        "semantic_holdout_review": "PENDING_HUMAN_REVIEW"
       },
       "variants": [
         {
           "case_id": "M1F-S06-V01",
           "variant_id": "V01",
           "variant_order": 1,
-          "request_text": "Plan a security review of identity evidence and access policy for a bearer-token flow.",
+          "request_text": "Review a protected REST write: establish caller identity, enforce action permission, validate the request, and keep the database changes consistent.",
           "provenance": {
             "scenario_group_id": "M1F-S06",
             "source_evidence_ids": [
-              "src_ecad6843b8fcb99b_c0000"
+              "src_ecad6843b8fcb99b_c0000",
+              "src_c7f92b35e6b484c5_c0000",
+              "src_1055b8f580d99531_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S06-V02",
           "variant_id": "V02",
           "variant_order": 2,
-          "request_text": "Prepare the review scope for a request that authenticates a caller and permits an action.",
+          "request_text": "For a token-bearing user-record update, assess identity, connect the API contract, decide server permission, and review the multi-step transaction obligation.",
           "provenance": {
             "scenario_group_id": "M1F-S06",
             "source_evidence_ids": [
-              "src_ecad6843b8fcb99b_c0000"
+              "src_ecad6843b8fcb99b_c0000",
+              "src_c7f92b35e6b484c5_c0000",
+              "src_1055b8f580d99531_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S06-V03",
           "variant_id": "V03",
           "variant_order": 3,
-          "request_text": "Outline the security checks needed before accepting a token-backed protected operation.",
+          "request_text": "For a token-bearing REST write, establish caller identity, make the server-side permission decision, validate the API request, and protect the consistency-sensitive multi-step database write with a transaction boundary.",
           "provenance": {
             "scenario_group_id": "M1F-S06",
             "source_evidence_ids": [
-              "src_ecad6843b8fcb99b_c0000"
+              "src_ecad6843b8fcb99b_c0000",
+              "src_c7f92b35e6b484c5_c0000",
+              "src_1055b8f580d99531_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S06-V04",
           "variant_id": "V04",
           "variant_order": 4,
-          "request_text": "Frame a security audit around caller identity, bearer tokens, and server permission.",
+          "request_text": "Before accepting a protected multi-step REST update, assess caller identity, decide server-side permission, validate the API request, and keep the database changes consistent with transaction boundaries.",
           "provenance": {
             "scenario_group_id": "M1F-S06",
             "source_evidence_ids": [
-              "src_ecad6843b8fcb99b_c0000"
+              "src_ecad6843b8fcb99b_c0000",
+              "src_c7f92b35e6b484c5_c0000",
+              "src_1055b8f580d99531_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         }
       ]
     },
     {
       "scenario_group_id": "M1F-S07",
-      "scenario_label": "Authentication and authorization responsibility map",
+      "scenario_label": "Identity, API failure, and permission boundary",
+      "primary_archetype": "MULTI_OBLIGATION_CROSS_DOMAIN",
       "canonical_domain": "security",
+      "domain_scope": [
+        "security",
+        "api_architecture"
+      ],
       "role_profile": "Security Analyst",
+      "role_profiles": [
+        "Security Analyst",
+        "API/Architecture Analyst"
+      ],
       "evidence_expectation": "EVIDENCE_PRESENT",
-      "holdout_basis": "security-responsibility-routing",
+      "holdout_basis": "v2-multi_obligation_cross_domain-07",
+      "scenario_gold_id": "M1F-G07",
+      "mechanism_expectations": {
+        "dependency": "The obligations are independent checks in one endpoint review; no task must consume another task's output.",
+        "normalization": "NOT_APPLICABLE",
+        "overlap": "NOT_APPLICABLE"
+      },
       "provenance": {
-        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT",
+        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2",
         "corpus_snapshot_id": "m1-pilot-authorized-v1",
         "source_manifest_path": "data/m1-pilot-authorized-v1/sources.json",
         "source_evidence_ids": [
-          "src_ecad6843b8fcb99b_c0000"
+          "src_ecad6843b8fcb99b_c0000",
+          "src_c7f92b35e6b484c5_c0000"
         ],
-        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED"
+        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED",
+        "semantic_holdout_review": "PENDING_HUMAN_REVIEW"
       },
       "variants": [
         {
           "case_id": "M1F-S07-V01",
           "variant_id": "V01",
           "variant_order": 1,
-          "request_text": "Map the responsibilities of the security role across token authentication and authorization enforcement.",
+          "request_text": "Prepare a review of a REST endpoint that must identify its caller, reject invalid input, report errors, and enforce permission.",
           "provenance": {
             "scenario_group_id": "M1F-S07",
             "source_evidence_ids": [
-              "src_ecad6843b8fcb99b_c0000"
+              "src_ecad6843b8fcb99b_c0000",
+              "src_c7f92b35e6b484c5_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S07-V02",
           "variant_id": "V02",
           "variant_order": 2,
-          "request_text": "Review which security decision belongs to identity handling and which belongs to access policy.",
+          "request_text": "Connect bearer-token identity, request validation, error responses, and authorization for one protected API surface.",
           "provenance": {
             "scenario_group_id": "M1F-S07",
             "source_evidence_ids": [
-              "src_ecad6843b8fcb99b_c0000"
+              "src_ecad6843b8fcb99b_c0000",
+              "src_c7f92b35e6b484c5_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S07-V03",
           "variant_id": "V03",
           "variant_order": 3,
-          "request_text": "Audit a role boundary where token processing and permission enforcement meet.",
+          "request_text": "Which separate controls should be recorded when an API receives a token but the request may still be invalid or unauthorized?",
           "provenance": {
             "scenario_group_id": "M1F-S07",
             "source_evidence_ids": [
-              "src_ecad6843b8fcb99b_c0000"
+              "src_ecad6843b8fcb99b_c0000",
+              "src_c7f92b35e6b484c5_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S07-V04",
           "variant_id": "V04",
           "variant_order": 4,
-          "request_text": "Examine whether a security review keeps authentication evidence separate from authorization authority.",
+          "request_text": "Map the security and API obligations for a protected endpoint with both malformed and forbidden requests.",
           "provenance": {
             "scenario_group_id": "M1F-S07",
             "source_evidence_ids": [
-              "src_ecad6843b8fcb99b_c0000"
+              "src_ecad6843b8fcb99b_c0000",
+              "src_c7f92b35e6b484c5_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         }
       ]
     },
     {
       "scenario_group_id": "M1F-S08",
-      "scenario_label": "Token-authenticated protected operation",
-      "canonical_domain": "security",
-      "role_profile": "Security Analyst",
+      "scenario_label": "Data model, query access, and API input",
+      "primary_archetype": "MULTI_OBLIGATION_CROSS_DOMAIN",
+      "canonical_domain": "database",
+      "domain_scope": [
+        "database",
+        "api_architecture"
+      ],
+      "role_profile": "Database Analyst",
+      "role_profiles": [
+        "Database Analyst",
+        "API/Architecture Analyst"
+      ],
       "evidence_expectation": "EVIDENCE_PRESENT",
-      "holdout_basis": "protected-operation-evidence-chain",
+      "holdout_basis": "v2-multi_obligation_cross_domain-08",
+      "scenario_gold_id": "M1F-G08",
+      "mechanism_expectations": {
+        "dependency": "The obligations are parallel API/database checks; neither output is required to construct the other.",
+        "normalization": "NOT_APPLICABLE",
+        "overlap": "NOT_APPLICABLE"
+      },
       "provenance": {
-        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT",
+        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2",
         "corpus_snapshot_id": "m1-pilot-authorized-v1",
         "source_manifest_path": "data/m1-pilot-authorized-v1/sources.json",
         "source_evidence_ids": [
-          "src_ecad6843b8fcb99b_c0000"
+          "src_1055b8f580d99531_c0000",
+          "src_c7f92b35e6b484c5_c0000"
         ],
-        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED"
+        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED",
+        "semantic_holdout_review": "PENDING_HUMAN_REVIEW"
       },
       "variants": [
         {
           "case_id": "M1F-S08-V01",
           "variant_id": "V01",
           "variant_order": 1,
-          "request_text": "Investigate a protected operation whose caller presents a bearer access token.",
+          "request_text": "Review a user-record endpoint for input validation, relational storage, and index suitability on its common identifier lookup.",
           "provenance": {
             "scenario_group_id": "M1F-S08",
             "source_evidence_ids": [
-              "src_ecad6843b8fcb99b_c0000"
+              "src_1055b8f580d99531_c0000",
+              "src_c7f92b35e6b484c5_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S08-V02",
           "variant_id": "V02",
           "variant_order": 2,
-          "request_text": "Review the security evidence chain from an access token to an allowed action.",
+          "request_text": "For an API that searches user records, combine the request contract with the database access-path review.",
           "provenance": {
             "scenario_group_id": "M1F-S08",
             "source_evidence_ids": [
-              "src_ecad6843b8fcb99b_c0000"
+              "src_1055b8f580d99531_c0000",
+              "src_c7f92b35e6b484c5_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S08-V03",
           "variant_id": "V03",
           "variant_order": 3,
-          "request_text": "Assess a token-authenticated request for a server-owned permission decision.",
+          "request_text": "List the API and persistence obligations for a frequently used identifier filter exposed through REST.",
           "provenance": {
             "scenario_group_id": "M1F-S08",
             "source_evidence_ids": [
-              "src_ecad6843b8fcb99b_c0000"
+              "src_1055b8f580d99531_c0000",
+              "src_c7f92b35e6b484c5_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S08-V04",
           "variant_id": "V04",
           "variant_order": 4,
-          "request_text": "Trace the security controls needed before a bearer-token request can act.",
+          "request_text": "Assess how a user-record search should be checked at both the contract boundary and the relational query boundary.",
           "provenance": {
             "scenario_group_id": "M1F-S08",
             "source_evidence_ids": [
-              "src_ecad6843b8fcb99b_c0000"
+              "src_1055b8f580d99531_c0000",
+              "src_c7f92b35e6b484c5_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         }
       ]
     },
     {
       "scenario_group_id": "M1F-S09",
-      "scenario_label": "Access-token lifetime evidence gap",
+      "scenario_label": "Authorized write with identity and transaction",
+      "primary_archetype": "MULTI_OBLIGATION_CROSS_DOMAIN",
       "canonical_domain": "security",
+      "domain_scope": [
+        "security",
+        "database"
+      ],
       "role_profile": "Security Analyst",
-      "evidence_expectation": "NO_EVIDENCE",
-      "holdout_basis": "security-evidence-gap-token-lifetime",
+      "role_profiles": [
+        "Security Analyst",
+        "Database Analyst"
+      ],
+      "evidence_expectation": "EVIDENCE_PRESENT",
+      "holdout_basis": "v2-multi_obligation_cross_domain-09",
+      "scenario_gold_id": "M1F-G09",
+      "mechanism_expectations": {
+        "dependency": "The checks remain separate and parallel; the prompt does not require one result to be fed into another task.",
+        "normalization": "NOT_APPLICABLE",
+        "overlap": "NOT_APPLICABLE"
+      },
       "provenance": {
-        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT",
+        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2",
         "corpus_snapshot_id": "m1-pilot-authorized-v1",
         "source_manifest_path": "data/m1-pilot-authorized-v1/sources.json",
-        "source_evidence_ids": [],
-        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED"
+        "source_evidence_ids": [
+          "src_ecad6843b8fcb99b_c0000",
+          "src_1055b8f580d99531_c0000"
+        ],
+        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED",
+        "semantic_holdout_review": "PENDING_HUMAN_REVIEW"
       },
       "variants": [
         {
           "case_id": "M1F-S09-V01",
           "variant_id": "V01",
           "variant_order": 1,
-          "request_text": "Determine whether this corpus states how long a bearer token remains valid.",
+          "request_text": "For a user-record write, review caller identity, server permission, and the consistency boundary around the database changes.",
           "provenance": {
             "scenario_group_id": "M1F-S09",
-            "source_evidence_ids": [],
+            "source_evidence_ids": [
+              "src_ecad6843b8fcb99b_c0000",
+              "src_1055b8f580d99531_c0000"
+            ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S09-V02",
           "variant_id": "V02",
           "variant_order": 2,
-          "request_text": "Check the evidence set for a token expiration interval.",
+          "request_text": "For a token-bearing relational update, assess caller identity separately from the server-side permission decision, then review the transaction boundary for consistency.",
           "provenance": {
             "scenario_group_id": "M1F-S09",
-            "source_evidence_ids": [],
+            "source_evidence_ids": [
+              "src_ecad6843b8fcb99b_c0000",
+              "src_1055b8f580d99531_c0000"
+            ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S09-V03",
           "variant_id": "V03",
           "variant_order": 3,
-          "request_text": "Look for a documented lifetime policy for access tokens in the supplied sources.",
+          "request_text": "Audit a multi-step record change by assessing caller identity, deciding server-side permission, and reviewing the transaction/consistency boundary.",
           "provenance": {
             "scenario_group_id": "M1F-S09",
-            "source_evidence_ids": [],
+            "source_evidence_ids": [
+              "src_ecad6843b8fcb99b_c0000",
+              "src_1055b8f580d99531_c0000"
+            ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S09-V04",
           "variant_id": "V04",
           "variant_order": 4,
-          "request_text": "Assess whether the provided security material specifies token expiry behavior.",
+          "request_text": "Before a bearer-token request may perform a consistency-sensitive database write, assess caller identity, make the server permission decision, and review the transaction boundary.",
           "provenance": {
             "scenario_group_id": "M1F-S09",
-            "source_evidence_ids": [],
+            "source_evidence_ids": [
+              "src_ecad6843b8fcb99b_c0000",
+              "src_1055b8f580d99531_c0000"
+            ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         }
       ]
     },
     {
       "scenario_group_id": "M1F-S10",
-      "scenario_label": "Multi-factor policy evidence gap",
-      "canonical_domain": "security",
-      "role_profile": "Security Analyst",
-      "evidence_expectation": "NO_EVIDENCE",
-      "holdout_basis": "security-evidence-gap-mfa",
+      "scenario_label": "Service review with three evidence surfaces",
+      "primary_archetype": "MULTI_OBLIGATION_CROSS_DOMAIN",
+      "canonical_domain": "api_architecture",
+      "domain_scope": [
+        "api_architecture",
+        "security",
+        "database"
+      ],
+      "role_profile": "API/Architecture Analyst",
+      "role_profiles": [
+        "API/Architecture Analyst",
+        "Security Analyst",
+        "Database Analyst"
+      ],
+      "evidence_expectation": "EVIDENCE_PRESENT",
+      "holdout_basis": "v2-multi_obligation_cross_domain-10",
+      "scenario_gold_id": "M1F-G10",
+      "mechanism_expectations": {
+        "dependency": "The four obligations are parallel service-readiness concerns; no dependency order is required.",
+        "normalization": "NOT_APPLICABLE",
+        "overlap": "NOT_APPLICABLE"
+      },
       "provenance": {
-        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT",
+        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2",
         "corpus_snapshot_id": "m1-pilot-authorized-v1",
         "source_manifest_path": "data/m1-pilot-authorized-v1/sources.json",
-        "source_evidence_ids": [],
-        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED"
+        "source_evidence_ids": [
+          "src_c7f92b35e6b484c5_c0000",
+          "src_ecad6843b8fcb99b_c0000",
+          "src_1055b8f580d99531_c0000"
+        ],
+        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED",
+        "semantic_holdout_review": "PENDING_HUMAN_REVIEW"
       },
       "variants": [
         {
           "case_id": "M1F-S10-V01",
           "variant_id": "V01",
           "variant_order": 1,
-          "request_text": "Determine whether the supplied sources define a multi-factor authentication requirement.",
+          "request_text": "Create a cross-domain review for a REST service that validates input, protects access with bearer evidence, and persists user records safely.",
           "provenance": {
             "scenario_group_id": "M1F-S10",
-            "source_evidence_ids": [],
+            "source_evidence_ids": [
+              "src_c7f92b35e6b484c5_c0000",
+              "src_ecad6843b8fcb99b_c0000",
+              "src_1055b8f580d99531_c0000"
+            ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S10-V02",
           "variant_id": "V02",
           "variant_order": 2,
-          "request_text": "Check this corpus for an enrollment or second-factor policy.",
+          "request_text": "Summarize the contract, access-control, and relational-write concerns that belong in one service-readiness note.",
           "provenance": {
             "scenario_group_id": "M1F-S10",
-            "source_evidence_ids": [],
+            "source_evidence_ids": [
+              "src_c7f92b35e6b484c5_c0000",
+              "src_ecad6843b8fcb99b_c0000",
+              "src_1055b8f580d99531_c0000"
+            ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S10-V03",
           "variant_id": "V03",
           "variant_order": 3,
-          "request_text": "Look for evidence describing when an additional login factor is required.",
+          "request_text": "For a service handoff, identify API behavior, permission enforcement, and database consistency obligations without merging them.",
           "provenance": {
             "scenario_group_id": "M1F-S10",
-            "source_evidence_ids": [],
+            "source_evidence_ids": [
+              "src_c7f92b35e6b484c5_c0000",
+              "src_ecad6843b8fcb99b_c0000",
+              "src_1055b8f580d99531_c0000"
+            ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S10-V04",
           "variant_id": "V04",
           "variant_order": 4,
-          "request_text": "Assess whether the security documents state a multi-factor rule.",
+          "request_text": "Review a user-facing endpoint from request acceptance through authorized, consistent persistence.",
           "provenance": {
             "scenario_group_id": "M1F-S10",
-            "source_evidence_ids": [],
+            "source_evidence_ids": [
+              "src_c7f92b35e6b484c5_c0000",
+              "src_ecad6843b8fcb99b_c0000",
+              "src_1055b8f580d99531_c0000"
+            ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         }
       ]
     },
     {
       "scenario_group_id": "M1F-S11",
-      "scenario_label": "Identifier-heavy user-record workload",
-      "canonical_domain": "database",
-      "role_profile": "Database Analyst",
+      "scenario_label": "Identity output feeds permission review",
+      "primary_archetype": "DEPENDENCY_TASK_GRAPH",
+      "canonical_domain": "security",
+      "domain_scope": [
+        "security"
+      ],
+      "role_profile": "Security Analyst",
+      "role_profiles": [
+        "Security Analyst"
+      ],
       "evidence_expectation": "EVIDENCE_PRESENT",
-      "holdout_basis": "database-workload-triage",
+      "holdout_basis": "v2-dependency_task_graph-11",
+      "scenario_gold_id": "M1F-G11",
+      "mechanism_expectations": {
+        "dependency": "Task 2 depends on Task 1's identity assessment; it must not run as an independent permission-only task.",
+        "normalization": "NOT_APPLICABLE",
+        "overlap": "NOT_APPLICABLE"
+      },
       "provenance": {
-        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT",
+        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2",
         "corpus_snapshot_id": "m1-pilot-authorized-v1",
         "source_manifest_path": "data/m1-pilot-authorized-v1/sources.json",
         "source_evidence_ids": [
-          "src_1055b8f580d99531_c0000"
+          "src_ecad6843b8fcb99b_c0000"
         ],
-        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED"
+        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED",
+        "semantic_holdout_review": "PENDING_HUMAN_REVIEW"
       },
       "variants": [
         {
           "case_id": "M1F-S11-V01",
           "variant_id": "V01",
           "variant_order": 1,
-          "request_text": "Triage repeated user-record lookups that filter on an identifier before changing the access path.",
+          "request_text": "Produce a two-step review: first record the caller identity established from the token, then use that result to assess permission for the requested action.",
           "provenance": {
             "scenario_group_id": "M1F-S11",
             "source_evidence_ids": [
-              "src_1055b8f580d99531_c0000"
+              "src_ecad6843b8fcb99b_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S11-V02",
           "variant_id": "V02",
           "variant_order": 2,
-          "request_text": "Investigate whether a relational workload's frequently used identifier filters warrant performance review.",
+          "request_text": "Build a task graph where identity evidence is the input to the server-side authorization decision.",
           "provenance": {
             "scenario_group_id": "M1F-S11",
             "source_evidence_ids": [
-              "src_1055b8f580d99531_c0000"
+              "src_ecad6843b8fcb99b_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S11-V03",
           "variant_id": "V03",
           "variant_order": 3,
-          "request_text": "Review the database evidence behind recurring identifier-based reads of user records.",
+          "request_text": "Explain what the first security task must return before the access-control task can be evaluated.",
           "provenance": {
             "scenario_group_id": "M1F-S11",
             "source_evidence_ids": [
-              "src_1055b8f580d99531_c0000"
+              "src_ecad6843b8fcb99b_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S11-V04",
           "variant_id": "V04",
           "variant_order": 4,
-          "request_text": "Examine an identifier-heavy query workload for an appropriate indexing investigation.",
+          "request_text": "Order the protected-action review so the permission task consumes a completed identity assessment.",
           "provenance": {
             "scenario_group_id": "M1F-S11",
             "source_evidence_ids": [
-              "src_1055b8f580d99531_c0000"
+              "src_ecad6843b8fcb99b_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         }
       ]
     },
     {
       "scenario_group_id": "M1F-S12",
-      "scenario_label": "Relational query-path evidence",
+      "scenario_label": "Storage decision feeds index review",
+      "primary_archetype": "DEPENDENCY_TASK_GRAPH",
       "canonical_domain": "database",
+      "domain_scope": [
+        "database"
+      ],
       "role_profile": "Database Analyst",
+      "role_profiles": [
+        "Database Analyst"
+      ],
       "evidence_expectation": "EVIDENCE_PRESENT",
-      "holdout_basis": "database-access-path-review",
+      "holdout_basis": "v2-dependency_task_graph-12",
+      "scenario_gold_id": "M1F-G12",
+      "mechanism_expectations": {
+        "dependency": "The index-review task is scoped by Task 1's storage finding; it should not invent a different store or schema.",
+        "normalization": "NOT_APPLICABLE",
+        "overlap": "NOT_APPLICABLE"
+      },
       "provenance": {
-        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT",
+        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2",
         "corpus_snapshot_id": "m1-pilot-authorized-v1",
         "source_manifest_path": "data/m1-pilot-authorized-v1/sources.json",
         "source_evidence_ids": [
           "src_1055b8f580d99531_c0000"
         ],
-        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED"
+        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED",
+        "semantic_holdout_review": "PENDING_HUMAN_REVIEW"
       },
       "variants": [
         {
           "case_id": "M1F-S12-V01",
           "variant_id": "V01",
           "variant_order": 1,
-          "request_text": "Determine what database evidence is needed before changing a relational query path.",
+          "request_text": "Create an ordered database analysis: determine the user-record storage context first, then use it to scope the frequently used identifier index review.",
           "provenance": {
             "scenario_group_id": "M1F-S12",
             "source_evidence_ids": [
               "src_1055b8f580d99531_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S12-V02",
           "variant_id": "V02",
           "variant_order": 2,
-          "request_text": "Prepare an access-path review for user-record reads in the relational store.",
+          "request_text": "The second task must receive the storage finding before evaluating the access path for repeated lookups; specify both tasks.",
           "provenance": {
             "scenario_group_id": "M1F-S12",
             "source_evidence_ids": [
               "src_1055b8f580d99531_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S12-V03",
           "variant_id": "V03",
           "variant_order": 3,
-          "request_text": "Audit the facts that should support a database performance decision for identifier filters.",
+          "request_text": "Design a dependency chain from record-storage identification to an appropriate-index recommendation.",
           "provenance": {
             "scenario_group_id": "M1F-S12",
             "source_evidence_ids": [
               "src_1055b8f580d99531_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S12-V04",
           "variant_id": "V04",
           "variant_order": 4,
-          "request_text": "Review a database query path without assuming a schema change is justified.",
+          "request_text": "What output from the storage task is required before the query-access task can be scoped?",
           "provenance": {
             "scenario_group_id": "M1F-S12",
             "source_evidence_ids": [
               "src_1055b8f580d99531_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         }
       ]
     },
     {
       "scenario_group_id": "M1F-S13",
-      "scenario_label": "Multi-write consistency risk",
-      "canonical_domain": "database",
-      "role_profile": "Database Analyst",
+      "scenario_label": "Validation result feeds error contract",
+      "primary_archetype": "DEPENDENCY_TASK_GRAPH",
+      "canonical_domain": "api_architecture",
+      "domain_scope": [
+        "api_architecture"
+      ],
+      "role_profile": "API/Architecture Analyst",
+      "role_profiles": [
+        "API/Architecture Analyst"
+      ],
       "evidence_expectation": "EVIDENCE_PRESENT",
-      "holdout_basis": "database-consistency-risk",
+      "holdout_basis": "v2-dependency_task_graph-13",
+      "scenario_gold_id": "M1F-G13",
+      "mechanism_expectations": {
+        "dependency": "The error-response task consumes the validation finding; it is not a parallel list of API fields.",
+        "normalization": "NOT_APPLICABLE",
+        "overlap": "NOT_APPLICABLE"
+      },
       "provenance": {
-        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT",
+        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2",
         "corpus_snapshot_id": "m1-pilot-authorized-v1",
         "source_manifest_path": "data/m1-pilot-authorized-v1/sources.json",
         "source_evidence_ids": [
-          "src_1055b8f580d99531_c0000"
+          "src_c7f92b35e6b484c5_c0000"
         ],
-        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED"
+        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED",
+        "semantic_holdout_review": "PENDING_HUMAN_REVIEW"
       },
       "variants": [
         {
           "case_id": "M1F-S13-V01",
           "variant_id": "V01",
           "variant_order": 1,
-          "request_text": "Assess the consistency risk of a write that updates several records as one operation.",
+          "request_text": "Split the API review into validation and response tasks: the error-response task must consume the validation outcome.",
           "provenance": {
             "scenario_group_id": "M1F-S13",
             "source_evidence_ids": [
-              "src_1055b8f580d99531_c0000"
+              "src_c7f92b35e6b484c5_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S13-V02",
           "variant_id": "V02",
           "variant_order": 2,
-          "request_text": "Review a multi-step database write that must either remain consistent or fail together.",
+          "request_text": "Specify the output of request validation before defining how the REST contract reports the rejected request.",
           "provenance": {
             "scenario_group_id": "M1F-S13",
             "source_evidence_ids": [
-              "src_1055b8f580d99531_c0000"
+              "src_c7f92b35e6b484c5_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S13-V03",
           "variant_id": "V03",
           "variant_order": 3,
-          "request_text": "Trace the database control needed across dependent writes.",
+          "request_text": "Build a two-node API task graph from input checking to an appropriate error response.",
           "provenance": {
             "scenario_group_id": "M1F-S13",
             "source_evidence_ids": [
-              "src_1055b8f580d99531_c0000"
+              "src_c7f92b35e6b484c5_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S13-V04",
           "variant_id": "V04",
           "variant_order": 4,
-          "request_text": "Examine an all-or-nothing data update for its consistency boundary.",
+          "request_text": "Which finding must the contract review produce before the error-handling task can be completed?",
           "provenance": {
             "scenario_group_id": "M1F-S13",
             "source_evidence_ids": [
-              "src_1055b8f580d99531_c0000"
+              "src_c7f92b35e6b484c5_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         }
       ]
     },
     {
       "scenario_group_id": "M1F-S14",
-      "scenario_label": "Workload signal for index review",
-      "canonical_domain": "database",
-      "role_profile": "Database Analyst",
+      "scenario_label": "Protected write three-stage chain",
+      "primary_archetype": "DEPENDENCY_TASK_GRAPH",
+      "canonical_domain": "security",
+      "domain_scope": [
+        "security",
+        "database"
+      ],
+      "role_profile": "Security Analyst",
+      "role_profiles": [
+        "Security Analyst",
+        "Database Analyst"
+      ],
       "evidence_expectation": "EVIDENCE_PRESENT",
-      "holdout_basis": "database-performance-signal",
+      "holdout_basis": "v2-dependency_task_graph-14",
+      "scenario_gold_id": "M1F-G14",
+      "mechanism_expectations": {
+        "dependency": "Task 2 depends on identity; Task 3 depends on an allowed authorization result and then applies the database consistency rule.",
+        "normalization": "NOT_APPLICABLE",
+        "overlap": "NOT_APPLICABLE"
+      },
       "provenance": {
-        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT",
+        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2",
         "corpus_snapshot_id": "m1-pilot-authorized-v1",
         "source_manifest_path": "data/m1-pilot-authorized-v1/sources.json",
         "source_evidence_ids": [
+          "src_ecad6843b8fcb99b_c0000",
           "src_1055b8f580d99531_c0000"
         ],
-        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED"
+        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED",
+        "semantic_holdout_review": "PENDING_HUMAN_REVIEW"
       },
       "variants": [
         {
           "case_id": "M1F-S14-V01",
           "variant_id": "V01",
           "variant_order": 1,
-          "request_text": "Evaluate what workload signal supports reviewing an index for a frequently used identifier filter.",
+          "request_text": "Construct three dependent tasks for a protected record write: establish identity, authorize the action, then place the allowed multi-step write inside a consistency boundary.",
           "provenance": {
             "scenario_group_id": "M1F-S14",
             "source_evidence_ids": [
+              "src_ecad6843b8fcb99b_c0000",
               "src_1055b8f580d99531_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S14-V02",
           "variant_id": "V02",
           "variant_order": 2,
-          "request_text": "Audit the performance evidence for recurring identifier-based database reads.",
+          "request_text": "Assess identity first, then authorize the action; only after that allow decision may the transaction task start. Show the complete chain.",
           "provenance": {
             "scenario_group_id": "M1F-S14",
             "source_evidence_ids": [
+              "src_ecad6843b8fcb99b_c0000",
               "src_1055b8f580d99531_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S14-V03",
           "variant_id": "V03",
           "variant_order": 3,
-          "request_text": "Review an index decision in the context of actual query frequency rather than assumption.",
+          "request_text": "Define outputs for identity and authorization that gate the final database-consistency task.",
           "provenance": {
             "scenario_group_id": "M1F-S14",
             "source_evidence_ids": [
+              "src_ecad6843b8fcb99b_c0000",
               "src_1055b8f580d99531_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S14-V04",
           "variant_id": "V04",
           "variant_order": 4,
-          "request_text": "Determine how repeated identifier filters should enter a database performance review.",
+          "request_text": "Order a token-bearing relational update by assessing identity, deciding permission, and then consuming that result in the transaction task.",
           "provenance": {
             "scenario_group_id": "M1F-S14",
             "source_evidence_ids": [
+              "src_ecad6843b8fcb99b_c0000",
               "src_1055b8f580d99531_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         }
       ]
     },
     {
       "scenario_group_id": "M1F-S15",
-      "scenario_label": "Consistency across a write sequence",
-      "canonical_domain": "database",
-      "role_profile": "Database Analyst",
+      "scenario_label": "API authorization contract gates persistence",
+      "primary_archetype": "DEPENDENCY_TASK_GRAPH",
+      "canonical_domain": "api_architecture",
+      "domain_scope": [
+        "api_architecture",
+        "security",
+        "database"
+      ],
+      "role_profile": "API/Architecture Analyst",
+      "role_profiles": [
+        "API/Architecture Analyst",
+        "Security Analyst",
+        "Database Analyst"
+      ],
       "evidence_expectation": "EVIDENCE_PRESENT",
-      "holdout_basis": "database-write-sequence",
+      "holdout_basis": "v2-dependency_task_graph-15",
+      "scenario_gold_id": "M1F-G15",
+      "mechanism_expectations": {
+        "dependency": "The persistence task is scoped by the authorization-contract output; it must not invent an unrelated write.",
+        "normalization": "NOT_APPLICABLE",
+        "overlap": "NOT_APPLICABLE"
+      },
       "provenance": {
-        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT",
+        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2",
         "corpus_snapshot_id": "m1-pilot-authorized-v1",
         "source_manifest_path": "data/m1-pilot-authorized-v1/sources.json",
         "source_evidence_ids": [
+          "src_c7f92b35e6b484c5_c0000",
+          "src_ecad6843b8fcb99b_c0000",
           "src_1055b8f580d99531_c0000"
         ],
-        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED"
+        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED",
+        "semantic_holdout_review": "PENDING_HUMAN_REVIEW"
       },
       "variants": [
         {
           "case_id": "M1F-S15-V01",
           "variant_id": "V01",
           "variant_order": 1,
-          "request_text": "Plan a database review for a sequence of writes whose consistency must be preserved.",
+          "request_text": "First extract the endpoint's authorization requirement from the API contract, then use that requirement to scope the protected transaction-write review.",
           "provenance": {
             "scenario_group_id": "M1F-S15",
             "source_evidence_ids": [
+              "src_c7f92b35e6b484c5_c0000",
+              "src_ecad6843b8fcb99b_c0000",
               "src_1055b8f580d99531_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S15-V02",
           "variant_id": "V02",
           "variant_order": 2,
-          "request_text": "Map the consistency concern across a multi-step update to user records.",
+          "request_text": "Make the database-consistency task depend on a completed API permission-contract finding.",
           "provenance": {
             "scenario_group_id": "M1F-S15",
             "source_evidence_ids": [
+              "src_c7f92b35e6b484c5_c0000",
+              "src_ecad6843b8fcb99b_c0000",
               "src_1055b8f580d99531_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S15-V03",
           "variant_id": "V03",
           "variant_order": 3,
-          "request_text": "Investigate how a dependent write sequence should be treated as one consistent operation.",
+          "request_text": "Trace the dependency from REST authorization wording to the transaction boundary for the resulting user-record write.",
           "provenance": {
             "scenario_group_id": "M1F-S15",
             "source_evidence_ids": [
+              "src_c7f92b35e6b484c5_c0000",
+              "src_ecad6843b8fcb99b_c0000",
               "src_1055b8f580d99531_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S15-V04",
           "variant_id": "V04",
           "variant_order": 4,
-          "request_text": "Frame a data-access audit around a write chain that cannot be partially applied.",
+          "request_text": "What contract output must be available before a worker can assess the persistence boundary of an authorized request?",
           "provenance": {
             "scenario_group_id": "M1F-S15",
             "source_evidence_ids": [
+              "src_c7f92b35e6b484c5_c0000",
+              "src_ecad6843b8fcb99b_c0000",
               "src_1055b8f580d99531_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         }
       ]
     },
     {
       "scenario_group_id": "M1F-S16",
-      "scenario_label": "Three-layer relational review",
-      "canonical_domain": "database",
-      "role_profile": "Database Analyst",
+      "scenario_label": "Repeated identity obligation",
+      "primary_archetype": "DUPLICATE_OVERLAPPING_OBLIGATION_N",
+      "canonical_domain": "security",
+      "domain_scope": [
+        "security"
+      ],
+      "role_profile": "Security Analyst",
+      "role_profiles": [
+        "Security Analyst"
+      ],
       "evidence_expectation": "EVIDENCE_PRESENT",
-      "holdout_basis": "database-review-layering",
+      "holdout_basis": "v2-duplicate_overlapping_obligation_n-16",
+      "scenario_gold_id": "M1F-G16",
+      "mechanism_expectations": {
+        "dependency": "No dependency is required; the duplicate identity clauses can be compared independently.",
+        "normalization": "MERGE the two exact canonical identity-establishment obligations; KEEP any distinct authorization obligation separate.",
+        "overlap": "NOT_APPLICABLE"
+      },
       "provenance": {
-        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT",
+        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2",
         "corpus_snapshot_id": "m1-pilot-authorized-v1",
         "source_manifest_path": "data/m1-pilot-authorized-v1/sources.json",
         "source_evidence_ids": [
-          "src_1055b8f580d99531_c0000"
+          "src_ecad6843b8fcb99b_c0000"
         ],
-        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED"
+        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED",
+        "semantic_holdout_review": "PENDING_HUMAN_REVIEW"
       },
       "variants": [
         {
           "case_id": "M1F-S16-V01",
           "variant_id": "V01",
           "variant_order": 1,
-          "request_text": "Separate schema, access-path, and consistency evidence in a relational database review.",
+          "request_text": "Normalize this review request: establish caller identity from the bearer token, and also verify the caller identity from the access token before proceeding.",
           "provenance": {
             "scenario_group_id": "M1F-S16",
             "source_evidence_ids": [
-              "src_1055b8f580d99531_c0000"
+              "src_ecad6843b8fcb99b_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S16-V02",
           "variant_id": "V02",
           "variant_order": 2,
-          "request_text": "Compare the database questions raised by user-record storage, query access, and multi-step writes.",
+          "request_text": "The task list repeats the same identity-establishment obligation in token-intake and access-token language; produce the conservative normalized list.",
           "provenance": {
             "scenario_group_id": "M1F-S16",
             "source_evidence_ids": [
-              "src_1055b8f580d99531_c0000"
+              "src_ecad6843b8fcb99b_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S16-V03",
           "variant_id": "V03",
           "variant_order": 3,
-          "request_text": "Organize a database audit without merging workload and consistency concerns.",
+          "request_text": "Collapse only the duplicate identity check in this request while preserving any genuinely different security work.",
           "provenance": {
             "scenario_group_id": "M1F-S16",
             "source_evidence_ids": [
-              "src_1055b8f580d99531_c0000"
+              "src_ecad6843b8fcb99b_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S16-V04",
           "variant_id": "V04",
           "variant_order": 4,
-          "request_text": "Review a relational service across data shape, lookup path, and write consistency.",
+          "request_text": "Identify whether the two token identity clauses are one obligation or two, and return the normalized task set.",
           "provenance": {
             "scenario_group_id": "M1F-S16",
             "source_evidence_ids": [
-              "src_1055b8f580d99531_c0000"
+              "src_ecad6843b8fcb99b_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         }
       ]
     },
     {
       "scenario_group_id": "M1F-S17",
-      "scenario_label": "Index-change justification",
-      "canonical_domain": "database",
-      "role_profile": "Database Analyst",
+      "scenario_label": "Repeated request-validation obligation",
+      "primary_archetype": "DUPLICATE_OVERLAPPING_OBLIGATION_N",
+      "canonical_domain": "api_architecture",
+      "domain_scope": [
+        "api_architecture"
+      ],
+      "role_profile": "API/Architecture Analyst",
+      "role_profiles": [
+        "API/Architecture Analyst"
+      ],
       "evidence_expectation": "EVIDENCE_PRESENT",
-      "holdout_basis": "database-index-justification",
+      "holdout_basis": "v2-duplicate_overlapping_obligation_n-17",
+      "scenario_gold_id": "M1F-G17",
+      "mechanism_expectations": {
+        "dependency": "The two validation tasks are peers; no dependency edge is needed for the merge decision.",
+        "normalization": "MERGE only the duplicate request-validation obligations; KEEP error-response work separate because it is a distinct API obligation.",
+        "overlap": "NOT_APPLICABLE"
+      },
       "provenance": {
-        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT",
+        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2",
         "corpus_snapshot_id": "m1-pilot-authorized-v1",
         "source_manifest_path": "data/m1-pilot-authorized-v1/sources.json",
         "source_evidence_ids": [
-          "src_1055b8f580d99531_c0000"
+          "src_c7f92b35e6b484c5_c0000"
         ],
-        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED"
+        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED",
+        "semantic_holdout_review": "PENDING_HUMAN_REVIEW"
       },
       "variants": [
         {
           "case_id": "M1F-S17-V01",
           "variant_id": "V01",
           "variant_order": 1,
-          "request_text": "Decide whether a user-record workload provides enough basis for an index review.",
+          "request_text": "Normalize the endpoint plan: check request validation for malformed input, then check the API request-validation requirement again under input screening.",
           "provenance": {
             "scenario_group_id": "M1F-S17",
             "source_evidence_ids": [
-              "src_1055b8f580d99531_c0000"
+              "src_c7f92b35e6b484c5_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S17-V02",
           "variant_id": "V02",
           "variant_order": 2,
-          "request_text": "Assess the evidence needed before adding an index for recurring identifier searches.",
+          "request_text": "Two planned tasks both ask for the contract's request-validation obligation; return one canonical validation task.",
           "provenance": {
             "scenario_group_id": "M1F-S17",
             "source_evidence_ids": [
-              "src_1055b8f580d99531_c0000"
+              "src_c7f92b35e6b484c5_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S17-V03",
           "variant_id": "V03",
           "variant_order": 3,
-          "request_text": "Review an indexing investigation for a frequently used database filter.",
+          "request_text": "Detect the true duplicate between input-shape validation and request validation, while retaining error reporting as separate if present.",
           "provenance": {
             "scenario_group_id": "M1F-S17",
             "source_evidence_ids": [
-              "src_1055b8f580d99531_c0000"
+              "src_c7f92b35e6b484c5_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S17-V04",
           "variant_id": "V04",
           "variant_order": 4,
-          "request_text": "Examine whether performance evidence supports changing identifier-based access.",
+          "request_text": "Should the two validation clauses create one task or two? Apply the conservative normalization rule and explain the result.",
           "provenance": {
             "scenario_group_id": "M1F-S17",
             "source_evidence_ids": [
-              "src_1055b8f580d99531_c0000"
+              "src_c7f92b35e6b484c5_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         }
       ]
     },
     {
       "scenario_group_id": "M1F-S18",
-      "scenario_label": "Read workload and write integrity",
+      "scenario_label": "Repeated transaction-boundary obligation",
+      "primary_archetype": "DUPLICATE_OVERLAPPING_OBLIGATION_N",
       "canonical_domain": "database",
+      "domain_scope": [
+        "database"
+      ],
       "role_profile": "Database Analyst",
+      "role_profiles": [
+        "Database Analyst"
+      ],
       "evidence_expectation": "EVIDENCE_PRESENT",
-      "holdout_basis": "database-read-write-crosscheck",
+      "holdout_basis": "v2-duplicate_overlapping_obligation_n-18",
+      "scenario_gold_id": "M1F-G18",
+      "mechanism_expectations": {
+        "dependency": "The duplicate clauses concern one write protection and have no required ordering dependency.",
+        "normalization": "MERGE the repeated transaction-boundary obligation; KEEP query/index review separate because it addresses a different database concern.",
+        "overlap": "NOT_APPLICABLE"
+      },
       "provenance": {
-        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT",
+        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2",
         "corpus_snapshot_id": "m1-pilot-authorized-v1",
         "source_manifest_path": "data/m1-pilot-authorized-v1/sources.json",
         "source_evidence_ids": [
           "src_1055b8f580d99531_c0000"
         ],
-        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED"
+        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED",
+        "semantic_holdout_review": "PENDING_HUMAN_REVIEW"
       },
       "variants": [
         {
           "case_id": "M1F-S18-V01",
           "variant_id": "V01",
           "variant_order": 1,
-          "request_text": "Audit database evidence for a service that reads user records and performs multi-step updates.",
+          "request_text": "Normalize a write plan containing both 'keep the multi-step update consistent with a transaction boundary' and 'wrap the same multi-step update in a consistency transaction'.",
           "provenance": {
             "scenario_group_id": "M1F-S18",
             "source_evidence_ids": [
               "src_1055b8f580d99531_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S18-V02",
           "variant_id": "V02",
           "variant_order": 2,
-          "request_text": "Review the combined data-access risks of repeated lookups and consistency-sensitive writes.",
+          "request_text": "The database plan states the transaction-boundary requirement twice with different wording; return the canonical task set.",
           "provenance": {
             "scenario_group_id": "M1F-S18",
             "source_evidence_ids": [
               "src_1055b8f580d99531_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S18-V03",
           "variant_id": "V03",
           "variant_order": 3,
-          "request_text": "Trace the database evidence needed for both query access and write integrity.",
+          "request_text": "Decide whether atomic multi-step-write protection and a transaction boundary are duplicate obligations in this request.",
           "provenance": {
             "scenario_group_id": "M1F-S18",
             "source_evidence_ids": [
               "src_1055b8f580d99531_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S18-V04",
           "variant_id": "V04",
           "variant_order": 4,
-          "request_text": "Examine a relational service where read workload and multi-write consistency meet.",
+          "request_text": "Remove only the redundant consistency-boundary task from the proposed relational write plan.",
           "provenance": {
             "scenario_group_id": "M1F-S18",
             "source_evidence_ids": [
               "src_1055b8f580d99531_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         }
       ]
     },
     {
       "scenario_group_id": "M1F-S19",
-      "scenario_label": "Database engine evidence gap",
-      "canonical_domain": "database",
-      "role_profile": "Database Analyst",
-      "evidence_expectation": "NO_EVIDENCE",
-      "holdout_basis": "database-evidence-gap-engine",
+      "scenario_label": "Repeated permission-decision obligation",
+      "primary_archetype": "DUPLICATE_OVERLAPPING_OBLIGATION_N",
+      "canonical_domain": "security",
+      "domain_scope": [
+        "security"
+      ],
+      "role_profile": "Security Analyst",
+      "role_profiles": [
+        "Security Analyst"
+      ],
+      "evidence_expectation": "EVIDENCE_PRESENT",
+      "holdout_basis": "v2-duplicate_overlapping_obligation_n-19",
+      "scenario_gold_id": "M1F-G19",
+      "mechanism_expectations": {
+        "dependency": "The duplicate authorization clauses are independent comparison candidates; identity is not a dependency of the merge itself.",
+        "normalization": "MERGE the duplicate server-side permission obligations; KEEP authentication/identity separate.",
+        "overlap": "NOT_APPLICABLE"
+      },
       "provenance": {
-        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT",
+        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2",
         "corpus_snapshot_id": "m1-pilot-authorized-v1",
         "source_manifest_path": "data/m1-pilot-authorized-v1/sources.json",
-        "source_evidence_ids": [],
-        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED"
+        "source_evidence_ids": [
+          "src_ecad6843b8fcb99b_c0000"
+        ],
+        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED",
+        "semantic_holdout_review": "PENDING_HUMAN_REVIEW"
       },
       "variants": [
         {
           "case_id": "M1F-S19-V01",
           "variant_id": "V01",
           "variant_order": 1,
-          "request_text": "Determine whether the sources name the database engine used by the service.",
+          "request_text": "Normalize the access plan: decide whether the user may perform the action, and enforce the server permission decision for that same action.",
           "provenance": {
             "scenario_group_id": "M1F-S19",
-            "source_evidence_ids": [],
+            "source_evidence_ids": [
+              "src_ecad6843b8fcb99b_c0000"
+            ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S19-V02",
           "variant_id": "V02",
           "variant_order": 2,
-          "request_text": "Check the corpus for a specific relational database product or engine.",
+          "request_text": "The proposed security tasks repeat one authorization decision under 'permission check' and 'server enforcement'; produce one canonical obligation.",
           "provenance": {
             "scenario_group_id": "M1F-S19",
-            "source_evidence_ids": [],
+            "source_evidence_ids": [
+              "src_ecad6843b8fcb99b_c0000"
+            ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S19-V03",
           "variant_id": "V03",
           "variant_order": 3,
-          "request_text": "Look for evidence identifying the implementation technology behind the data store.",
+          "request_text": "Merge the duplicate action-permission review without collapsing identity verification into it.",
           "provenance": {
             "scenario_group_id": "M1F-S19",
-            "source_evidence_ids": [],
+            "source_evidence_ids": [
+              "src_ecad6843b8fcb99b_c0000"
+            ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S19-V04",
           "variant_id": "V04",
           "variant_order": 4,
-          "request_text": "Assess whether the supplied database material states which engine is deployed.",
+          "request_text": "Return a conservative task list for two clauses that both require the server to decide access to one protected action.",
           "provenance": {
             "scenario_group_id": "M1F-S19",
-            "source_evidence_ids": [],
+            "source_evidence_ids": [
+              "src_ecad6843b8fcb99b_c0000"
+            ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         }
       ]
     },
     {
       "scenario_group_id": "M1F-S20",
-      "scenario_label": "Backup-retention evidence gap",
-      "canonical_domain": "database",
-      "role_profile": "Database Analyst",
-      "evidence_expectation": "NO_EVIDENCE",
-      "holdout_basis": "database-evidence-gap-backup-retention",
+      "scenario_label": "Duplicate API authorization inside a mixed plan",
+      "primary_archetype": "DUPLICATE_OVERLAPPING_OBLIGATION_N",
+      "canonical_domain": "api_architecture",
+      "domain_scope": [
+        "api_architecture",
+        "security",
+        "database"
+      ],
+      "role_profile": "API/Architecture Analyst",
+      "role_profiles": [
+        "API/Architecture Analyst",
+        "Security Analyst",
+        "Database Analyst"
+      ],
+      "evidence_expectation": "EVIDENCE_PRESENT",
+      "holdout_basis": "v2-duplicate_overlapping_obligation_n-20",
+      "scenario_gold_id": "M1F-G20",
+      "mechanism_expectations": {
+        "dependency": "The mixed plan has separate identity and transaction tasks; only the two canonical authorization duplicates are merge candidates.",
+        "normalization": "MERGE the repeated authorization requirement; KEEP identity and transaction-boundary obligations separate, then remap dependencies without cycles.",
+        "overlap": "NOT_APPLICABLE"
+      },
       "provenance": {
-        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT",
+        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2",
         "corpus_snapshot_id": "m1-pilot-authorized-v1",
         "source_manifest_path": "data/m1-pilot-authorized-v1/sources.json",
-        "source_evidence_ids": [],
-        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED"
+        "source_evidence_ids": [
+          "src_c7f92b35e6b484c5_c0000",
+          "src_ecad6843b8fcb99b_c0000",
+          "src_1055b8f580d99531_c0000"
+        ],
+        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED",
+        "semantic_holdout_review": "PENDING_HUMAN_REVIEW"
       },
       "variants": [
         {
           "case_id": "M1F-S20-V01",
           "variant_id": "V01",
           "variant_order": 1,
-          "request_text": "Determine whether the source set states a backup retention period for user records.",
+          "request_text": "Review a mixed service plan by establishing caller identity, confirming whether the caller may perform the requested action, verifying on the server that the user is permitted to carry it out, and checking the transaction boundary for the consistency-sensitive write.",
           "provenance": {
             "scenario_group_id": "M1F-S20",
-            "source_evidence_ids": [],
+            "source_evidence_ids": [
+              "src_c7f92b35e6b484c5_c0000",
+              "src_ecad6843b8fcb99b_c0000",
+              "src_1055b8f580d99531_c0000"
+            ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S20-V02",
           "variant_id": "V02",
           "variant_order": 2,
-          "request_text": "Check the corpus for a database backup and recovery retention policy.",
+          "request_text": "For a protected record operation, assess caller identity, decide whether the caller may perform the operation, verify that server-side policy permits that operation, and review the transaction boundary that preserves consistency.",
           "provenance": {
             "scenario_group_id": "M1F-S20",
-            "source_evidence_ids": [],
+            "source_evidence_ids": [
+              "src_c7f92b35e6b484c5_c0000",
+              "src_ecad6843b8fcb99b_c0000",
+              "src_1055b8f580d99531_c0000"
+            ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S20-V03",
           "variant_id": "V03",
           "variant_order": 3,
-          "request_text": "Look for evidence defining how long database backups are kept.",
+          "request_text": "Assess a user-record service request: establish who is calling, determine whether the action is permitted, confirm server enforcement of that permission, and place the multi-step write within a transaction boundary.",
           "provenance": {
             "scenario_group_id": "M1F-S20",
-            "source_evidence_ids": [],
+            "source_evidence_ids": [
+              "src_c7f92b35e6b484c5_c0000",
+              "src_ecad6843b8fcb99b_c0000",
+              "src_1055b8f580d99531_c0000"
+            ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S20-V04",
           "variant_id": "V04",
           "variant_order": 4,
-          "request_text": "Assess whether the supplied material documents backup retention.",
+          "request_text": "Review an identity-bearing write by recording caller identity, deciding whether the requested action is allowed by server policy, verifying that permission is enforced for the operation, and checking transaction boundaries for consistent updates.",
           "provenance": {
             "scenario_group_id": "M1F-S20",
-            "source_evidence_ids": [],
+            "source_evidence_ids": [
+              "src_c7f92b35e6b484c5_c0000",
+              "src_ecad6843b8fcb99b_c0000",
+              "src_1055b8f580d99531_c0000"
+            ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         }
       ]
     },
     {
       "scenario_group_id": "M1F-S21",
-      "scenario_label": "REST caller-facing boundary",
-      "canonical_domain": "api_architecture",
-      "role_profile": "API/Architecture Analyst",
+      "scenario_label": "Shared security evidence for two tasks",
+      "primary_archetype": "SHARED_OVERLAPPING_EVIDENCE_O",
+      "canonical_domain": "security",
+      "domain_scope": [
+        "security"
+      ],
+      "role_profile": "Security Analyst",
+      "role_profiles": [
+        "Security Analyst"
+      ],
       "evidence_expectation": "EVIDENCE_PRESENT",
-      "holdout_basis": "api-caller-contract-surface",
+      "holdout_basis": "v2-shared_overlapping_evidence_o-21",
+      "scenario_gold_id": "M1F-G21",
+      "mechanism_expectations": {
+        "dependency": "The two tasks are independent; shared evidence is allowed because both obligations are grounded in the same security chunk.",
+        "normalization": "NOT_APPLICABLE",
+        "overlap": "KEEP shared evidence src_ecad6843b8fcb99b_c0000 for both identity and authorization; flag only repeated irrelevant context, and never drop evidence required by either task."
+      },
       "provenance": {
-        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT",
+        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2",
         "corpus_snapshot_id": "m1-pilot-authorized-v1",
         "source_manifest_path": "data/m1-pilot-authorized-v1/sources.json",
         "source_evidence_ids": [
-          "src_c7f92b35e6b484c5_c0000"
+          "src_ecad6843b8fcb99b_c0000"
         ],
-        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED"
+        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED",
+        "semantic_holdout_review": "PENDING_HUMAN_REVIEW"
       },
       "variants": [
         {
           "case_id": "M1F-S21-V01",
           "variant_id": "V01",
           "variant_order": 1,
-          "request_text": "Audit the caller-facing boundaries of a REST service interface.",
+          "request_text": "Retrieve context separately for two tasks: assess caller identity and assess permission for the requested action; report where the same security evidence is legitimately shared.",
           "provenance": {
             "scenario_group_id": "M1F-S21",
             "source_evidence_ids": [
-              "src_c7f92b35e6b484c5_c0000"
+              "src_ecad6843b8fcb99b_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S21-V02",
           "variant_id": "V02",
           "variant_order": 2,
-          "request_text": "Review what a client can rely on when interacting with the service's REST endpoints.",
+          "request_text": "Plan an identity task and an authorization task for one protected request without deleting the shared security source from either context.",
           "provenance": {
             "scenario_group_id": "M1F-S21",
             "source_evidence_ids": [
-              "src_c7f92b35e6b484c5_c0000"
+              "src_ecad6843b8fcb99b_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S21-V03",
           "variant_id": "V03",
           "variant_order": 3,
-          "request_text": "Examine the contract surface exposed by a REST endpoint to its callers.",
+          "request_text": "Show per-task evidence allocation for identity verification and server permission review when both need the security note.",
           "provenance": {
             "scenario_group_id": "M1F-S21",
             "source_evidence_ids": [
-              "src_c7f92b35e6b484c5_c0000"
+              "src_ecad6843b8fcb99b_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S21-V04",
           "variant_id": "V04",
           "variant_order": 4,
-          "request_text": "Map the interface evidence a REST client needs before making a request.",
+          "request_text": "Which evidence may be reused by the two security workers, and what unnecessary duplicate context should the allocator flag?",
           "provenance": {
             "scenario_group_id": "M1F-S21",
             "source_evidence_ids": [
-              "src_c7f92b35e6b484c5_c0000"
+              "src_ecad6843b8fcb99b_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         }
       ]
     },
     {
       "scenario_group_id": "M1F-S22",
-      "scenario_label": "Producer-consumer dependency contract",
-      "canonical_domain": "api_architecture",
-      "role_profile": "API/Architecture Analyst",
+      "scenario_label": "Shared database evidence across storage and access tasks",
+      "primary_archetype": "SHARED_OVERLAPPING_EVIDENCE_O",
+      "canonical_domain": "database",
+      "domain_scope": [
+        "database"
+      ],
+      "role_profile": "Database Analyst",
+      "role_profiles": [
+        "Database Analyst"
+      ],
       "evidence_expectation": "EVIDENCE_PRESENT",
-      "holdout_basis": "api-architectural-dependency",
+      "holdout_basis": "v2-shared_overlapping_evidence_o-22",
+      "scenario_gold_id": "M1F-G22",
+      "mechanism_expectations": {
+        "dependency": "The storage and access tasks are parallel and each needs the same database evidence for a different conclusion.",
+        "normalization": "NOT_APPLICABLE",
+        "overlap": "KEEP shared evidence src_1055b8f580d99531_c0000 for both tasks; report unnecessary repetition separately rather than globally deduplicating it."
+      },
       "provenance": {
-        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT",
+        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2",
         "corpus_snapshot_id": "m1-pilot-authorized-v1",
         "source_manifest_path": "data/m1-pilot-authorized-v1/sources.json",
         "source_evidence_ids": [
-          "src_c7f92b35e6b484c5_c0000"
+          "src_1055b8f580d99531_c0000"
         ],
-        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED"
+        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED",
+        "semantic_holdout_review": "PENDING_HUMAN_REVIEW"
       },
       "variants": [
         {
           "case_id": "M1F-S22-V01",
           "variant_id": "V01",
           "variant_order": 1,
-          "request_text": "Review how an architectural dependency is represented when one service consumes another's output.",
+          "request_text": "Allocate context for a storage task and a query-access task that both need the database note to interpret user records and identifier filters.",
           "provenance": {
             "scenario_group_id": "M1F-S22",
             "source_evidence_ids": [
-              "src_c7f92b35e6b484c5_c0000"
+              "src_1055b8f580d99531_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S22-V02",
           "variant_id": "V02",
           "variant_order": 2,
-          "request_text": "Audit a component boundary that relies on data produced upstream.",
+          "request_text": "Retrieve separately for relational storage review and index suitability review, preserving the common database evidence where it is relevant.",
           "provenance": {
             "scenario_group_id": "M1F-S22",
             "source_evidence_ids": [
-              "src_c7f92b35e6b484c5_c0000"
+              "src_1055b8f580d99531_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S22-V03",
           "variant_id": "V03",
           "variant_order": 3,
-          "request_text": "Examine whether a service integration names the output it depends on.",
+          "request_text": "Show which database chunk is shared by the record-storage and repeated-lookup workers and which extra context, if any, can be dropped.",
           "provenance": {
             "scenario_group_id": "M1F-S22",
             "source_evidence_ids": [
-              "src_c7f92b35e6b484c5_c0000"
+              "src_1055b8f580d99531_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S22-V04",
           "variant_id": "V04",
           "variant_order": 4,
-          "request_text": "Trace explicit dependency evidence across two connected components.",
+          "request_text": "Compare two task contexts for a user-record search without globally removing the evidence that grounds both tasks.",
           "provenance": {
             "scenario_group_id": "M1F-S22",
             "source_evidence_ids": [
-              "src_c7f92b35e6b484c5_c0000"
+              "src_1055b8f580d99531_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         }
       ]
     },
     {
       "scenario_group_id": "M1F-S23",
-      "scenario_label": "Input validation and failure semantics",
+      "scenario_label": "Shared API evidence for validation and errors",
+      "primary_archetype": "SHARED_OVERLAPPING_EVIDENCE_O",
       "canonical_domain": "api_architecture",
+      "domain_scope": [
+        "api_architecture"
+      ],
       "role_profile": "API/Architecture Analyst",
+      "role_profiles": [
+        "API/Architecture Analyst"
+      ],
       "evidence_expectation": "EVIDENCE_PRESENT",
-      "holdout_basis": "api-validation-failure-semantics",
+      "holdout_basis": "v2-shared_overlapping_evidence_o-23",
+      "scenario_gold_id": "M1F-G23",
+      "mechanism_expectations": {
+        "dependency": "Validation and error-response tasks are separate but grounded by one API contract chunk.",
+        "normalization": "NOT_APPLICABLE",
+        "overlap": "KEEP shared evidence src_c7f92b35e6b484c5_c0000 for both tasks; do not drop it merely because it appears twice."
+      },
       "provenance": {
-        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT",
+        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2",
         "corpus_snapshot_id": "m1-pilot-authorized-v1",
         "source_manifest_path": "data/m1-pilot-authorized-v1/sources.json",
         "source_evidence_ids": [
           "src_c7f92b35e6b484c5_c0000"
         ],
-        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED"
+        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED",
+        "semantic_holdout_review": "PENDING_HUMAN_REVIEW"
       },
       "variants": [
         {
           "case_id": "M1F-S23-V01",
           "variant_id": "V01",
           "variant_order": 1,
-          "request_text": "Assess a service interface's input validation and failure semantics.",
+          "request_text": "Allocate context to separate validation and error-response tasks for one REST contract, and preserve the API evidence both tasks require.",
           "provenance": {
             "scenario_group_id": "M1F-S23",
             "source_evidence_ids": [
               "src_c7f92b35e6b484c5_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S23-V02",
           "variant_id": "V02",
           "variant_order": 2,
-          "request_text": "Review how a REST boundary communicates invalid requests and errors.",
+          "request_text": "Show the overlap summary when request checking and failure reporting retrieve the same API contract chunk.",
           "provenance": {
             "scenario_group_id": "M1F-S23",
             "source_evidence_ids": [
               "src_c7f92b35e6b484c5_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S23-V03",
           "variant_id": "V03",
           "variant_order": 3,
-          "request_text": "Audit the evidence for validating caller input and returning an error response.",
+          "request_text": "Which source can both API workers reuse while still recording distinct selected evidence per task?",
           "provenance": {
             "scenario_group_id": "M1F-S23",
             "source_evidence_ids": [
               "src_c7f92b35e6b484c5_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S23-V04",
           "variant_id": "V04",
           "variant_order": 4,
-          "request_text": "Examine a service contract at the point where bad input becomes a reported failure.",
+          "request_text": "Compare task-specific contexts for malformed-input handling and error responses without treating shared API evidence as waste by default.",
           "provenance": {
             "scenario_group_id": "M1F-S23",
             "source_evidence_ids": [
               "src_c7f92b35e6b484c5_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         }
       ]
     },
     {
       "scenario_group_id": "M1F-S24",
-      "scenario_label": "Validation and authorization contract fields",
-      "canonical_domain": "api_architecture",
-      "role_profile": "API/Architecture Analyst",
+      "scenario_label": "Shared security/API context for a protected endpoint",
+      "primary_archetype": "SHARED_OVERLAPPING_EVIDENCE_O",
+      "canonical_domain": "security",
+      "domain_scope": [
+        "security",
+        "api_architecture"
+      ],
+      "role_profile": "Security Analyst",
+      "role_profiles": [
+        "Security Analyst",
+        "API/Architecture Analyst"
+      ],
       "evidence_expectation": "EVIDENCE_PRESENT",
-      "holdout_basis": "api-contract-access-fields",
+      "holdout_basis": "v2-shared_overlapping_evidence_o-24",
+      "scenario_gold_id": "M1F-G24",
+      "mechanism_expectations": {
+        "dependency": "The two workers address different obligations; shared endpoint evidence is legitimate, not a reason to merge tasks.",
+        "normalization": "NOT_APPLICABLE",
+        "overlap": "KEEP src_c7f92b35e6b484c5_c0000 as legitimate shared API evidence for both tasks; keep src_ecad6843b8fcb99b_c0000 specific to Task A and do not force it into Task B."
+      },
       "provenance": {
-        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT",
+        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2",
         "corpus_snapshot_id": "m1-pilot-authorized-v1",
         "source_manifest_path": "data/m1-pilot-authorized-v1/sources.json",
         "source_evidence_ids": [
+          "src_ecad6843b8fcb99b_c0000",
           "src_c7f92b35e6b484c5_c0000"
         ],
-        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED"
+        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED",
+        "semantic_holdout_review": "PENDING_HUMAN_REVIEW"
       },
       "variants": [
         {
           "case_id": "M1F-S24-V01",
           "variant_id": "V01",
           "variant_order": 1,
-          "request_text": "Assess whether an API contract states its authorization requirement alongside request validation.",
+          "request_text": "Review a protected REST endpoint: assess its authorization contract and server permission requirement, then assess request validation and error behavior.",
           "provenance": {
             "scenario_group_id": "M1F-S24",
             "source_evidence_ids": [
+              "src_ecad6843b8fcb99b_c0000",
               "src_c7f92b35e6b484c5_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S24-V02",
           "variant_id": "V02",
           "variant_order": 2,
-          "request_text": "Review a service interface for input rules and access-control expectations.",
+          "request_text": "For one protected endpoint, evaluate how the server decides whether a caller may act and how the endpoint validates requests and reports errors.",
           "provenance": {
             "scenario_group_id": "M1F-S24",
             "source_evidence_ids": [
+              "src_ecad6843b8fcb99b_c0000",
               "src_c7f92b35e6b484c5_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S24-V03",
           "variant_id": "V03",
           "variant_order": 3,
-          "request_text": "Examine how endpoint validation and authorization fit within one API contract.",
+          "request_text": "Audit a REST service for access control, including the server permission requirement, alongside input validation and error responses.",
           "provenance": {
             "scenario_group_id": "M1F-S24",
             "source_evidence_ids": [
+              "src_ecad6843b8fcb99b_c0000",
               "src_c7f92b35e6b484c5_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S24-V04",
           "variant_id": "V04",
           "variant_order": 4,
-          "request_text": "Audit the contract fields that protect a REST request from invalid input and unauthorized use.",
+          "request_text": "Summarize the authorization and request-handling controls needed for a protected REST endpoint, covering server permission, validation, and error behavior.",
           "provenance": {
             "scenario_group_id": "M1F-S24",
             "source_evidence_ids": [
+              "src_ecad6843b8fcb99b_c0000",
               "src_c7f92b35e6b484c5_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         }
       ]
     },
     {
       "scenario_group_id": "M1F-S25",
-      "scenario_label": "Integration dependency trace",
-      "canonical_domain": "api_architecture",
-      "role_profile": "API/Architecture Analyst",
+      "scenario_label": "Shared evidence in an authorized record workflow",
+      "primary_archetype": "SHARED_OVERLAPPING_EVIDENCE_O",
+      "canonical_domain": "security",
+      "domain_scope": [
+        "security",
+        "database"
+      ],
+      "role_profile": "Security Analyst",
+      "role_profiles": [
+        "Security Analyst",
+        "Database Analyst"
+      ],
       "evidence_expectation": "EVIDENCE_PRESENT",
-      "holdout_basis": "api-integration-output-trace",
+      "holdout_basis": "v2-shared_overlapping_evidence_o-25",
+      "scenario_gold_id": "M1F-G25",
+      "mechanism_expectations": {
+        "dependency": "The authorization and consistency tasks are distinct; any shared item must be justified by both task obligations.",
+        "normalization": "NOT_APPLICABLE",
+        "overlap": "KEEP src_1055b8f580d99531_c0000 for both Task A and Task B; retain security evidence only for Task B and do not globally deduplicate the shared database context."
+      },
       "provenance": {
-        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT",
+        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2",
         "corpus_snapshot_id": "m1-pilot-authorized-v1",
         "source_manifest_path": "data/m1-pilot-authorized-v1/sources.json",
         "source_evidence_ids": [
-          "src_c7f92b35e6b484c5_c0000"
+          "src_ecad6843b8fcb99b_c0000",
+          "src_1055b8f580d99531_c0000"
         ],
-        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED"
+        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED",
+        "semantic_holdout_review": "PENDING_HUMAN_REVIEW"
       },
       "variants": [
         {
           "case_id": "M1F-S25-V01",
           "variant_id": "V01",
           "variant_order": 1,
-          "request_text": "Trace an integration request across an explicit architectural dependency and its response boundary.",
+          "request_text": "Review a user-record workflow by confirming its relational storage context and assessing server-side permission plus transaction boundaries for a protected consistency-sensitive multi-step update.",
           "provenance": {
             "scenario_group_id": "M1F-S25",
             "source_evidence_ids": [
-              "src_c7f92b35e6b484c5_c0000"
+              "src_ecad6843b8fcb99b_c0000",
+              "src_1055b8f580d99531_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S25-V02",
           "variant_id": "V02",
           "variant_order": 2,
-          "request_text": "Review a service workflow whose next component consumes an upstream result.",
+          "request_text": "For a relational user-record service, examine how records are stored and how a protected multi-step write should be controlled by server permission and transaction boundaries.",
           "provenance": {
             "scenario_group_id": "M1F-S25",
             "source_evidence_ids": [
-              "src_c7f92b35e6b484c5_c0000"
+              "src_ecad6843b8fcb99b_c0000",
+              "src_1055b8f580d99531_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S25-V03",
           "variant_id": "V03",
           "variant_order": 3,
-          "request_text": "Audit how an API integration records the dependency between producer and consumer.",
+          "request_text": "Assess a user-record change from storage through a protected update: identify the relational database context, decide access permission, and preserve consistency across the write.",
           "provenance": {
             "scenario_group_id": "M1F-S25",
             "source_evidence_ids": [
-              "src_c7f92b35e6b484c5_c0000"
+              "src_ecad6843b8fcb99b_c0000",
+              "src_1055b8f580d99531_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S25-V04",
           "variant_id": "V04",
           "variant_order": 4,
-          "request_text": "Map the contract evidence needed when one component waits for another component's output.",
+          "request_text": "Prepare a service review covering relational user-record storage and a server-side permission-controlled multi-step update with the transaction boundary needed for consistency.",
           "provenance": {
             "scenario_group_id": "M1F-S25",
             "source_evidence_ids": [
-              "src_c7f92b35e6b484c5_c0000"
+              "src_ecad6843b8fcb99b_c0000",
+              "src_1055b8f580d99531_c0000"
             ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         }
       ]
     },
     {
       "scenario_group_id": "M1F-S26",
-      "scenario_label": "Three-part REST contract review",
+      "scenario_label": "Production geography is not in the frozen corpus",
+      "primary_archetype": "PARTIAL_INTENTIONAL_NO_EVIDENCE",
       "canonical_domain": "api_architecture",
+      "domain_scope": [
+        "api_architecture"
+      ],
       "role_profile": "API/Architecture Analyst",
-      "evidence_expectation": "EVIDENCE_PRESENT",
-      "holdout_basis": "api-contract-triad",
+      "role_profiles": [
+        "API/Architecture Analyst"
+      ],
+      "evidence_expectation": "NO_EVIDENCE",
+      "holdout_basis": "v2-partial_intentional_no_evidence-26",
+      "scenario_gold_id": "M1F-G26",
+      "mechanism_expectations": {
+        "dependency": "NOT_APPLICABLE",
+        "normalization": "NOT_APPLICABLE",
+        "overlap": "NOT_APPLICABLE"
+      },
       "provenance": {
-        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT",
+        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2",
         "corpus_snapshot_id": "m1-pilot-authorized-v1",
         "source_manifest_path": "data/m1-pilot-authorized-v1/sources.json",
-        "source_evidence_ids": [
-          "src_c7f92b35e6b484c5_c0000"
-        ],
-        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED"
+        "source_evidence_ids": [],
+        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED",
+        "semantic_holdout_review": "PENDING_HUMAN_REVIEW"
       },
       "variants": [
         {
           "case_id": "M1F-S26-V01",
           "variant_id": "V01",
           "variant_order": 1,
-          "request_text": "Review REST endpoint evidence for validation, errors, and authorization as distinct contract concerns.",
+          "request_text": "Using only the frozen service material, identify the production geography assigned to this deployment and state the evidence boundary.",
           "provenance": {
             "scenario_group_id": "M1F-S26",
-            "source_evidence_ids": [
-              "src_c7f92b35e6b484c5_c0000"
-            ],
+            "source_evidence_ids": [],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S26-V02",
           "variant_id": "V02",
           "variant_order": 2,
-          "request_text": "Audit a service contract that combines request checks, failure responses, and access requirements.",
+          "request_text": "Audit a release note request for a production region; report whether the authorized corpus names a location.",
           "provenance": {
             "scenario_group_id": "M1F-S26",
-            "source_evidence_ids": [
-              "src_c7f92b35e6b484c5_c0000"
-            ],
+            "source_evidence_ids": [],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S26-V03",
           "variant_id": "V03",
           "variant_order": 3,
-          "request_text": "Examine whether a REST interface makes its validation, error, and authorization fields explicit.",
+          "request_text": "Which deployment geography can be verified from the current evidence snapshot, if any?",
           "provenance": {
             "scenario_group_id": "M1F-S26",
-            "source_evidence_ids": [
-              "src_c7f92b35e6b484c5_c0000"
-            ],
+            "source_evidence_ids": [],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S26-V04",
           "variant_id": "V04",
           "variant_order": 4,
-          "request_text": "Assess the API evidence needed to keep request rules, error handling, and authorization visible.",
+          "request_text": "Answer the regional placement part of a service review without filling in an unstated location.",
           "provenance": {
             "scenario_group_id": "M1F-S26",
-            "source_evidence_ids": [
-              "src_c7f92b35e6b484c5_c0000"
-            ],
+            "source_evidence_ids": [],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         }
       ]
     },
     {
       "scenario_group_id": "M1F-S27",
-      "scenario_label": "Rate-limit evidence gap",
-      "canonical_domain": "api_architecture",
-      "role_profile": "API/Architecture Analyst",
-      "evidence_expectation": "NO_EVIDENCE",
-      "holdout_basis": "api-evidence-gap-rate-limit",
+      "scenario_label": "Supported token fact plus missing password policy",
+      "primary_archetype": "PARTIAL_INTENTIONAL_NO_EVIDENCE",
+      "canonical_domain": "security",
+      "domain_scope": [
+        "security"
+      ],
+      "role_profile": "Security Analyst",
+      "role_profiles": [
+        "Security Analyst"
+      ],
+      "evidence_expectation": "EVIDENCE_PRESENT",
+      "holdout_basis": "v2-partial_intentional_no_evidence-27",
+      "scenario_gold_id": "M1F-G27",
+      "mechanism_expectations": {
+        "dependency": "NOT_APPLICABLE",
+        "normalization": "NOT_APPLICABLE",
+        "overlap": "NOT_APPLICABLE"
+      },
       "provenance": {
-        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT",
+        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2",
         "corpus_snapshot_id": "m1-pilot-authorized-v1",
         "source_manifest_path": "data/m1-pilot-authorized-v1/sources.json",
-        "source_evidence_ids": [],
-        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED"
+        "source_evidence_ids": [
+          "src_ecad6843b8fcb99b_c0000"
+        ],
+        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED",
+        "semantic_holdout_review": "PENDING_HUMAN_REVIEW"
       },
       "variants": [
         {
           "case_id": "M1F-S27-V01",
           "variant_id": "V01",
           "variant_order": 1,
-          "request_text": "Determine whether the supplied API material states a request-rate limit.",
+          "request_text": "Assess the security note for both its bearer-token identity flow and any stated minimum password length; separate supported from unavailable facts.",
           "provenance": {
             "scenario_group_id": "M1F-S27",
-            "source_evidence_ids": [],
+            "source_evidence_ids": [
+              "src_ecad6843b8fcb99b_c0000"
+            ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S27-V02",
           "variant_id": "V02",
           "variant_order": 2,
-          "request_text": "Check the corpus for a quota or throttling rule on REST calls.",
+          "request_text": "Prepare a security answer that reports what the corpus says about access tokens and whether it specifies a password-length threshold.",
           "provenance": {
             "scenario_group_id": "M1F-S27",
-            "source_evidence_ids": [],
+            "source_evidence_ids": [
+              "src_ecad6843b8fcb99b_c0000"
+            ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S27-V03",
           "variant_id": "V03",
           "variant_order": 3,
-          "request_text": "Look for evidence defining how many requests a client may make.",
+          "request_text": "Review the authentication material for a token-based identity conclusion and a possible password policy gap.",
           "provenance": {
             "scenario_group_id": "M1F-S27",
-            "source_evidence_ids": [],
+            "source_evidence_ids": [
+              "src_ecad6843b8fcb99b_c0000"
+            ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S27-V04",
           "variant_id": "V04",
           "variant_order": 4,
-          "request_text": "Assess whether the service sources document API rate limiting.",
+          "request_text": "Which part of this access-control request can be grounded, and what password requirement must remain explicitly unknown?",
           "provenance": {
             "scenario_group_id": "M1F-S27",
-            "source_evidence_ids": [],
+            "source_evidence_ids": [
+              "src_ecad6843b8fcb99b_c0000"
+            ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         }
       ]
     },
     {
       "scenario_group_id": "M1F-S28",
-      "scenario_label": "Request-timeout evidence gap",
+      "scenario_label": "API behavior plus missing SLA target",
+      "primary_archetype": "PARTIAL_INTENTIONAL_NO_EVIDENCE",
       "canonical_domain": "api_architecture",
+      "domain_scope": [
+        "api_architecture"
+      ],
       "role_profile": "API/Architecture Analyst",
-      "evidence_expectation": "NO_EVIDENCE",
-      "holdout_basis": "api-evidence-gap-timeout",
+      "role_profiles": [
+        "API/Architecture Analyst"
+      ],
+      "evidence_expectation": "EVIDENCE_PRESENT",
+      "holdout_basis": "v2-partial_intentional_no_evidence-28",
+      "scenario_gold_id": "M1F-G28",
+      "mechanism_expectations": {
+        "dependency": "NOT_APPLICABLE",
+        "normalization": "NOT_APPLICABLE",
+        "overlap": "NOT_APPLICABLE"
+      },
       "provenance": {
-        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT",
+        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2",
         "corpus_snapshot_id": "m1-pilot-authorized-v1",
         "source_manifest_path": "data/m1-pilot-authorized-v1/sources.json",
-        "source_evidence_ids": [],
-        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED"
+        "source_evidence_ids": [
+          "src_c7f92b35e6b484c5_c0000"
+        ],
+        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED",
+        "semantic_holdout_review": "PENDING_HUMAN_REVIEW"
       },
       "variants": [
         {
           "case_id": "M1F-S28-V01",
           "variant_id": "V01",
           "variant_order": 1,
-          "request_text": "Determine whether the source set specifies a request timeout for the service.",
+          "request_text": "Summarize the REST contract's validation and error behavior, then state whether the frozen material supplies an SLA target for the service.",
           "provenance": {
             "scenario_group_id": "M1F-S28",
-            "source_evidence_ids": [],
+            "source_evidence_ids": [
+              "src_c7f92b35e6b484c5_c0000"
+            ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S28-V02",
           "variant_id": "V02",
           "variant_order": 2,
-          "request_text": "Check the API evidence for a client or server response-time limit.",
+          "request_text": "Review service evidence for request handling and report the availability objective only if it is actually documented.",
           "provenance": {
             "scenario_group_id": "M1F-S28",
-            "source_evidence_ids": [],
+            "source_evidence_ids": [
+              "src_c7f92b35e6b484c5_c0000"
+            ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S28-V03",
           "variant_id": "V03",
           "variant_order": 3,
-          "request_text": "Look for documentation of an endpoint timeout value.",
+          "request_text": "Separate the API facts that can be cited from the requested latency/availability commitment that may be missing.",
           "provenance": {
             "scenario_group_id": "M1F-S28",
-            "source_evidence_ids": [],
+            "source_evidence_ids": [
+              "src_c7f92b35e6b484c5_c0000"
+            ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S28-V04",
           "variant_id": "V04",
           "variant_order": 4,
-          "request_text": "Assess whether the supplied material defines how long a request may run.",
+          "request_text": "What does the frozen endpoint evidence establish, and what SLA information remains unsupported?",
           "provenance": {
             "scenario_group_id": "M1F-S28",
-            "source_evidence_ids": [],
+            "source_evidence_ids": [
+              "src_c7f92b35e6b484c5_c0000"
+            ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         }
       ]
     },
     {
       "scenario_group_id": "M1F-S29",
-      "scenario_label": "API-versioning evidence gap",
-      "canonical_domain": "api_architecture",
-      "role_profile": "API/Architecture Analyst",
-      "evidence_expectation": "NO_EVIDENCE",
-      "holdout_basis": "api-evidence-gap-versioning",
+      "scenario_label": "Database evidence with unspecified schema name",
+      "primary_archetype": "PARTIAL_INTENTIONAL_NO_EVIDENCE",
+      "canonical_domain": "database",
+      "domain_scope": [
+        "database"
+      ],
+      "role_profile": "Database Analyst",
+      "role_profiles": [
+        "Database Analyst"
+      ],
+      "evidence_expectation": "EVIDENCE_PRESENT",
+      "holdout_basis": "v2-partial_intentional_no_evidence-29",
+      "scenario_gold_id": "M1F-G29",
+      "mechanism_expectations": {
+        "dependency": "NOT_APPLICABLE",
+        "normalization": "NOT_APPLICABLE",
+        "overlap": "NOT_APPLICABLE"
+      },
       "provenance": {
-        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT",
+        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2",
         "corpus_snapshot_id": "m1-pilot-authorized-v1",
         "source_manifest_path": "data/m1-pilot-authorized-v1/sources.json",
-        "source_evidence_ids": [],
-        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED"
+        "source_evidence_ids": [
+          "src_1055b8f580d99531_c0000"
+        ],
+        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED",
+        "semantic_holdout_review": "PENDING_HUMAN_REVIEW"
       },
       "variants": [
         {
           "case_id": "M1F-S29-V01",
           "variant_id": "V01",
           "variant_order": 1,
-          "request_text": "Determine whether the corpus defines an API versioning policy.",
+          "request_text": "Use the database note to report storage and transaction guidance, and identify whether it names the production table or schema for those records.",
           "provenance": {
             "scenario_group_id": "M1F-S29",
-            "source_evidence_ids": [],
+            "source_evidence_ids": [
+              "src_1055b8f580d99531_c0000"
+            ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S29-V02",
           "variant_id": "V02",
           "variant_order": 2,
-          "request_text": "Check the service evidence for a version identifier or compatibility rule.",
+          "request_text": "Assess the supported relational-write facts while leaving any requested table identifier unresolved if the corpus omits it.",
           "provenance": {
             "scenario_group_id": "M1F-S29",
-            "source_evidence_ids": [],
+            "source_evidence_ids": [
+              "src_1055b8f580d99531_c0000"
+            ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S29-V03",
           "variant_id": "V03",
           "variant_order": 3,
-          "request_text": "Look for documentation describing how REST contract versions are managed.",
+          "request_text": "Which database obligations are evidenced, and what concrete schema name cannot be verified from the snapshot?",
           "provenance": {
             "scenario_group_id": "M1F-S29",
-            "source_evidence_ids": [],
+            "source_evidence_ids": [
+              "src_1055b8f580d99531_c0000"
+            ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S29-V04",
           "variant_id": "V04",
           "variant_order": 4,
-          "request_text": "Assess whether the supplied API material states a versioning convention.",
+          "request_text": "Prepare a bounded database review that distinguishes transaction guidance from an absent physical table detail.",
           "provenance": {
             "scenario_group_id": "M1F-S29",
-            "source_evidence_ids": [],
+            "source_evidence_ids": [
+              "src_1055b8f580d99531_c0000"
+            ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         }
       ]
     },
     {
       "scenario_group_id": "M1F-S30",
-      "scenario_label": "Request-size evidence gap",
-      "canonical_domain": "api_architecture",
-      "role_profile": "API/Architecture Analyst",
-      "evidence_expectation": "NO_EVIDENCE",
-      "holdout_basis": "api-evidence-gap-payload-size",
+      "scenario_label": "Security controls with unspecified algorithm",
+      "primary_archetype": "PARTIAL_INTENTIONAL_NO_EVIDENCE",
+      "canonical_domain": "security",
+      "domain_scope": [
+        "security"
+      ],
+      "role_profile": "Security Analyst",
+      "role_profiles": [
+        "Security Analyst"
+      ],
+      "evidence_expectation": "EVIDENCE_PRESENT",
+      "holdout_basis": "v2-partial_intentional_no_evidence-30",
+      "scenario_gold_id": "M1F-G30",
+      "mechanism_expectations": {
+        "dependency": "NOT_APPLICABLE",
+        "normalization": "NOT_APPLICABLE",
+        "overlap": "NOT_APPLICABLE"
+      },
       "provenance": {
-        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT",
+        "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2",
         "corpus_snapshot_id": "m1-pilot-authorized-v1",
         "source_manifest_path": "data/m1-pilot-authorized-v1/sources.json",
-        "source_evidence_ids": [],
-        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED"
+        "source_evidence_ids": [
+          "src_ecad6843b8fcb99b_c0000"
+        ],
+        "development_overlap": "NONE_BY_EXACT_TEXT_CHECK; SEMANTIC_REVIEW_REQUIRED",
+        "semantic_holdout_review": "PENDING_HUMAN_REVIEW"
       },
       "variants": [
         {
           "case_id": "M1F-S30-V01",
           "variant_id": "V01",
           "variant_order": 1,
-          "request_text": "Determine whether the sources state a maximum request payload size.",
+          "request_text": "Report the supported bearer-token and server-authorization controls, then identify whether the frozen material names a production signing algorithm.",
           "provenance": {
             "scenario_group_id": "M1F-S30",
-            "source_evidence_ids": [],
+            "source_evidence_ids": [
+              "src_ecad6843b8fcb99b_c0000"
+            ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S30-V02",
           "variant_id": "V02",
           "variant_order": 2,
-          "request_text": "Check the corpus for an API body-size limit.",
+          "request_text": "Review the access-control evidence for its concrete security guidance and mark any requested algorithm detail that is not documented.",
           "provenance": {
             "scenario_group_id": "M1F-S30",
-            "source_evidence_ids": [],
+            "source_evidence_ids": [
+              "src_ecad6843b8fcb99b_c0000"
+            ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S30-V03",
           "variant_id": "V03",
           "variant_order": 3,
-          "request_text": "Look for evidence defining the largest request a service accepts.",
+          "request_text": "Which security conclusions are grounded, and what authentication algorithm information must remain unavailable?",
           "provenance": {
             "scenario_group_id": "M1F-S30",
-            "source_evidence_ids": [],
+            "source_evidence_ids": [
+              "src_ecad6843b8fcb99b_c0000"
+            ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         },
         {
           "case_id": "M1F-S30-V04",
           "variant_id": "V04",
           "variant_order": 4,
-          "request_text": "Assess whether the supplied interface material documents a request-size constraint.",
+          "request_text": "Give a bounded security answer that does not infer an algorithm from the presence of bearer tokens or JWT claims.",
           "provenance": {
             "scenario_group_id": "M1F-S30",
-            "source_evidence_ids": [],
+            "source_evidence_ids": [
+              "src_ecad6843b8fcb99b_c0000"
+            ],
             "corpus_snapshot_id": "m1-pilot-authorized-v1",
-            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT"
+            "authoring_status": "HUMAN_AUTHORED_READINESS_DRAFT_V2"
           }
         }
       ]

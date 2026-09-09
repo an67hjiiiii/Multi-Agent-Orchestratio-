@@ -28,10 +28,15 @@
   "dataset_sha256": "553b7e4de97bb3063d5f8f22994f368021b12a1439d8e4ea3d94b33dcbcd08ac",
   "gold_sha256": "558f96f77aeddbee3dd815fdb09ea8c5e30c59988ef902bd0498b0e60122ce8d",
   "approval": {
-    "benchmark_set_status": "FROZEN_PENDING_HUMAN_APPROVAL",
-    "gold_status": "PENDING_HUMAN_APPROVAL",
-    "reviewer": null,
-    "approved_at": null
+    "benchmark_set_status": "HUMAN_APPROVED",
+    "gold_status": "HUMAN_APPROVED",
+    "reviewer": "PROJECT_OWNER",
+    "approved_at": "2026-09-09",
+    "scenario_groups_approved": 30,
+    "dataset_sha256": "553b7e4de97bb3063d5f8f22994f368021b12a1439d8e4ea3d94b33dcbcd08ac",
+    "gold_sha256": "558f96f77aeddbee3dd815fdb09ea8c5e30c59988ef902bd0498b0e60122ce8d",
+    "semantics_changed": false,
+    "freeze_status": "FROZEN"
   },
   "selected_variants": [
     {

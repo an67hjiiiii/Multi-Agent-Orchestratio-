@@ -35,6 +35,17 @@ evaluation:
   experiment_freeze_id: ce53402ae17731020c4e75330bc6b1f674f60c7e20087353008f3c1e08518e3a
   benchmark_set: HUMAN_APPROVED_DEVELOPMENT_VALIDATION_PILOT_SUBSET
   semantic_gold: HUMAN_APPROVED_DEVELOPMENT_VALIDATION_PILOT_SUBSET
+  final_dataset_approval:
+    status: HUMAN_APPROVED
+    reviewer_id_or_initials: PROJECT_OWNER
+    approved_at: "2026-09-09"
+    scenario_groups_approved: 30
+    dataset_revision: FINAL_DATASET_V2_TARGETED_REWORK
+    dataset_sha256: 553b7e4de97bb3063d5f8f22994f368021b12a1439d8e4ea3d94b33dcbcd08ac
+    gold_sha256: 558f96f77aeddbee3dd815fdb09ea8c5e30c59988ef902bd0498b0e60122ce8d
+    semantic_review: "30/30 scenario groups PASS"
+    semantics_frozen: true
+    final_experiment_ready: true
 
 approval:
   self_approval: PROHIBITED

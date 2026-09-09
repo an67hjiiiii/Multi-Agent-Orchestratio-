@@ -1,44 +1,41 @@
 {
   "schema_version": "m1-final-scenario-gold-v1",
+  "dataset_revision": "FINAL_DATASET_V2_TARGETED_REWORK",
   "dataset_id": "m1-final-experiment-v1",
   "gold_granularity": "SCENARIO",
   "case_level_annotations": false,
   "status": "PENDING_HUMAN_APPROVAL",
-  "approval_policy": {
-    "reviewer_status_allowed": [
-      "PENDING_HUMAN_APPROVAL",
-      "APPROVED",
-      "REJECTED"
-    ],
-    "initial_reviewer_status": "PENDING_HUMAN_APPROVAL",
-    "self_approval": "PROHIBITED",
-    "approval_unit": "one scenario group, covering its four frozen request variants",
-    "runtime_boundary": "Evaluation-only after generation; never imported by retrieval, workers, synthesis, or prompt construction."
-  },
+  "approval_policy": "Human approval is required for every scenario row; this packet is evaluator-only and must never enter generation prompts or worker context.",
   "corpus_snapshot": {
     "snapshot_id": "m1-pilot-authorized-v1",
-    "manifest_path": "reports/pre_pilot_freeze/corpus-manifest.json",
-    "evidence_manifest_path": "reports/final_experiment/corpus-evidence-manifest.json",
-    "source_manifest_path": "data/m1-pilot-authorized-v1/sources.json",
     "source_manifest_sha256": "274241507c91aa8ffaf8ca8f5ad9b3568879a4f99a691c9bd98bfe5dd52af265",
-    "chunk_count": 3
+    "evidence_manifest_path": "reports/final_experiment/corpus-evidence-manifest.json"
   },
   "scenario_gold": [
     {
       "scenario_gold_id": "M1F-G01",
       "scenario_group_id": "M1F-S01",
-      "scenario_label": "Bearer-token to policy handoff",
+      "scenario_label": "Token intake and caller context",
+      "primary_archetype": "SIMPLE_SINGLE_OBLIGATION",
+      "expected_status": "COMPLETE",
       "expected_role": "Security Analyst",
+      "expected_roles": [
+        "Security Analyst"
+      ],
       "expected_domain": "security",
+      "expected_domains": [
+        "security"
+      ],
       "relevant_evidence_ids": [
         "src_ecad6843b8fcb99b_c0000"
       ],
       "expected_answer_points": [
-        "Bearer access tokens establish the caller context; the server must retain a distinct permission decision for the protected action."
+        "Bearer access tokens are the available caller-context mechanism; authentication establishes identity."
       ],
-      "expected_missing_information": null,
-      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
-      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "expected_missing_information": "NONE",
+      "dependency_expectation": "NOT_APPLICABLE",
+      "normalization_expectation": "NOT_APPLICABLE",
+      "overlap_expectation": "NOT_APPLICABLE",
       "reviewer_status": "PENDING_HUMAN_APPROVAL",
       "reviewer_id_or_initials": "",
       "reviewer_notes": "",
@@ -47,18 +44,27 @@
     {
       "scenario_gold_id": "M1F-G02",
       "scenario_group_id": "M1F-S02",
-      "scenario_label": "JWT claims versus server authority",
+      "scenario_label": "Access review after token parsing",
+      "primary_archetype": "SIMPLE_SINGLE_OBLIGATION",
+      "expected_status": "COMPLETE",
       "expected_role": "Security Analyst",
+      "expected_roles": [
+        "Security Analyst"
+      ],
       "expected_domain": "security",
+      "expected_domains": [
+        "security"
+      ],
       "relevant_evidence_ids": [
         "src_ecad6843b8fcb99b_c0000"
       ],
       "expected_answer_points": [
-        "JWT claims must not replace server-side authorization policy; the application remains responsible for deciding permission."
+        "JWT claims are not a substitute for server-side authorization policy; permission remains an application decision."
       ],
-      "expected_missing_information": null,
-      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
-      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "expected_missing_information": "NONE",
+      "dependency_expectation": "NOT_APPLICABLE",
+      "normalization_expectation": "NOT_APPLICABLE",
+      "overlap_expectation": "NOT_APPLICABLE",
       "reviewer_status": "PENDING_HUMAN_APPROVAL",
       "reviewer_id_or_initials": "",
       "reviewer_notes": "",
@@ -67,18 +73,27 @@
     {
       "scenario_gold_id": "M1F-G03",
       "scenario_group_id": "M1F-S03",
-      "scenario_label": "Identity evidence and action permission",
-      "expected_role": "Security Analyst",
-      "expected_domain": "security",
+      "scenario_label": "REST validation checkpoint",
+      "primary_archetype": "SIMPLE_SINGLE_OBLIGATION",
+      "expected_status": "COMPLETE",
+      "expected_role": "API/Architecture Analyst",
+      "expected_roles": [
+        "API/Architecture Analyst"
+      ],
+      "expected_domain": "api_architecture",
+      "expected_domains": [
+        "api_architecture"
+      ],
       "relevant_evidence_ids": [
-        "src_ecad6843b8fcb99b_c0000"
+        "src_c7f92b35e6b484c5_c0000"
       ],
       "expected_answer_points": [
-        "The review must keep identity establishment and permission for an action as separate security decisions."
+        "The REST API contract should define request validation for incoming calls."
       ],
-      "expected_missing_information": null,
-      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
-      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "expected_missing_information": "NONE",
+      "dependency_expectation": "NOT_APPLICABLE",
+      "normalization_expectation": "NOT_APPLICABLE",
+      "overlap_expectation": "NOT_APPLICABLE",
       "reviewer_status": "PENDING_HUMAN_APPROVAL",
       "reviewer_id_or_initials": "",
       "reviewer_notes": "",
@@ -87,18 +102,27 @@
     {
       "scenario_gold_id": "M1F-G04",
       "scenario_group_id": "M1F-S04",
-      "scenario_label": "Protected REST call security boundary",
-      "expected_role": "Security Analyst",
-      "expected_domain": "security",
+      "scenario_label": "Record storage and access review",
+      "primary_archetype": "SIMPLE_SINGLE_OBLIGATION",
+      "expected_status": "COMPLETE",
+      "expected_role": "Database Analyst",
+      "expected_roles": [
+        "Database Analyst"
+      ],
+      "expected_domain": "database",
+      "expected_domains": [
+        "database"
+      ],
       "relevant_evidence_ids": [
-        "src_ecad6843b8fcb99b_c0000"
+        "src_1055b8f580d99531_c0000"
       ],
       "expected_answer_points": [
-        "A protected service request may use bearer-token identity evidence, but access must still be decided by server-side policy."
+        "User records are in a relational database; frequently used identifier filters should be reviewed for appropriate indexes."
       ],
-      "expected_missing_information": null,
-      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
-      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "expected_missing_information": "NONE",
+      "dependency_expectation": "NOT_APPLICABLE",
+      "normalization_expectation": "NOT_APPLICABLE",
+      "overlap_expectation": "NOT_APPLICABLE",
       "reviewer_status": "PENDING_HUMAN_APPROVAL",
       "reviewer_id_or_initials": "",
       "reviewer_notes": "",
@@ -107,18 +131,27 @@
     {
       "scenario_gold_id": "M1F-G05",
       "scenario_group_id": "M1F-S05",
-      "scenario_label": "Server authority with JWT claims",
-      "expected_role": "Security Analyst",
-      "expected_domain": "security",
+      "scenario_label": "Consistency invariant for a write",
+      "primary_archetype": "SIMPLE_SINGLE_OBLIGATION",
+      "expected_status": "COMPLETE",
+      "expected_role": "Database Analyst",
+      "expected_roles": [
+        "Database Analyst"
+      ],
+      "expected_domain": "database",
+      "expected_domains": [
+        "database"
+      ],
       "relevant_evidence_ids": [
-        "src_ecad6843b8fcb99b_c0000"
+        "src_1055b8f580d99531_c0000"
       ],
       "expected_answer_points": [
-        "JWT contents are not a substitute for the application's server-side authorization policy."
+        "Transaction boundaries are required for multi-step writes that must remain consistent."
       ],
-      "expected_missing_information": null,
-      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
-      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "expected_missing_information": "NONE",
+      "dependency_expectation": "NOT_APPLICABLE",
+      "normalization_expectation": "NOT_APPLICABLE",
+      "overlap_expectation": "NOT_APPLICABLE",
       "reviewer_status": "PENDING_HUMAN_APPROVAL",
       "reviewer_id_or_initials": "",
       "reviewer_notes": "",
@@ -127,18 +160,36 @@
     {
       "scenario_gold_id": "M1F-G06",
       "scenario_group_id": "M1F-S06",
-      "scenario_label": "Bearer-token security review scope",
+      "scenario_label": "Protected write across API, security, and database",
+      "primary_archetype": "MULTI_OBLIGATION_CROSS_DOMAIN",
+      "expected_status": "COMPLETE",
       "expected_role": "Security Analyst",
+      "expected_roles": [
+        "Security Analyst",
+        "API/Architecture Analyst",
+        "Database Analyst"
+      ],
       "expected_domain": "security",
+      "expected_domains": [
+        "security",
+        "api_architecture",
+        "database"
+      ],
       "relevant_evidence_ids": [
-        "src_ecad6843b8fcb99b_c0000"
+        "src_ecad6843b8fcb99b_c0000",
+        "src_c7f92b35e6b484c5_c0000",
+        "src_1055b8f580d99531_c0000"
       ],
       "expected_answer_points": [
-        "The review scope includes bearer-token identity evidence and a separate server-enforced permission decision."
+        "Authentication establishes identity from bearer-token evidence.",
+        "Authorization remains a server-side permission decision.",
+        "The API contract covers validation and error responses.",
+        "A consistency-sensitive multi-step write needs transaction boundaries."
       ],
-      "expected_missing_information": null,
-      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
-      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "expected_missing_information": "NONE",
+      "dependency_expectation": "The review has four obligations but no required output dependency beyond keeping them distinct.",
+      "normalization_expectation": "NOT_APPLICABLE",
+      "overlap_expectation": "NOT_APPLICABLE",
       "reviewer_status": "PENDING_HUMAN_APPROVAL",
       "reviewer_id_or_initials": "",
       "reviewer_notes": "",
@@ -147,18 +198,32 @@
     {
       "scenario_gold_id": "M1F-G07",
       "scenario_group_id": "M1F-S07",
-      "scenario_label": "Authentication and authorization responsibility map",
+      "scenario_label": "Identity, API failure, and permission boundary",
+      "primary_archetype": "MULTI_OBLIGATION_CROSS_DOMAIN",
+      "expected_status": "COMPLETE",
       "expected_role": "Security Analyst",
+      "expected_roles": [
+        "Security Analyst",
+        "API/Architecture Analyst"
+      ],
       "expected_domain": "security",
+      "expected_domains": [
+        "security",
+        "api_architecture"
+      ],
       "relevant_evidence_ids": [
-        "src_ecad6843b8fcb99b_c0000"
+        "src_ecad6843b8fcb99b_c0000",
+        "src_c7f92b35e6b484c5_c0000"
       ],
       "expected_answer_points": [
-        "Security review should route identity handling and permission enforcement as distinct responsibilities while preserving their relationship."
+        "Authentication and authorization are distinct security decisions.",
+        "Request validation and error responses belong in the API contract.",
+        "The server must enforce permission rather than trusting token claims alone."
       ],
-      "expected_missing_information": null,
-      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
-      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "expected_missing_information": "NONE",
+      "dependency_expectation": "The obligations are independent checks in one endpoint review; no task must consume another task's output.",
+      "normalization_expectation": "NOT_APPLICABLE",
+      "overlap_expectation": "NOT_APPLICABLE",
       "reviewer_status": "PENDING_HUMAN_APPROVAL",
       "reviewer_id_or_initials": "",
       "reviewer_notes": "",
@@ -167,18 +232,32 @@
     {
       "scenario_gold_id": "M1F-G08",
       "scenario_group_id": "M1F-S08",
-      "scenario_label": "Token-authenticated protected operation",
-      "expected_role": "Security Analyst",
-      "expected_domain": "security",
+      "scenario_label": "Data model, query access, and API input",
+      "primary_archetype": "MULTI_OBLIGATION_CROSS_DOMAIN",
+      "expected_status": "COMPLETE",
+      "expected_role": "Database Analyst",
+      "expected_roles": [
+        "Database Analyst",
+        "API/Architecture Analyst"
+      ],
+      "expected_domain": "database",
+      "expected_domains": [
+        "database",
+        "api_architecture"
+      ],
       "relevant_evidence_ids": [
-        "src_ecad6843b8fcb99b_c0000"
+        "src_1055b8f580d99531_c0000",
+        "src_c7f92b35e6b484c5_c0000"
       ],
       "expected_answer_points": [
-        "The evidence chain should connect bearer-token identity context to an explicit server-owned decision to allow the action."
+        "The API contract should define request validation and errors.",
+        "User records are stored in a relational database.",
+        "Frequently used identifier filters warrant an appropriate-index review."
       ],
-      "expected_missing_information": null,
-      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
-      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "expected_missing_information": "NONE",
+      "dependency_expectation": "The obligations are parallel API/database checks; neither output is required to construct the other.",
+      "normalization_expectation": "NOT_APPLICABLE",
+      "overlap_expectation": "NOT_APPLICABLE",
       "reviewer_status": "PENDING_HUMAN_APPROVAL",
       "reviewer_id_or_initials": "",
       "reviewer_notes": "",
@@ -187,16 +266,32 @@
     {
       "scenario_gold_id": "M1F-G09",
       "scenario_group_id": "M1F-S09",
-      "scenario_label": "Access-token lifetime evidence gap",
+      "scenario_label": "Authorized write with identity and transaction",
+      "primary_archetype": "MULTI_OBLIGATION_CROSS_DOMAIN",
+      "expected_status": "COMPLETE",
       "expected_role": "Security Analyst",
-      "expected_domain": "security",
-      "relevant_evidence_ids": [],
-      "expected_answer_points": [
-        "The supplied corpus does not state an access-token lifetime; do not infer an expiration interval."
+      "expected_roles": [
+        "Security Analyst",
+        "Database Analyst"
       ],
-      "expected_missing_information": "access-token lifetime or expiration policy",
-      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
-      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "expected_domain": "security",
+      "expected_domains": [
+        "security",
+        "database"
+      ],
+      "relevant_evidence_ids": [
+        "src_ecad6843b8fcb99b_c0000",
+        "src_1055b8f580d99531_c0000"
+      ],
+      "expected_answer_points": [
+        "Bearer-token handling supplies identity evidence.",
+        "Authorization is a separate server-side permission decision.",
+        "Transaction boundaries protect multi-step writes that must remain consistent."
+      ],
+      "expected_missing_information": "NONE",
+      "dependency_expectation": "The checks remain separate and parallel; the prompt does not require one result to be fed into another task.",
+      "normalization_expectation": "NOT_APPLICABLE",
+      "overlap_expectation": "NOT_APPLICABLE",
       "reviewer_status": "PENDING_HUMAN_APPROVAL",
       "reviewer_id_or_initials": "",
       "reviewer_notes": "",
@@ -205,16 +300,35 @@
     {
       "scenario_gold_id": "M1F-G10",
       "scenario_group_id": "M1F-S10",
-      "scenario_label": "Multi-factor policy evidence gap",
-      "expected_role": "Security Analyst",
-      "expected_domain": "security",
-      "relevant_evidence_ids": [],
-      "expected_answer_points": [
-        "The supplied corpus does not define a multi-factor authentication rule; do not invent an enrollment or second-factor requirement."
+      "scenario_label": "Service review with three evidence surfaces",
+      "primary_archetype": "MULTI_OBLIGATION_CROSS_DOMAIN",
+      "expected_status": "COMPLETE",
+      "expected_role": "API/Architecture Analyst",
+      "expected_roles": [
+        "API/Architecture Analyst",
+        "Security Analyst",
+        "Database Analyst"
       ],
-      "expected_missing_information": "multi-factor authentication or second-factor policy",
-      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
-      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "expected_domain": "api_architecture",
+      "expected_domains": [
+        "api_architecture",
+        "security",
+        "database"
+      ],
+      "relevant_evidence_ids": [
+        "src_c7f92b35e6b484c5_c0000",
+        "src_ecad6843b8fcb99b_c0000",
+        "src_1055b8f580d99531_c0000"
+      ],
+      "expected_answer_points": [
+        "REST contracts cover validation and error responses.",
+        "Identity evidence does not replace server-side authorization.",
+        "Relational user-record writes that must stay consistent need transaction boundaries."
+      ],
+      "expected_missing_information": "NONE",
+      "dependency_expectation": "The four obligations are parallel service-readiness concerns; no dependency order is required.",
+      "normalization_expectation": "NOT_APPLICABLE",
+      "overlap_expectation": "NOT_APPLICABLE",
       "reviewer_status": "PENDING_HUMAN_APPROVAL",
       "reviewer_id_or_initials": "",
       "reviewer_notes": "",
@@ -223,18 +337,29 @@
     {
       "scenario_gold_id": "M1F-G11",
       "scenario_group_id": "M1F-S11",
-      "scenario_label": "Identifier-heavy user-record workload",
-      "expected_role": "Database Analyst",
-      "expected_domain": "database",
+      "scenario_label": "Identity output feeds permission review",
+      "primary_archetype": "DEPENDENCY_TASK_GRAPH",
+      "expected_status": "COMPLETE",
+      "expected_role": "Security Analyst",
+      "expected_roles": [
+        "Security Analyst"
+      ],
+      "expected_domain": "security",
+      "expected_domains": [
+        "security"
+      ],
       "relevant_evidence_ids": [
-        "src_1055b8f580d99531_c0000"
+        "src_ecad6843b8fcb99b_c0000"
       ],
       "expected_answer_points": [
-        "Frequently used identifier filters in the relational workload are appropriate targets for index review, without assuming an unconditional index."
+        "Task 1 establishes identity from bearer-token evidence.",
+        "Task 2 checks action permission using the identity result and server-side policy.",
+        "JWT claims cannot replace the server-side authorization decision."
       ],
-      "expected_missing_information": null,
-      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
-      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "expected_missing_information": "NONE",
+      "dependency_expectation": "Task 2 depends on Task 1's identity assessment; it must not run as an independent permission-only task.",
+      "normalization_expectation": "NOT_APPLICABLE",
+      "overlap_expectation": "NOT_APPLICABLE",
       "reviewer_status": "PENDING_HUMAN_APPROVAL",
       "reviewer_id_or_initials": "",
       "reviewer_notes": "",
@@ -243,18 +368,28 @@
     {
       "scenario_gold_id": "M1F-G12",
       "scenario_group_id": "M1F-S12",
-      "scenario_label": "Relational query-path evidence",
+      "scenario_label": "Storage decision feeds index review",
+      "primary_archetype": "DEPENDENCY_TASK_GRAPH",
+      "expected_status": "COMPLETE",
       "expected_role": "Database Analyst",
+      "expected_roles": [
+        "Database Analyst"
+      ],
       "expected_domain": "database",
+      "expected_domains": [
+        "database"
+      ],
       "relevant_evidence_ids": [
         "src_1055b8f580d99531_c0000"
       ],
       "expected_answer_points": [
-        "The evidence supports reviewing frequently used identifier filters for appropriate indexes; it does not justify assuming a schema change."
+        "Task 1 records that user records are held in the relational database.",
+        "Task 2 reviews an appropriate index for frequently used identifier filters in that storage context."
       ],
-      "expected_missing_information": null,
-      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
-      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "expected_missing_information": "NONE",
+      "dependency_expectation": "The index-review task is scoped by Task 1's storage finding; it should not invent a different store or schema.",
+      "normalization_expectation": "NOT_APPLICABLE",
+      "overlap_expectation": "NOT_APPLICABLE",
       "reviewer_status": "PENDING_HUMAN_APPROVAL",
       "reviewer_id_or_initials": "",
       "reviewer_notes": "",
@@ -263,18 +398,28 @@
     {
       "scenario_gold_id": "M1F-G13",
       "scenario_group_id": "M1F-S13",
-      "scenario_label": "Multi-write consistency risk",
-      "expected_role": "Database Analyst",
-      "expected_domain": "database",
+      "scenario_label": "Validation result feeds error contract",
+      "primary_archetype": "DEPENDENCY_TASK_GRAPH",
+      "expected_status": "COMPLETE",
+      "expected_role": "API/Architecture Analyst",
+      "expected_roles": [
+        "API/Architecture Analyst"
+      ],
+      "expected_domain": "api_architecture",
+      "expected_domains": [
+        "api_architecture"
+      ],
       "relevant_evidence_ids": [
-        "src_1055b8f580d99531_c0000"
+        "src_c7f92b35e6b484c5_c0000"
       ],
       "expected_answer_points": [
-        "Multi-step writes that must remain consistent require a transaction boundary across the operation."
+        "Task 1 identifies the request-validation result.",
+        "Task 2 uses that result to describe the API error-response requirement."
       ],
-      "expected_missing_information": null,
-      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
-      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "expected_missing_information": "NONE",
+      "dependency_expectation": "The error-response task consumes the validation finding; it is not a parallel list of API fields.",
+      "normalization_expectation": "NOT_APPLICABLE",
+      "overlap_expectation": "NOT_APPLICABLE",
       "reviewer_status": "PENDING_HUMAN_APPROVAL",
       "reviewer_id_or_initials": "",
       "reviewer_notes": "",
@@ -283,18 +428,32 @@
     {
       "scenario_gold_id": "M1F-G14",
       "scenario_group_id": "M1F-S14",
-      "scenario_label": "Workload signal for index review",
-      "expected_role": "Database Analyst",
-      "expected_domain": "database",
+      "scenario_label": "Protected write three-stage chain",
+      "primary_archetype": "DEPENDENCY_TASK_GRAPH",
+      "expected_status": "COMPLETE",
+      "expected_role": "Security Analyst",
+      "expected_roles": [
+        "Security Analyst",
+        "Database Analyst"
+      ],
+      "expected_domain": "security",
+      "expected_domains": [
+        "security",
+        "database"
+      ],
       "relevant_evidence_ids": [
+        "src_ecad6843b8fcb99b_c0000",
         "src_1055b8f580d99531_c0000"
       ],
       "expected_answer_points": [
-        "Frequency of identifier-filtered queries is the relevant workload signal for deciding whether index review is appropriate."
+        "Identity evidence is assessed first.",
+        "Authorization produces a server-side permission decision.",
+        "Only the authorized write is evaluated for transaction boundaries that preserve consistency."
       ],
-      "expected_missing_information": null,
-      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
-      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "expected_missing_information": "NONE",
+      "dependency_expectation": "Task 2 depends on identity; Task 3 depends on an allowed authorization result and then applies the database consistency rule.",
+      "normalization_expectation": "NOT_APPLICABLE",
+      "overlap_expectation": "NOT_APPLICABLE",
       "reviewer_status": "PENDING_HUMAN_APPROVAL",
       "reviewer_id_or_initials": "",
       "reviewer_notes": "",
@@ -303,18 +462,34 @@
     {
       "scenario_gold_id": "M1F-G15",
       "scenario_group_id": "M1F-S15",
-      "scenario_label": "Consistency across a write sequence",
-      "expected_role": "Database Analyst",
-      "expected_domain": "database",
+      "scenario_label": "API authorization contract gates persistence",
+      "primary_archetype": "DEPENDENCY_TASK_GRAPH",
+      "expected_status": "COMPLETE",
+      "expected_role": "API/Architecture Analyst",
+      "expected_roles": [
+        "API/Architecture Analyst",
+        "Security Analyst",
+        "Database Analyst"
+      ],
+      "expected_domain": "api_architecture",
+      "expected_domains": [
+        "api_architecture",
+        "security",
+        "database"
+      ],
       "relevant_evidence_ids": [
+        "src_c7f92b35e6b484c5_c0000",
+        "src_ecad6843b8fcb99b_c0000",
         "src_1055b8f580d99531_c0000"
       ],
       "expected_answer_points": [
-        "A consistency-sensitive sequence of writes should be reviewed as one transaction-scoped operation."
+        "Task 1 extracts authorization requirements from the REST contract and security evidence.",
+        "Task 2 uses that requirement to assess transaction boundaries for a consistency-sensitive relational write."
       ],
-      "expected_missing_information": null,
-      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
-      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "expected_missing_information": "NONE",
+      "dependency_expectation": "The persistence task is scoped by the authorization-contract output; it must not invent an unrelated write.",
+      "normalization_expectation": "NOT_APPLICABLE",
+      "overlap_expectation": "NOT_APPLICABLE",
       "reviewer_status": "PENDING_HUMAN_APPROVAL",
       "reviewer_id_or_initials": "",
       "reviewer_notes": "",
@@ -323,18 +498,27 @@
     {
       "scenario_gold_id": "M1F-G16",
       "scenario_group_id": "M1F-S16",
-      "scenario_label": "Three-layer relational review",
-      "expected_role": "Database Analyst",
-      "expected_domain": "database",
+      "scenario_label": "Repeated identity obligation",
+      "primary_archetype": "DUPLICATE_OVERLAPPING_OBLIGATION_N",
+      "expected_status": "COMPLETE",
+      "expected_role": "Security Analyst",
+      "expected_roles": [
+        "Security Analyst"
+      ],
+      "expected_domain": "security",
+      "expected_domains": [
+        "security"
+      ],
       "relevant_evidence_ids": [
-        "src_1055b8f580d99531_c0000"
+        "src_ecad6843b8fcb99b_c0000"
       ],
       "expected_answer_points": [
-        "The review should keep data storage, identifier-filter access, and consistency-sensitive writes as distinct database concerns."
+        "One canonical identity-establishment task should remain; no authorization obligation may be invented or merged into it."
       ],
-      "expected_missing_information": null,
-      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
-      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "expected_missing_information": "NONE",
+      "dependency_expectation": "No dependency is required; the duplicate identity clauses can be compared independently.",
+      "normalization_expectation": "MERGE the two exact canonical identity-establishment obligations; KEEP any distinct authorization obligation separate.",
+      "overlap_expectation": "NOT_APPLICABLE",
       "reviewer_status": "PENDING_HUMAN_APPROVAL",
       "reviewer_id_or_initials": "",
       "reviewer_notes": "",
@@ -343,18 +527,27 @@
     {
       "scenario_gold_id": "M1F-G17",
       "scenario_group_id": "M1F-S17",
-      "scenario_label": "Index-change justification",
-      "expected_role": "Database Analyst",
-      "expected_domain": "database",
+      "scenario_label": "Repeated request-validation obligation",
+      "primary_archetype": "DUPLICATE_OVERLAPPING_OBLIGATION_N",
+      "expected_status": "COMPLETE",
+      "expected_role": "API/Architecture Analyst",
+      "expected_roles": [
+        "API/Architecture Analyst"
+      ],
+      "expected_domain": "api_architecture",
+      "expected_domains": [
+        "api_architecture"
+      ],
       "relevant_evidence_ids": [
-        "src_1055b8f580d99531_c0000"
+        "src_c7f92b35e6b484c5_c0000"
       ],
       "expected_answer_points": [
-        "An index decision should be based on review of frequently used identifier filters, not on an unconditional creation rule."
+        "The repeated request-validation requirement becomes one canonical task; error responses remain a separate obligation when requested."
       ],
-      "expected_missing_information": null,
-      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
-      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "expected_missing_information": "NONE",
+      "dependency_expectation": "The two validation tasks are peers; no dependency edge is needed for the merge decision.",
+      "normalization_expectation": "MERGE only the duplicate request-validation obligations; KEEP error-response work separate because it is a distinct API obligation.",
+      "overlap_expectation": "NOT_APPLICABLE",
       "reviewer_status": "PENDING_HUMAN_APPROVAL",
       "reviewer_id_or_initials": "",
       "reviewer_notes": "",
@@ -363,18 +556,27 @@
     {
       "scenario_gold_id": "M1F-G18",
       "scenario_group_id": "M1F-S18",
-      "scenario_label": "Read workload and write integrity",
+      "scenario_label": "Repeated transaction-boundary obligation",
+      "primary_archetype": "DUPLICATE_OVERLAPPING_OBLIGATION_N",
+      "expected_status": "COMPLETE",
       "expected_role": "Database Analyst",
+      "expected_roles": [
+        "Database Analyst"
+      ],
       "expected_domain": "database",
+      "expected_domains": [
+        "database"
+      ],
       "relevant_evidence_ids": [
         "src_1055b8f580d99531_c0000"
       ],
       "expected_answer_points": [
-        "The database review covers index suitability for frequent identifier reads and transaction boundaries for consistency-sensitive multi-step writes."
+        "One transaction-boundary task remains for the multi-step write; no index task should be merged into it."
       ],
-      "expected_missing_information": null,
-      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
-      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "expected_missing_information": "NONE",
+      "dependency_expectation": "The duplicate clauses concern one write protection and have no required ordering dependency.",
+      "normalization_expectation": "MERGE the repeated transaction-boundary obligation; KEEP query/index review separate because it addresses a different database concern.",
+      "overlap_expectation": "NOT_APPLICABLE",
       "reviewer_status": "PENDING_HUMAN_APPROVAL",
       "reviewer_id_or_initials": "",
       "reviewer_notes": "",
@@ -383,16 +585,27 @@
     {
       "scenario_gold_id": "M1F-G19",
       "scenario_group_id": "M1F-S19",
-      "scenario_label": "Database engine evidence gap",
-      "expected_role": "Database Analyst",
-      "expected_domain": "database",
-      "relevant_evidence_ids": [],
-      "expected_answer_points": [
-        "The supplied corpus does not identify a database engine or product; do not infer one."
+      "scenario_label": "Repeated permission-decision obligation",
+      "primary_archetype": "DUPLICATE_OVERLAPPING_OBLIGATION_N",
+      "expected_status": "COMPLETE",
+      "expected_role": "Security Analyst",
+      "expected_roles": [
+        "Security Analyst"
       ],
-      "expected_missing_information": "database engine or product identity",
-      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
-      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "expected_domain": "security",
+      "expected_domains": [
+        "security"
+      ],
+      "relevant_evidence_ids": [
+        "src_ecad6843b8fcb99b_c0000"
+      ],
+      "expected_answer_points": [
+        "One server-side authorization task remains; authentication/identity remains distinct if it is present."
+      ],
+      "expected_missing_information": "NONE",
+      "dependency_expectation": "The duplicate authorization clauses are independent comparison candidates; identity is not a dependency of the merge itself.",
+      "normalization_expectation": "MERGE the duplicate server-side permission obligations; KEEP authentication/identity separate.",
+      "overlap_expectation": "NOT_APPLICABLE",
       "reviewer_status": "PENDING_HUMAN_APPROVAL",
       "reviewer_id_or_initials": "",
       "reviewer_notes": "",
@@ -401,16 +614,34 @@
     {
       "scenario_gold_id": "M1F-G20",
       "scenario_group_id": "M1F-S20",
-      "scenario_label": "Backup-retention evidence gap",
-      "expected_role": "Database Analyst",
-      "expected_domain": "database",
-      "relevant_evidence_ids": [],
-      "expected_answer_points": [
-        "The supplied corpus does not state a backup-retention period; do not infer a recovery policy."
+      "scenario_label": "Duplicate API authorization inside a mixed plan",
+      "primary_archetype": "DUPLICATE_OVERLAPPING_OBLIGATION_N",
+      "expected_status": "COMPLETE",
+      "expected_role": "API/Architecture Analyst",
+      "expected_roles": [
+        "API/Architecture Analyst",
+        "Security Analyst",
+        "Database Analyst"
       ],
-      "expected_missing_information": "database backup or recovery retention period",
-      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
-      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "expected_domain": "api_architecture",
+      "expected_domains": [
+        "api_architecture",
+        "security",
+        "database"
+      ],
+      "relevant_evidence_ids": [
+        "src_c7f92b35e6b484c5_c0000",
+        "src_ecad6843b8fcb99b_c0000",
+        "src_1055b8f580d99531_c0000"
+      ],
+      "expected_answer_points": [
+        "The two clauses are the same canonical server-side permission decision expressed twice and collapse to one authorization obligation.",
+        "Identity and transaction-boundary obligations remain separate."
+      ],
+      "expected_missing_information": "NONE",
+      "dependency_expectation": "The mixed plan has separate identity and transaction tasks; only the two canonical authorization duplicates are merge candidates.",
+      "normalization_expectation": "MERGE the repeated authorization requirement; KEEP identity and transaction-boundary obligations separate, then remap dependencies without cycles.",
+      "overlap_expectation": "NOT_APPLICABLE",
       "reviewer_status": "PENDING_HUMAN_APPROVAL",
       "reviewer_id_or_initials": "",
       "reviewer_notes": "",
@@ -419,18 +650,27 @@
     {
       "scenario_gold_id": "M1F-G21",
       "scenario_group_id": "M1F-S21",
-      "scenario_label": "REST caller-facing boundary",
-      "expected_role": "API/Architecture Analyst",
-      "expected_domain": "api_architecture",
+      "scenario_label": "Shared security evidence for two tasks",
+      "primary_archetype": "SHARED_OVERLAPPING_EVIDENCE_O",
+      "expected_status": "COMPLETE",
+      "expected_role": "Security Analyst",
+      "expected_roles": [
+        "Security Analyst"
+      ],
+      "expected_domain": "security",
+      "expected_domains": [
+        "security"
+      ],
       "relevant_evidence_ids": [
-        "src_c7f92b35e6b484c5_c0000"
+        "src_ecad6843b8fcb99b_c0000"
       ],
       "expected_answer_points": [
-        "The corpus identifies REST endpoints and requires their API contracts to make validation, error responses, and authorization requirements explicit."
+        "Both tasks legitimately use the security chunk; identity and authorization remain separate task obligations."
       ],
-      "expected_missing_information": null,
-      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
-      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "expected_missing_information": "NONE",
+      "dependency_expectation": "The two tasks are independent; shared evidence is allowed because both obligations are grounded in the same security chunk.",
+      "normalization_expectation": "NOT_APPLICABLE",
+      "overlap_expectation": "KEEP shared evidence src_ecad6843b8fcb99b_c0000 for both identity and authorization; flag only repeated irrelevant context, and never drop evidence required by either task.",
       "reviewer_status": "PENDING_HUMAN_APPROVAL",
       "reviewer_id_or_initials": "",
       "reviewer_notes": "",
@@ -439,18 +679,27 @@
     {
       "scenario_gold_id": "M1F-G22",
       "scenario_group_id": "M1F-S22",
-      "scenario_label": "Producer-consumer dependency contract",
-      "expected_role": "API/Architecture Analyst",
-      "expected_domain": "api_architecture",
+      "scenario_label": "Shared database evidence across storage and access tasks",
+      "primary_archetype": "SHARED_OVERLAPPING_EVIDENCE_O",
+      "expected_status": "COMPLETE",
+      "expected_role": "Database Analyst",
+      "expected_roles": [
+        "Database Analyst"
+      ],
+      "expected_domain": "database",
+      "expected_domains": [
+        "database"
+      ],
       "relevant_evidence_ids": [
-        "src_c7f92b35e6b484c5_c0000"
+        "src_1055b8f580d99531_c0000"
       ],
       "expected_answer_points": [
-        "Architectural dependencies should be explicit when one task or component requires output produced by another."
+        "The database chunk is legitimate shared evidence for both storage context and index review; task obligations remain separate."
       ],
-      "expected_missing_information": null,
-      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
-      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "expected_missing_information": "NONE",
+      "dependency_expectation": "The storage and access tasks are parallel and each needs the same database evidence for a different conclusion.",
+      "normalization_expectation": "NOT_APPLICABLE",
+      "overlap_expectation": "KEEP shared evidence src_1055b8f580d99531_c0000 for both tasks; report unnecessary repetition separately rather than globally deduplicating it.",
       "reviewer_status": "PENDING_HUMAN_APPROVAL",
       "reviewer_id_or_initials": "",
       "reviewer_notes": "",
@@ -459,18 +708,27 @@
     {
       "scenario_gold_id": "M1F-G23",
       "scenario_group_id": "M1F-S23",
-      "scenario_label": "Input validation and failure semantics",
+      "scenario_label": "Shared API evidence for validation and errors",
+      "primary_archetype": "SHARED_OVERLAPPING_EVIDENCE_O",
+      "expected_status": "COMPLETE",
       "expected_role": "API/Architecture Analyst",
+      "expected_roles": [
+        "API/Architecture Analyst"
+      ],
       "expected_domain": "api_architecture",
+      "expected_domains": [
+        "api_architecture"
+      ],
       "relevant_evidence_ids": [
         "src_c7f92b35e6b484c5_c0000"
       ],
       "expected_answer_points": [
-        "API contracts should define request validation and error responses at the REST boundary."
+        "The API chunk is legitimately shared by validation and error-response tasks; both obligations must remain visible."
       ],
-      "expected_missing_information": null,
-      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
-      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "expected_missing_information": "NONE",
+      "dependency_expectation": "Validation and error-response tasks are separate but grounded by one API contract chunk.",
+      "normalization_expectation": "NOT_APPLICABLE",
+      "overlap_expectation": "KEEP shared evidence src_c7f92b35e6b484c5_c0000 for both tasks; do not drop it merely because it appears twice.",
       "reviewer_status": "PENDING_HUMAN_APPROVAL",
       "reviewer_id_or_initials": "",
       "reviewer_notes": "",
@@ -479,18 +737,32 @@
     {
       "scenario_gold_id": "M1F-G24",
       "scenario_group_id": "M1F-S24",
-      "scenario_label": "Validation and authorization contract fields",
-      "expected_role": "API/Architecture Analyst",
-      "expected_domain": "api_architecture",
+      "scenario_label": "Shared security/API context for a protected endpoint",
+      "primary_archetype": "SHARED_OVERLAPPING_EVIDENCE_O",
+      "expected_status": "COMPLETE",
+      "expected_role": "Security Analyst",
+      "expected_roles": [
+        "Security Analyst",
+        "API/Architecture Analyst"
+      ],
+      "expected_domain": "security",
+      "expected_domains": [
+        "security",
+        "api_architecture"
+      ],
       "relevant_evidence_ids": [
+        "src_ecad6843b8fcb99b_c0000",
         "src_c7f92b35e6b484c5_c0000"
       ],
       "expected_answer_points": [
-        "The API contract should make request validation and authorization requirements explicit, alongside error responses where applicable."
+        "Task A uses security evidence plus the API chunk for authorization-contract and permission review.",
+        "Task B uses the API chunk for request validation and error-contract review.",
+        "The API chunk is legitimate shared evidence; security evidence remains task-specific to Task A."
       ],
-      "expected_missing_information": null,
-      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
-      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "expected_missing_information": "NONE",
+      "dependency_expectation": "The two workers address different obligations; shared endpoint evidence is legitimate, not a reason to merge tasks.",
+      "normalization_expectation": "NOT_APPLICABLE",
+      "overlap_expectation": "KEEP src_c7f92b35e6b484c5_c0000 as legitimate shared API evidence for both tasks; keep src_ecad6843b8fcb99b_c0000 specific to Task A and do not force it into Task B.",
       "reviewer_status": "PENDING_HUMAN_APPROVAL",
       "reviewer_id_or_initials": "",
       "reviewer_notes": "",
@@ -499,18 +771,32 @@
     {
       "scenario_gold_id": "M1F-G25",
       "scenario_group_id": "M1F-S25",
-      "scenario_label": "Integration dependency trace",
-      "expected_role": "API/Architecture Analyst",
-      "expected_domain": "api_architecture",
+      "scenario_label": "Shared evidence in an authorized record workflow",
+      "primary_archetype": "SHARED_OVERLAPPING_EVIDENCE_O",
+      "expected_status": "COMPLETE",
+      "expected_role": "Security Analyst",
+      "expected_roles": [
+        "Security Analyst",
+        "Database Analyst"
+      ],
+      "expected_domain": "security",
+      "expected_domains": [
+        "security",
+        "database"
+      ],
       "relevant_evidence_ids": [
-        "src_c7f92b35e6b484c5_c0000"
+        "src_ecad6843b8fcb99b_c0000",
+        "src_1055b8f580d99531_c0000"
       ],
       "expected_answer_points": [
-        "The integration boundary should state which upstream output the dependent component requires."
+        "Task A uses database evidence to identify the relational user-record storage context.",
+        "Task B uses database evidence plus security evidence to review the authorized consistency-sensitive write.",
+        "The database chunk is legitimate shared evidence and must not be globally removed as duplicate context."
       ],
-      "expected_missing_information": null,
-      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
-      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "expected_missing_information": "NONE",
+      "dependency_expectation": "The authorization and consistency tasks are distinct; any shared item must be justified by both task obligations.",
+      "normalization_expectation": "NOT_APPLICABLE",
+      "overlap_expectation": "KEEP src_1055b8f580d99531_c0000 for both Task A and Task B; retain security evidence only for Task B and do not globally deduplicate the shared database context.",
       "reviewer_status": "PENDING_HUMAN_APPROVAL",
       "reviewer_id_or_initials": "",
       "reviewer_notes": "",
@@ -519,18 +805,25 @@
     {
       "scenario_gold_id": "M1F-G26",
       "scenario_group_id": "M1F-S26",
-      "scenario_label": "Three-part REST contract review",
+      "scenario_label": "Production geography is not in the frozen corpus",
+      "primary_archetype": "PARTIAL_INTENTIONAL_NO_EVIDENCE",
+      "expected_status": "NO_EVIDENCE",
       "expected_role": "API/Architecture Analyst",
+      "expected_roles": [
+        "API/Architecture Analyst"
+      ],
       "expected_domain": "api_architecture",
-      "relevant_evidence_ids": [
-        "src_c7f92b35e6b484c5_c0000"
+      "expected_domains": [
+        "api_architecture"
       ],
+      "relevant_evidence_ids": [],
       "expected_answer_points": [
-        "A REST contract should state request validation, error responses, and authorization requirements as visible contract elements."
+        "The frozen corpus does not document a production region; the answer must explicitly report that the location is unavailable."
       ],
-      "expected_missing_information": null,
-      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
-      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "expected_missing_information": "The production geography is absent from all three frozen chunks; do not infer a region.",
+      "dependency_expectation": "NOT_APPLICABLE",
+      "normalization_expectation": "NOT_APPLICABLE",
+      "overlap_expectation": "NOT_APPLICABLE",
       "reviewer_status": "PENDING_HUMAN_APPROVAL",
       "reviewer_id_or_initials": "",
       "reviewer_notes": "",
@@ -539,16 +832,27 @@
     {
       "scenario_gold_id": "M1F-G27",
       "scenario_group_id": "M1F-S27",
-      "scenario_label": "Rate-limit evidence gap",
-      "expected_role": "API/Architecture Analyst",
-      "expected_domain": "api_architecture",
-      "relevant_evidence_ids": [],
-      "expected_answer_points": [
-        "The supplied corpus does not state a request quota or throttling rule; do not infer one."
+      "scenario_label": "Supported token fact plus missing password policy",
+      "primary_archetype": "PARTIAL_INTENTIONAL_NO_EVIDENCE",
+      "expected_status": "PARTIAL",
+      "expected_role": "Security Analyst",
+      "expected_roles": [
+        "Security Analyst"
       ],
-      "expected_missing_information": "API request-rate, quota, or throttling limit",
-      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
-      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "expected_domain": "security",
+      "expected_domains": [
+        "security"
+      ],
+      "relevant_evidence_ids": [
+        "src_ecad6843b8fcb99b_c0000"
+      ],
+      "expected_answer_points": [
+        "Bearer access tokens and identity verification are supported; no password minimum length is stated in the frozen corpus."
+      ],
+      "expected_missing_information": "No minimum password length is available; answer the supported token/identity portion and mark the password threshold as unknown.",
+      "dependency_expectation": "NOT_APPLICABLE",
+      "normalization_expectation": "NOT_APPLICABLE",
+      "overlap_expectation": "NOT_APPLICABLE",
       "reviewer_status": "PENDING_HUMAN_APPROVAL",
       "reviewer_id_or_initials": "",
       "reviewer_notes": "",
@@ -557,16 +861,27 @@
     {
       "scenario_gold_id": "M1F-G28",
       "scenario_group_id": "M1F-S28",
-      "scenario_label": "Request-timeout evidence gap",
+      "scenario_label": "API behavior plus missing SLA target",
+      "primary_archetype": "PARTIAL_INTENTIONAL_NO_EVIDENCE",
+      "expected_status": "PARTIAL",
       "expected_role": "API/Architecture Analyst",
-      "expected_domain": "api_architecture",
-      "relevant_evidence_ids": [],
-      "expected_answer_points": [
-        "The supplied corpus does not define a request timeout or response-time limit; do not infer one."
+      "expected_roles": [
+        "API/Architecture Analyst"
       ],
-      "expected_missing_information": "API request or response timeout value",
-      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
-      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "expected_domain": "api_architecture",
+      "expected_domains": [
+        "api_architecture"
+      ],
+      "relevant_evidence_ids": [
+        "src_c7f92b35e6b484c5_c0000"
+      ],
+      "expected_answer_points": [
+        "The API contract covers request validation, error responses, and authorization requirements; no SLA target is present."
+      ],
+      "expected_missing_information": "No latency, uptime, or other SLA target is stated in the frozen corpus; do not invent one.",
+      "dependency_expectation": "NOT_APPLICABLE",
+      "normalization_expectation": "NOT_APPLICABLE",
+      "overlap_expectation": "NOT_APPLICABLE",
       "reviewer_status": "PENDING_HUMAN_APPROVAL",
       "reviewer_id_or_initials": "",
       "reviewer_notes": "",
@@ -575,16 +890,29 @@
     {
       "scenario_gold_id": "M1F-G29",
       "scenario_group_id": "M1F-S29",
-      "scenario_label": "API-versioning evidence gap",
-      "expected_role": "API/Architecture Analyst",
-      "expected_domain": "api_architecture",
-      "relevant_evidence_ids": [],
-      "expected_answer_points": [
-        "The supplied corpus does not define an API versioning or compatibility policy; do not infer one."
+      "scenario_label": "Database evidence with unspecified schema name",
+      "primary_archetype": "PARTIAL_INTENTIONAL_NO_EVIDENCE",
+      "expected_status": "PARTIAL",
+      "expected_role": "Database Analyst",
+      "expected_roles": [
+        "Database Analyst"
       ],
-      "expected_missing_information": "API version identifier or compatibility policy",
-      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
-      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "expected_domain": "database",
+      "expected_domains": [
+        "database"
+      ],
+      "relevant_evidence_ids": [
+        "src_1055b8f580d99531_c0000"
+      ],
+      "expected_answer_points": [
+        "User records are stored in a relational database.",
+        "Consistency-sensitive multi-step writes need transaction boundaries.",
+        "The frozen corpus does not name a production table or schema."
+      ],
+      "expected_missing_information": "The physical production table/schema name is absent; do not fabricate an identifier.",
+      "dependency_expectation": "NOT_APPLICABLE",
+      "normalization_expectation": "NOT_APPLICABLE",
+      "overlap_expectation": "NOT_APPLICABLE",
       "reviewer_status": "PENDING_HUMAN_APPROVAL",
       "reviewer_id_or_initials": "",
       "reviewer_notes": "",
@@ -593,16 +921,28 @@
     {
       "scenario_gold_id": "M1F-G30",
       "scenario_group_id": "M1F-S30",
-      "scenario_label": "Request-size evidence gap",
-      "expected_role": "API/Architecture Analyst",
-      "expected_domain": "api_architecture",
-      "relevant_evidence_ids": [],
-      "expected_answer_points": [
-        "The supplied corpus does not state a maximum request-body size; do not infer a payload limit."
+      "scenario_label": "Security controls with unspecified algorithm",
+      "primary_archetype": "PARTIAL_INTENTIONAL_NO_EVIDENCE",
+      "expected_status": "PARTIAL",
+      "expected_role": "Security Analyst",
+      "expected_roles": [
+        "Security Analyst"
       ],
-      "expected_missing_information": "maximum API request payload or body-size limit",
-      "dependency_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
-      "overlap_expectation": "NOT_SCORED_AT_SCENARIO_LEVEL",
+      "expected_domain": "security",
+      "expected_domains": [
+        "security"
+      ],
+      "relevant_evidence_ids": [
+        "src_ecad6843b8fcb99b_c0000"
+      ],
+      "expected_answer_points": [
+        "Bearer access tokens, identity verification, and server-side authorization are supported.",
+        "The frozen corpus does not specify a production signing/authentication algorithm."
+      ],
+      "expected_missing_information": "No production signing or authentication algorithm is stated; do not infer one from JWT terminology.",
+      "dependency_expectation": "NOT_APPLICABLE",
+      "normalization_expectation": "NOT_APPLICABLE",
+      "overlap_expectation": "NOT_APPLICABLE",
       "reviewer_status": "PENDING_HUMAN_APPROVAL",
       "reviewer_id_or_initials": "",
       "reviewer_notes": "",
