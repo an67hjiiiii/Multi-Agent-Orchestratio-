@@ -92,7 +92,7 @@ _REVIEW_FOR_PATTERN = re.compile(
     re.IGNORECASE,
 )
 _COMMAND_BODY_PATTERN = re.compile(
-    r"^(?:review|assess|analy[sz]e|audit|inspect|validate)\s+"
+    r"^(?P<action>review|assess|analy[sz]e|audit|inspect|validate)\s+"
     r"(?P<body>[^.!?]+)$",
     re.IGNORECASE,
 )
@@ -514,6 +514,19 @@ def _split_list_body(body: str) -> list[str]:
     return [anchor for raw in values if (anchor := _clean_anchor(raw))]
 
 
+def _split_command_body(action: str, body: str) -> list[str]:
+    """Split a command body only when every part remains an action clause."""
+
+    parts = _split_list_body(body)
+    if len(parts) < 2:
+        return []
+
+    clauses = [_clean_anchor(f"{action} {parts[0]}"), *parts[1:]]
+    if all(_is_task_action_clause(clause) for clause in clauses):
+        return clauses
+    return []
+
+
 def _dependency_structure(request: str) -> _ObligationStructure | None:
     """Extract prerequisite-to-dependent arguments from explicit relation syntax."""
 
@@ -645,13 +658,18 @@ def _coordinated_structure(request: str) -> _ObligationStructure | None:
                 tuple(f"{action} {target} for {attribute}" for attribute in attributes)
             )
 
+    command = _COMMAND_BODY_PATTERN.search(normalized)
+    if command and not _REPEATED_OBLIGATIONS_PATTERN.search(normalized):
+        anchors = _split_command_body(command.group("action"), command.group("body"))
+        if len(anchors) >= 2:
+            return _ObligationStructure(tuple(anchors))
+
     bodies: list[str] = []
     if ":" in normalized:
         bodies.append(clause_source)
     for pattern in (
         _MODAL_BODY_PATTERN,
         _LIST_INTRO_PATTERN,
-        _COMMAND_BODY_PATTERN,
     ):
         match = pattern.search(normalized)
         if match and not _REPEATED_OBLIGATIONS_PATTERN.search(normalized):
