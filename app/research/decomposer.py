@@ -299,7 +299,7 @@ _TASK_SCHEMA = (
     '"role_profile":"declared role profile",'
     '"depends_on":[],"covers_obligations":["O1"]}]}'
 )
-PROMPT_VERSION = "p-lite-decomposer-v7"
+PROMPT_VERSION = "p-lite-decomposer-v8"
 STRUCTURED_OUTPUT_CONFIG_VERSION = "ollama-task-plan-schema-v3"
 PLANNER_TEMPERATURE = 0.0
 TASK_PLAN_JSON_SCHEMA = TaskPlan.model_json_schema()
@@ -351,6 +351,8 @@ class _CoverageState:
     covered_ids: list[str]
     missing_ids: list[str]
     reason: str
+    missing_concern_ids: list[str] = field(default_factory=list)
+    misrouted_concern_ids: list[str] = field(default_factory=list)
 
 
 class _CoverageValidationError(_DecompositionOutputError):
@@ -379,6 +381,15 @@ def _canonical_obligation_kind(source_anchor: str) -> str | None:
 class _ObligationStructure:
     anchors: tuple[str, ...]
     dependency_pairs: tuple[tuple[int, int], ...] = ()
+
+
+@dataclass(frozen=True)
+class _ExplicitConcern:
+    """A request-derived semantic concern checked independently of obligations."""
+
+    concern_id: str
+    source_anchor: str
+    canonical_domain: str | None
 
 
 def _clean_anchor(value: str) -> str:
@@ -839,11 +850,48 @@ def _derive_required_obligations(request: str) -> list[RequiredObligation]:
     ]
 
 
+def _derive_explicit_concerns(request: str) -> list[_ExplicitConcern]:
+    """Retain explicit list concerns without changing obligation segmentation."""
+
+    anchors: list[str] = []
+    for pattern in (_MODAL_BODY_PATTERN, _LIST_INTRO_PATTERN):
+        match = pattern.search(request)
+        if not match:
+            continue
+        anchors.extend(_split_list_body(match.group("body")))
+
+    unique_anchors: list[str] = []
+    seen_anchors: set[str] = set()
+    for anchor in anchors:
+        key = anchor.casefold()
+        if key in seen_anchors:
+            continue
+        seen_anchors.add(key)
+        unique_anchors.append(anchor)
+
+    return [
+        _ExplicitConcern(
+            concern_id=f"C{index}",
+            source_anchor=anchor,
+            canonical_domain=_canonical_obligation_kind(anchor),
+        )
+        for index, anchor in enumerate(unique_anchors, start=1)
+    ]
+
+
 def _format_obligations(obligations: list[RequiredObligation]) -> str:
     return "\n".join(
         f"- {item.obligation_id} | canonical_kind={item.canonical_kind or 'unknown'} "
         f"| source_anchor={item.source_anchor}"
         for item in obligations
+    )
+
+
+def _format_concerns(concerns: list[_ExplicitConcern]) -> str:
+    return "\n".join(
+        f"- {item.concern_id} | canonical_domain={item.canonical_domain or 'unknown'} "
+        f"| source_anchor={item.source_anchor}"
+        for item in concerns
     )
 
 
@@ -1096,6 +1144,38 @@ def _retains_source_anchor(task_text: str, source_anchor: str) -> bool:
     return False
 
 
+def _validate_explicit_concerns(
+    tasks: list[TaskItem],
+    concerns: list[_ExplicitConcern],
+) -> tuple[list[str], list[str]]:
+    """Return missing and misrouted request concerns independently of O* claims.
+
+    This deliberately checks each request-derived concern separately instead of
+    accepting an existential lexical match against an umbrella obligation.
+    Domain metadata is only a routing check after task text retains the concern.
+    """
+
+    missing_ids: list[str] = []
+    misrouted_ids: list[str] = []
+    for concern in concerns:
+        retaining_tasks = [
+            task
+            for task in tasks
+            if _retains_source_anchor(
+                f"{task.title} {task.objective} {task.expected_output}",
+                concern.source_anchor,
+            )
+        ]
+        if not retaining_tasks:
+            missing_ids.append(concern.concern_id)
+            continue
+        if concern.canonical_domain and not any(
+            task.domain == concern.canonical_domain for task in retaining_tasks
+        ):
+            misrouted_ids.append(concern.concern_id)
+    return missing_ids, misrouted_ids
+
+
 def _validate_dependency_direction(
     request: str,
     tasks: list[TaskItem],
@@ -1152,9 +1232,11 @@ def _validate_obligation_coverage(
     request: str,
     tasks: list[TaskItem],
     required_obligations: list[RequiredObligation],
+    explicit_concerns: list[_ExplicitConcern] | None = None,
 ) -> _CoverageState:
-    """Validate explicit request coverage plus the existing dependency contract."""
+    """Validate obligations, explicit concerns, and dependency structure."""
 
+    explicit_concerns = explicit_concerns or []
     coverage_error: _CoverageValidationError | None = None
     try:
         coverage = _validate_explicit_coverage(request, tasks, required_obligations)
@@ -1162,13 +1244,31 @@ def _validate_obligation_coverage(
         coverage = exc.state
         coverage_error = exc
 
+    missing_concern_ids, misrouted_concern_ids = _validate_explicit_concerns(
+        tasks,
+        explicit_concerns,
+    )
+    concern_reasons: list[str] = []
+    if missing_concern_ids:
+        concern_reasons.append(
+            "missing explicit concerns: " + ", ".join(missing_concern_ids)
+        )
+    if misrouted_concern_ids:
+        concern_reasons.append(
+            "misrouted explicit concerns: " + ", ".join(misrouted_concern_ids)
+        )
+
     structural_reasons: list[str] = []
     try:
         _validate_dependencies(tasks)
     except _DecompositionOutputError as exc:
         structural_reasons.append(str(exc))
 
-    if coverage_error is None and not structural_reasons:
+    if (
+        coverage_error is None
+        and not concern_reasons
+        and not structural_reasons
+    ):
         try:
             _validate_dependency_direction(request, tasks, required_obligations)
         except _DecompositionOutputError as exc:
@@ -1183,18 +1283,21 @@ def _validate_obligation_coverage(
             "the request states an order or dependency"
         )
 
-    if coverage_error is not None or structural_reasons:
+    if coverage_error is not None or concern_reasons or structural_reasons:
         # Preserve valid task-to-obligation claims so the one bounded repair
         # corrects only the structural defect instead of rebuilding the plan.
         reasons = []
         if coverage_error is not None:
             reasons.append(coverage.reason)
+        reasons.extend(concern_reasons)
         reasons.extend(structural_reasons)
         raise _CoverageValidationError(
             _CoverageState(
                 coverage.covered_ids,
                 coverage.missing_ids,
                 "; ".join(dict.fromkeys(reasons)),
+                missing_concern_ids=missing_concern_ids,
+                misrouted_concern_ids=misrouted_concern_ids,
             )
         )
     return coverage
@@ -1226,10 +1329,12 @@ def _prompt(
     query: str,
     planning_context: str,
     required_obligations: list[RequiredObligation],
+    explicit_concerns: list[_ExplicitConcern] | None = None,
     retry_reason: str | None = None,
     previous_plan: str = "",
     coverage: _CoverageState | None = None,
 ) -> str:
+    explicit_concerns = explicit_concerns or []
     retry_note = ""
     if retry_reason:
         covered_ids = coverage.covered_ids if coverage else []
@@ -1240,6 +1345,20 @@ def _prompt(
         missing_obligations = [
             item for item in required_obligations if item.obligation_id in missing_set
         ]
+        missing_concern_ids = coverage.missing_concern_ids if coverage else [
+            item.concern_id for item in explicit_concerns
+        ]
+        misrouted_concern_ids = coverage.misrouted_concern_ids if coverage else []
+        missing_concern_set = set(missing_concern_ids)
+        misrouted_concern_set = set(misrouted_concern_ids)
+        missing_concerns = [
+            item for item in explicit_concerns if item.concern_id in missing_concern_set
+        ]
+        misrouted_concerns = [
+            item
+            for item in explicit_concerns
+            if item.concern_id in misrouted_concern_set
+        ]
         retry_note = (
             "\n\nPREVIOUS INVALID TASK PLAN:\n"
             f"{previous_plan}\n\n"
@@ -1248,14 +1367,28 @@ def _prompt(
             f"Already covered obligation IDs: {', '.join(covered_ids) or 'none'}\n"
             "Missing obligations:\n"
             f"{_format_obligations(missing_obligations)}\n"
+            "Missing explicit concerns:\n"
+            f"{_format_concerns(missing_concerns) or 'none'}\n"
+            "Misrouted explicit concerns:\n"
+            f"{_format_concerns(misrouted_concerns) or 'none'}\n"
             "Return one corrected complete plan. Preserve every already-covered "
-            "obligation and add coverage for every missing obligation. Do not replace "
-            "one covered set with another. Return a corrected JSON object only."
+            "obligation and correctly routed concern, then add every missing obligation "
+            "and concern. Do not replace one covered set with another. Return a corrected "
+            "JSON object only."
         )
+    concern_section = ""
+    if explicit_concerns:
+        concern_section = (
+            "EXPLICIT CONCERNS TO PRESERVE "
+            "(derived only from the current request):\n"
+            f"{_format_concerns(explicit_concerns)}"
+        )
+    concern_suffix = f"{concern_section}\n\n" if concern_section else ""
     return (
         f"{_STATIC_PROMPT_PREFIX}\n\n"
         "CURRENT REQUEST:\n"
         f"{query}\n\n"
+        f"{concern_suffix}"
         "PLANNING EVIDENCE (guidance only; not answer evidence):\n"
         f"{planning_context}\n\n"
         "REQUIRED OBLIGATIONS (derived only from the current request):\n"
@@ -1319,6 +1452,7 @@ async def decompose(
     request = query
     planning_evidence_ids = _extract_planning_evidence_ids(planning_context)
     required_obligations = _derive_required_obligations(request)
+    explicit_concerns = _derive_explicit_concerns(request)
     system = _SYSTEM_PROMPT
     retry_reason: str | None = None
     previous_plan = ""
@@ -1326,6 +1460,7 @@ async def decompose(
         [],
         [item.obligation_id for item in required_obligations],
         "coverage not validated",
+        missing_concern_ids=[item.concern_id for item in explicit_concerns],
     )
 
     for attempt in range(2):
@@ -1337,6 +1472,7 @@ async def decompose(
                     request,
                     planning_context,
                     required_obligations,
+                    explicit_concerns,
                     retry_reason,
                     previous_plan,
                     coverage,
@@ -1349,6 +1485,7 @@ async def decompose(
                 request,
                 tasks,
                 required_obligations,
+                explicit_concerns,
             )
             return DecompositionResult(
                 request=request,
