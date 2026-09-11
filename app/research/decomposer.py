@@ -514,46 +514,103 @@ def _split_list_body(body: str) -> list[str]:
     return [anchor for raw in values if (anchor := _clean_anchor(raw))]
 
 
-def _is_structural_command_conjunct(value: str) -> bool:
-    """Recognize a bounded unknown command head without widening global action rules."""
+_ACTION_CLAUSE = "ACTION_CLAUSE"
+_SHARED_OBJECT_OR_HEAD = "SHARED_OBJECT_OR_HEAD"
+_NOUN_FRAGMENT = "NOUN_FRAGMENT"
+_TEMPORAL_OR_STATE_FRAGMENT = "TEMPORAL_OR_STATE_FRAGMENT"
+_AMBIGUOUS = "AMBIGUOUS"
+_TEMPORAL_OR_STATE_LEAD_PATTERN = re.compile(
+    r"^(?:for|before|after|when|while|if|using|within|without|with|during|"
+    r"then|next|subsequently|the|a|an)\b",
+    re.IGNORECASE,
+)
 
-    words = re.findall(r"[A-Za-z]+", _clean_anchor(value).casefold())
-    if len(words) < 3:
+
+def _has_independent_unknown_action_shape(
+    value: str, *, preceding_action: str | None
+) -> bool:
+    """Accept a bare conjunct only when several structural signals agree.
+
+    Unknown heads are deliberately not treated as actions from their spelling or
+    word count alone.  They need an established preceding action, a distinct
+    request-level obligation kind, and an obligation-shaped object phrase.
+    """
+
+    if not preceding_action or _TEMPORAL_OR_STATE_LEAD_PATTERN.match(value):
         return False
-    head = words[0]
-    if re.fullmatch(
-        r"(?:a|an|the|and|or|but|for|before|after|when|while|if|using|with|"
-        r"without|within|during|then|next|first|to|from|by|is|are|be|been|"
-        r"being|was|were|do|does|did|have|has|had|can|could|may|might|must|"
-        r"should|will|would)",
-        head,
+    terms = re.findall(r"[A-Za-z]+", value.casefold())
+    if len(terms) < 3 or re.search(r"(?:tion|sion|ance|ence|ness|ity)$", terms[0]):
+        return False
+    preceding_kind = _canonical_obligation_kind(preceding_action)
+    candidate_kind = _canonical_obligation_kind(value)
+    if not candidate_kind or candidate_kind == preceding_kind:
+        return False
+    # A non-head deverbal object makes the conjunct a bounded action/object
+    # phrase rather than a simple alternate noun under the shared command.
+    return any(term.endswith("ing") for term in terms[1:])
+
+
+def _classify_coordinated_segment(
+    value: str, *, preceding_action: str | None = None
+) -> str:
+    """Classify a candidate before permitting it to become an obligation."""
+
+    clean = _clean_anchor(value)
+    if not clean:
+        return _AMBIGUOUS
+    if _TEMPORAL_OR_STATE_LEAD_PATTERN.match(clean):
+        return _TEMPORAL_OR_STATE_FRAGMENT
+    if _is_task_action_clause(clean):
+        return _ACTION_CLAUSE
+    if _has_independent_unknown_action_shape(
+        clean, preceding_action=preceding_action
     ):
-        return False
-    if re.search(r"(?:tion|sion|ance|ence|ness|ity|ing)$", head):
-        return False
-    return True
+        return _ACTION_CLAUSE
+    terms = re.findall(r"[A-Za-z]+", clean.casefold())
+    if len(terms) <= 2 or re.match(r"^(?:the|a|an)\b", clean, re.IGNORECASE):
+        return _SHARED_OBJECT_OR_HEAD
+    return _NOUN_FRAGMENT
 
 
-def _split_command_body(action: str, body: str) -> list[str]:
-    """Split only coordinated command clauses that each retain an obligation."""
+def _accept_action_segments(candidates: list[str]) -> list[str]:
+    """Fail closed unless every candidate is an independently task-like clause."""
 
+    clauses = [_clean_anchor(candidate) for candidate in candidates]
+    clauses = [clause for clause in clauses if clause]
+    if len(clauses) < 2:
+        return []
+
+    preceding_action: str | None = None
+    for clause in clauses:
+        classification = _classify_coordinated_segment(
+            clause, preceding_action=preceding_action
+        )
+        if classification != _ACTION_CLAUSE:
+            return []
+        preceding_action = clause
+    return clauses
+
+
+def _split_command_body(action: str, body: str, *, comma_list: bool) -> list[str]:
+    """Stage a command body and retain only independently actionable segments."""
+
+    separator = (
+        r"\s*[;,]\s*(?:and\s+|but\s+|or\s+)?|\s+\b(?:and|but|or)\b\s+"
+        if comma_list
+        else r"\s+\b(?:and|but|or)\b\s+"
+    )
     parts = [
         anchor
-        for raw in _COORDINATOR_PATTERN.split(_clean_anchor(body))
+        for raw in re.split(separator, _clean_anchor(body), flags=re.IGNORECASE)
         if (anchor := _clean_anchor(raw))
     ]
     if len(parts) < 2:
         return []
 
-    clauses = [_clean_anchor(f"{action} {parts[0]}"), *parts[1:]]
-    valid = [_is_task_action_clause(clauses[0])]
-    valid.extend(
-        _is_task_action_clause(clause) or _is_structural_command_conjunct(clause)
-        for clause in clauses[1:]
-    )
-    if all(valid):
-        return clauses
-    return []
+    # The initial imperative scopes only the first candidate.  Later candidates
+    # must carry their own predicate (or satisfy the conservative bare-conjunct
+    # classifier) and cannot inherit the command head.
+    return _accept_action_segments([f"{action} {parts[0]}", *parts[1:]])
 
 
 def _dependency_structure(request: str) -> _ObligationStructure | None:
@@ -683,13 +740,27 @@ def _coordinated_structure(request: str) -> _ObligationStructure | None:
             and len(attributes) >= 2
             and all(not _has_clause_action(attribute) for attribute in attributes)
         ):
-            return _ObligationStructure(
-                tuple(f"{action} {target} for {attribute}" for attribute in attributes)
+            anchors = _accept_action_segments(
+                [f"{action} {target} for {attribute}" for attribute in attributes]
             )
+            if anchors:
+                return _ObligationStructure(tuple(anchors))
 
-    command = _COMMAND_BODY_PATTERN.search(normalized)
+    # Stage 1 handles an explicit comma/semicolon action list before the
+    # conjunction-only path.  The command pattern is a candidate parser only:
+    # acceptance is centralized in _accept_action_segments.
+    command = _COMMAND_BODY_PATTERN.search(clause_source)
     if command and not _REPEATED_OBLIGATIONS_PATTERN.search(normalized):
-        anchors = _split_command_body(command.group("action"), command.group("body"))
+        body = command.group("body")
+        anchors = []
+        if re.search(r"[;,]", body):
+            anchors = _split_command_body(command.group("action"), body, comma_list=True)
+        if not anchors and _COORDINATOR_PATTERN.search(body):
+            # Stage 2: conjunction-only candidates.  This follows the same
+            # classifier and fail-closed rule as the comma-list stage.
+            anchors = _split_command_body(
+                command.group("action"), body, comma_list=False
+            )
         if len(anchors) >= 2:
             return _ObligationStructure(tuple(anchors))
 
@@ -704,58 +775,26 @@ def _coordinated_structure(request: str) -> _ObligationStructure | None:
         if match and not _REPEATED_OBLIGATIONS_PATTERN.search(normalized):
             bodies.append(match.group("body"))
     for body in bodies:
-        anchors = _split_list_body(body)
-        if len(anchors) >= 2:
+        anchors = _accept_action_segments(_split_list_body(body))
+        if anchors:
             return _ObligationStructure(tuple(anchors))
 
-    raw_parts = re.split(r"\s*[;,]\s*", clause_source)
-    if len(raw_parts) >= 2:
-        parts = [_coordinated_anchor(raw) for raw in raw_parts]
-        parts = [part for part in parts if part]
-        while len(parts) >= 2 and not _has_clause_action(parts[0]):
-            parts.pop(0)
-        expanded_parts: list[str] = []
-        for part in parts:
-            coordinated = [
-                anchor
-                for raw in _COORDINATOR_PATTERN.split(part)
-                if (anchor := _coordinated_anchor(raw))
-            ]
-            if len(coordinated) >= 2 and all(
-                _has_clause_action(anchor) for anchor in coordinated
-            ):
-                expanded_parts.extend(coordinated)
-            else:
-                expanded_parts.append(part)
-        parts = expanded_parts
-        action_count = sum(_has_clause_action(part) for part in parts)
-        if len(parts) >= 2 and (
-            action_count == len(parts) or (len(parts) >= 3 and action_count >= 1)
-        ):
-            return _ObligationStructure(tuple(parts))
-
-    explicit_multi = bool(
-        re.search(
-            r"\b(?:separate|distinct|multiple|both)\b|"
-            r"\b(?:obligations?|requirements?|controls?|tasks?)\b",
-            normalized,
-            re.IGNORECASE,
-        )
-    )
-    if explicit_multi:
-        tail = re.split(
-            r"\b(?:when|where|whether|with)\b", clause_source, flags=re.IGNORECASE
-        )[-1]
-        anchors = [
+    # A non-imperative request (for example, a modal sentence) can still
+    # present top-level action clauses.  It receives the same full-set
+    # classification instead of the former partial action-count acceptance.
+    if re.search(r"[;,]", clause_source):
+        parts = [
             anchor
             for raw in re.split(
-                r"\s*[;,]\s*|\s+\b(?:and|but|or)\b\s+",
-                tail,
+                r"\s*[;,]\s*(?:and\s+|but\s+|or\s+)?|"
+                r"\s+\b(?:and|but|or)\b\s+",
+                clause_source,
                 flags=re.IGNORECASE,
             )
             if (anchor := _coordinated_anchor(raw))
         ]
-        if len(anchors) >= 2:
+        anchors = _accept_action_segments(parts)
+        if anchors:
             return _ObligationStructure(tuple(anchors))
 
     parts = [
@@ -763,8 +802,9 @@ def _coordinated_structure(request: str) -> _ObligationStructure | None:
         for raw in _COORDINATOR_PATTERN.split(clause_source)
         if (anchor := _coordinated_anchor(raw))
     ]
-    if len(parts) >= 2 and all(_has_clause_action(part) for part in parts):
-        return _ObligationStructure(tuple(parts))
+    anchors = _accept_action_segments(parts)
+    if anchors:
+        return _ObligationStructure(tuple(anchors))
     return None
 
 
