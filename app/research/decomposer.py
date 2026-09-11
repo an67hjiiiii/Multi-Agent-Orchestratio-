@@ -92,7 +92,7 @@ _REVIEW_FOR_PATTERN = re.compile(
     re.IGNORECASE,
 )
 _COMMAND_BODY_PATTERN = re.compile(
-    r"^(?P<action>review|assess|analy[sz]e|audit|inspect|validate)\s+"
+    r"^(?P<action>[A-Za-z]{2,32})\s+"
     r"(?P<body>[^.!?]+)$",
     re.IGNORECASE,
 )
@@ -514,15 +514,44 @@ def _split_list_body(body: str) -> list[str]:
     return [anchor for raw in values if (anchor := _clean_anchor(raw))]
 
 
-def _split_command_body(action: str, body: str) -> list[str]:
-    """Split a command body only when every part remains an action clause."""
+def _is_structural_command_conjunct(value: str) -> bool:
+    """Recognize a bounded unknown command head without widening global action rules."""
 
-    parts = _split_list_body(body)
+    words = re.findall(r"[A-Za-z]+", _clean_anchor(value).casefold())
+    if len(words) < 3:
+        return False
+    head = words[0]
+    if re.fullmatch(
+        r"(?:a|an|the|and|or|but|for|before|after|when|while|if|using|with|"
+        r"without|within|during|then|next|first|to|from|by|is|are|be|been|"
+        r"being|was|were|do|does|did|have|has|had|can|could|may|might|must|"
+        r"should|will|would)",
+        head,
+    ):
+        return False
+    if re.search(r"(?:tion|sion|ance|ence|ness|ity|ing)$", head):
+        return False
+    return True
+
+
+def _split_command_body(action: str, body: str) -> list[str]:
+    """Split only coordinated command clauses that each retain an obligation."""
+
+    parts = [
+        anchor
+        for raw in _COORDINATOR_PATTERN.split(_clean_anchor(body))
+        if (anchor := _clean_anchor(raw))
+    ]
     if len(parts) < 2:
         return []
 
     clauses = [_clean_anchor(f"{action} {parts[0]}"), *parts[1:]]
-    if all(_is_task_action_clause(clause) for clause in clauses):
+    valid = [_is_task_action_clause(clauses[0])]
+    valid.extend(
+        _is_task_action_clause(clause) or _is_structural_command_conjunct(clause)
+        for clause in clauses[1:]
+    )
+    if all(valid):
         return clauses
     return []
 
