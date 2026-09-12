@@ -1,152 +1,206 @@
-import { useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useResearchApp } from "./app/useResearchApp";
-import { normalizeRun } from "./lib/uiAdapter";
-import { AnswerCanvas } from "./components/AnswerCanvas";
-import { EvidenceDrawer, type DrawerTab } from "./components/EvidenceDrawer";
-import { Sidebar } from "./components/Sidebar";
-import { WorkspaceHeader, type ViewMode } from "./components/WorkspaceHeader";
+import { api } from "./lib/api";
+import { normalizeRun, type NormalizedUiRun } from "./lib/uiAdapter";
+import type { AuthUser, SourceChunk, SourceDetail, SourceSummary } from "./types/api";
+import {
+  AdminView,
+  ChunkDialog,
+  HistoryView,
+  HomeView,
+  KnowledgeView,
+  ResearchView,
+  RunInspector,
+  SettingsView,
+} from "./components/ProductViews";
+import {
+  AuthScreen,
+  AppHeader,
+  NavigationRail,
+  type DemoSession,
+  type ProductPage,
+} from "./components/ProductNavigation";
 
-const M0_CONDITION = "A";
+function toSession(user: AuthUser): DemoSession {
+  return {
+    name: user.display_name || user.name || user.email || user.username || "Local researcher",
+    email: user.email || user.username || "researcher@local",
+    role: String(user.role).toUpperCase() === "ADMIN" ? "admin" : "researcher",
+    demo: false,
+  };
+}
 
 export function App() {
   const research = useResearchApp();
-  const [provider, setProvider] = useState("fake");
-  const [mode, setMode] = useState<ViewMode>("normal");
-  const [railOpen, setRailOpen] = useState(false);
-  const railTrigger = useRef<HTMLButtonElement | null>(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [drawerTab, setDrawerTab] = useState<DrawerTab>("context");
-  const [focusCitationId, setFocusCitationId] = useState<string | null>(null);
-  const drawerTrigger = useRef<HTMLElement | null>(null);
-  const normalizedRun = research.activeRun ? normalizeRun(research.activeRun) : null;
+  const [session, setSession] = useState<DemoSession | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authSubmitting, setAuthSubmitting] = useState(false);
+  const [page, setPage] = useState<ProductPage>("home");
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [provider, setProvider] = useState("ollama");
+  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [inspectorTab, setInspectorTab] = useState<"run" | "evidence" | "history">("run");
+  const [selectedSource, setSelectedSource] = useState<SourceDetail | null>(null);
+  const [sourceLoadingId, setSourceLoadingId] = useState<string | null>(null);
+  const [sourceError, setSourceError] = useState<string | null>(null);
+  const [selectedChunk, setSelectedChunk] = useState<SourceChunk | null>(null);
+  const [chunkError, setChunkError] = useState<string | null>(null);
 
-  async function submitQuestion(message: string) {
-    await research.submitQuestion(message, M0_CONDITION, provider);
-  }
-
-  function openResearch() {
-    drawerTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    setDrawerTab("research");
-    setFocusCitationId(null);
-    setDrawerOpen(true);
-  }
-
-  function openSources() {
-    drawerTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    setDrawerTab("sources");
-    setFocusCitationId(null);
-    setDrawerOpen(true);
-  }
-
-  function openEvidence(citation: string, trigger: HTMLButtonElement) {
-    drawerTrigger.current = trigger;
-    setFocusCitationId(citation);
-    setDrawerTab("context");
-    setDrawerOpen(true);
-  }
-
-  function closeDrawer() {
-    setDrawerOpen(false);
-    setFocusCitationId(null);
-    requestAnimationFrame(() => drawerTrigger.current?.focus());
-  }
-
+  const run: NormalizedUiRun | null = research.activeRun ? normalizeRun(research.activeRun) : null;
+  const chunkCount = research.sources.reduce((total, source) => total + (Number.isFinite(source.chunk_count) ? source.chunk_count : 0), 0);
   const runtimeStatus = research.isBooting
     ? "CONNECTING"
     : research.isRunning
       ? "RUNNING"
       : research.health?.ok
         ? "READY"
-        : "OFFLINE";
+      : "OFFLINE";
+
+  useEffect(() => {
+    let cancelled = false;
+    void api.authSession()
+      .then((result) => {
+        if (!cancelled && result.authenticated && result.user) setSession(toSession(result.user));
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancelled) setAuthReady(true);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    const configured = research.runtimeConfig?.provider ?? research.health?.default_provider;
+    if (configured === "ollama" || configured === "fake") setProvider(configured);
+  }, [research.health?.default_provider, research.runtimeConfig?.provider]);
+
+  function openInspector(tab: "run" | "evidence" | "history" = "run") {
+    setInspectorTab(tab);
+    setInspectorOpen(true);
+  }
+
+  async function submitQuestion(message: string) {
+    setPage("research");
+    await research.submitQuestion(message, "A", provider);
+  }
+
+  async function importSource(file: File) {
+    await research.importSource(file);
+  }
+
+  async function selectRun(runId: string) {
+    await research.selectRun(runId);
+    setPage("research");
+    setInspectorTab("run");
+  }
+
+  async function inspectSource(source: SourceSummary) {
+    setSourceLoadingId(source.source_id);
+    setSourceError(null);
+    try {
+      setSelectedSource(await api.getSource(source.source_id));
+    } catch (cause) {
+      setSelectedSource(null);
+      setSourceError(cause instanceof Error ? cause.message : "Unable to load this source");
+    } finally {
+      setSourceLoadingId(null);
+    }
+  }
+
+  function inspectKnownChunk(chunk: SourceChunk) {
+    setChunkError(null);
+    setSelectedChunk(chunk);
+  }
+
+  async function inspectCitation(citation: string) {
+    setChunkError(null);
+    setSelectedChunk(null);
+    try {
+      setSelectedChunk(await api.getChunk(citation));
+    } catch (cause) {
+      setChunkError(cause instanceof Error ? cause.message : "Unable to load this source context");
+    }
+  }
+
+  async function signOut() {
+    await api.logout().catch(() => undefined);
+    setSession(null);
+    setPage("home");
+    setInspectorOpen(false);
+    setSelectedSource(null);
+    setSelectedChunk(null);
+  }
+
+  async function authenticate(input: { mode: "login" | "register"; name: string; email: string; password: string }) {
+    setAuthSubmitting(true);
+    setAuthError(null);
+    try {
+      const result = input.mode === "register"
+        ? await api.register({ name: input.name, email: input.email, password: input.password })
+        : await api.login({ identifier: input.email, password: input.password });
+      if (!result.authenticated || !result.user) throw new Error("Local authentication did not return a user session.");
+      setSession(toSession(result.user));
+      setPage("home");
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : "Unable to authenticate locally";
+      setAuthError(message);
+      throw cause;
+    } finally {
+      setAuthSubmitting(false);
+    }
+  }
+
+  if (!authReady) return <main className="auth-screen"><section className="auth-card" role="status"><p className="eyebrow">MERIDIAN · LOCAL EVIDENCE DESK</p><h1>Loading your local workspace…</h1><p className="auth-copy">Checking the local session without contacting a hosted service.</p></section></main>;
+
+  if (!session) return <AuthScreen onSubmit={authenticate} error={authError} submitting={authSubmitting} />;
 
   return (
-    <div className="app-shell">
-      <a className="skip-link" href="#answer-canvas">Skip to answer</a>
-      <Sidebar
-        history={research.history}
-        sources={research.sources}
-        activeRunId={research.activeRun?.run_id}
-        isOpen={railOpen}
-        onClose={() => {
-          setRailOpen(false);
-          requestAnimationFrame(() => railTrigger.current?.focus());
-        }}
-        onNewRun={research.startNewRun}
-        onSelectRun={(runId) => void research.selectRun(runId)}
-        mode={mode}
-        onModeToggle={() => setMode((current) => current === "normal" ? "research" : "normal")}
-        provider={provider}
-        model={research.runtimeConfig?.local_model ?? research.activeRun?.model ?? null}
-        onProviderChange={setProvider}
-        onOpenSources={openSources}
+    <div className="product-shell">
+      <NavigationRail
+        page={page}
+        onNavigate={setPage}
+        historyCount={research.history.length}
+        sourceCount={research.sources.length}
+        chunkCount={chunkCount}
+        session={session}
+        mobileOpen={mobileNavOpen}
+        onCloseMobile={() => setMobileNavOpen(false)}
+        onSignOut={signOut}
       />
 
-      <div className="workspace-column">
-        <WorkspaceHeader
-          mode={mode}
-          onModeChange={setMode}
+      <div className="product-main">
+        <AppHeader
+          page={page}
+          session={session}
           runtimeStatus={runtimeStatus}
           health={research.health}
-          run={normalizedRun}
-          sourceCount={research.sources.length}
-          model={research.runtimeConfig?.local_model ?? research.activeRun?.model ?? null}
-          onOpenRail={(trigger) => {
-            railTrigger.current = trigger ?? null;
-            setRailOpen(true);
-          }}
-          onOpenResearch={openResearch}
+          run={run}
+          onOpenNav={() => setMobileNavOpen(true)}
+          onOpenInspector={() => openInspector("run")}
         />
 
-        {research.error && (
-          <div className="global-alert" role="alert">
-            <span>{research.error}</span>
-            <button type="button" onClick={research.dismissError} aria-label="Dismiss notification">×</button>
-          </div>
-        )}
+        <main className="page-shell" id="main-content">
+          <a className="skip-link" href="#main-content">Skip to content</a>
+          {research.error && (
+            <div className="notice notice-error global-notice" role="alert">
+              <span><strong>Something needs attention.</strong> {research.error}</span>
+              <button className="icon-button" type="button" aria-label="Dismiss notification" onClick={research.dismissError}>×</button>
+            </div>
+          )}
+          {chunkError && <div className="notice notice-error global-notice" role="alert"><span><strong>Source context unavailable.</strong> {chunkError}</span><button className="icon-button" type="button" aria-label="Dismiss source error" onClick={() => setChunkError(null)}>×</button></div>}
 
-        <AnswerCanvas
-          run={normalizedRun}
-          pendingQuestion={research.pendingQuestion}
-          isRunning={research.isRunning}
-          isImporting={research.isImporting}
-          sourceNotice={research.sourceNotice}
-          provider={provider}
-          mode={mode}
-          sources={research.sources}
-          onProviderChange={setProvider}
-          onSubmit={submitQuestion}
-          onImport={async (file) => { await research.importSource(file); }}
-          onOpenEvidence={openEvidence}
-          onOpenResearch={openResearch}
-          onOpenSources={openSources}
-        />
+          {page === "home" && <HomeView sources={research.sources} history={research.history} health={research.health} onNewResearch={() => setPage("research")} onKnowledge={() => setPage("knowledge")} onHistory={() => setPage("history")} onSelectRun={(runId) => void selectRun(runId)} />}
+          {page === "research" && <ResearchView run={run} pendingQuestion={research.pendingQuestion} isRunning={research.isRunning} isImporting={research.isImporting} sourceNotice={research.sourceNotice} provider={provider} onProviderChange={setProvider} onSubmit={submitQuestion} onImport={importSource} onOpenInspector={openInspector} onOpenCitation={(citation) => { openInspector("evidence"); void inspectCitation(citation); }} />}
+          {page === "knowledge" && <KnowledgeView sources={research.sources} sourceSnapshotId={research.sourceSnapshotId} knowledgeStatus={research.health?.knowledge_base} importState={research.sourceImport} isImporting={research.isImporting} selectedSource={selectedSource} sourceLoadingId={sourceLoadingId} sourceError={sourceError} onImport={importSource} onInspectSource={(source) => void inspectSource(source)} onCloseSource={() => setSelectedSource(null)} onInspectChunk={inspectKnownChunk} />}
+          {page === "history" && <HistoryView history={research.history} activeRunId={research.activeRun?.run_id} onSelectRun={(runId) => void selectRun(runId)} />}
+          {page === "settings" && <SettingsView session={session} provider={provider} onProviderChange={setProvider} onSignOut={signOut} />}
+          {page === "admin" && session.role === "admin" && <AdminView sources={research.sources} history={research.history} health={research.health} />}
+        </main>
       </div>
 
-      <EvidenceDrawer
-        open={drawerOpen}
-        mode={mode}
-        activeTab={drawerTab}
-        onTabChange={setDrawerTab}
-        onClose={closeDrawer}
-        run={normalizedRun}
-        sources={research.sources}
-        sourceSnapshotId={research.sourceSnapshotId}
-        sourceImport={research.sourceImport}
-        isImporting={research.isImporting}
-        onImport={async (file) => { await research.importSource(file); }}
-        focusCitationId={focusCitationId}
-        canInspectPlan={research.canInspectPlan}
-        planningInspection={research.planningInspection}
-        planningError={research.planningError}
-        isInspectingPlan={research.isInspectingPlan}
-        onInspectPlan={() => {
-          const request = research.activeRun?.query ?? "";
-          const runProvider = research.activeRun?.provider ?? provider;
-          void research.inspectPlan(request, runProvider);
-        }}
-        knowledgeStatus={research.health?.knowledge_base}
-        retrievalMode={research.runtimeConfig?.retrieval_mode}
-      />
+      {inspectorOpen && <RunInspector run={run} history={research.history} activeTab={inspectorTab} onTabChange={setInspectorTab} onClose={() => setInspectorOpen(false)} onSelectRun={(runId) => void selectRun(runId)} onOpenCitation={(citation) => void inspectCitation(citation)} />}
+      {selectedChunk && <ChunkDialog chunk={selectedChunk} onClose={() => setSelectedChunk(null)} />}
     </div>
   );
 }

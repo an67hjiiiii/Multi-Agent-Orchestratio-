@@ -10,6 +10,44 @@ export interface ApiErrorPayload {
   retryable?: boolean;
 }
 
+export interface AuthUser {
+  id: string;
+  user_id: string;
+  email?: string | null;
+  username?: string | null;
+  name?: string;
+  display_name?: string;
+  role: string;
+  status?: string;
+  created_at?: string | null;
+  updated_at?: string | null;
+  last_login_at?: string | null;
+}
+
+export interface AuthSessionResponse {
+  authenticated: boolean;
+  user?: AuthUser | null;
+  session?: {
+    session_id: string;
+    user_id: string;
+    created_at: string;
+    expires_at: string;
+  } | null;
+  access_token?: string;
+  token_type?: string;
+}
+
+export interface AuthRegisterRequest {
+  email: string;
+  name: string;
+  password: string;
+}
+
+export interface AuthLoginRequest {
+  identifier: string;
+  password: string;
+}
+
 export interface HealthResponse {
   ok?: boolean;
   app?: string;

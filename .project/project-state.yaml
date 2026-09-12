@@ -50,3 +50,35 @@ evaluation:
 approval:
   self_approval: PROHIBITED
   milestone_promotion: HUMAN_REVIEW_WITH_REQUIRED_GATE_EVIDENCE
+
+product_baseline:
+  version: PRODUCT_BASELINE_V4
+  scope: P0
+  status: IMPLEMENTED_PENDING_ANTI_QA
+  implementation_authorization: OWNER_SPECIFIED
+  research_product_boundary: PRESERVED
+  source_of_truth:
+    product_scope: docs/PRODUCT_SCOPE.md
+    feature_screen_map: docs/FEATURE_SCREEN_MAP.md
+    system_contract: docs/SYSTEM_CONTRACT.md
+    traceability_matrix: docs/TRACEABILITY_MATRIX.csv
+  modules:
+    - P0-M01 workspace_and_readiness
+    - P0-M02 corpus_and_sources
+    - P0-M03 ask_and_run
+    - P0-M04 answer_and_evidence
+    - P0-M05 history_and_reopen
+    - P0-M06 research_inspector
+    - P0-M07 local_auth_and_session
+    - P0-M08 settings_and_minimal_admin
+  anti_qa_handoff:
+    status: READY_FOR_ANTI_QA
+    required_checks:
+      - endpoint_and_screen_contract_alignment
+      - source_chunk_citation_and_return_focus
+      - terminal_status_and_scoped_recovery
+      - immutable_history_and_explicit_retry
+      - local_only_provider_and_no_silent_fallback
+      - normal_vs_research_demo_boundary
+      - responsive_keyboard_and_recovery_reachability
+    evidence_boundary: "Documentation and state contract only; static checks, screens, unit tests, and FakeProvider output do not promote P0 or M0/M1/M2."

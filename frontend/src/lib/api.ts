@@ -1,5 +1,8 @@
 import type {
   ApiErrorPayload,
+  AuthLoginRequest,
+  AuthRegisterRequest,
+  AuthSessionResponse,
   ChatRequest,
   DecompositionRequest,
   HealthResponse,
@@ -40,7 +43,10 @@ function getErrorMessage(payload: unknown, status: number): string {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`/api${path}`, init);
+  const response = await fetch(`/api${path}`, {
+    ...init,
+    credentials: init?.credentials ?? "same-origin",
+  });
   const payload = await response.json().catch(() => null);
 
   if (!response.ok) {
@@ -51,6 +57,23 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  authSession: () => request<AuthSessionResponse>("/auth/session"),
+  register: (body: AuthRegisterRequest) =>
+    request<AuthSessionResponse>("/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  login: (body: AuthLoginRequest) =>
+    request<AuthSessionResponse>("/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  logout: () =>
+    request<{ ok: boolean; authenticated: boolean }>("/auth/logout", {
+      method: "POST",
+    }),
   health: () => request<HealthResponse>("/health"),
   config: () => request<RuntimeConfigResponse>("/config"),
   listSources: () => request<SourcesResponse>("/sources"),

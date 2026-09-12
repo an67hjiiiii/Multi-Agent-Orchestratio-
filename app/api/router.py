@@ -5,16 +5,30 @@ import os
 from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Query, Response, UploadFile
 from pydantic import ValidationError
 
-from app.api.dependencies import get_api_runtime
+from app.api.dependencies import (
+    get_admin_user,
+    get_api_runtime,
+    get_auth_store,
+    get_current_user,
+    get_session_token,
+)
 from app.api.errors import ApiError
 from app.api.schemas import (
+    AuthLoginRequest,
+    AuthRegisterRequest,
     DECOMPOSITION_RESPONSE_MODEL,
     ChatRequest,
     DecompositionRequest,
     SourceTextRequest,
+)
+from app.auth.store import (
+    AuthStore,
+    DuplicateUserError,
+    InvalidCredentialsError,
+    InvalidSessionError,
 )
 from app.core.api_runtime import ApiRuntime
 from app.core.config import RuntimeConfig
@@ -27,6 +41,98 @@ router = APIRouter(prefix="/api")
 MAX_SOURCE_BYTES = 2_000_000
 PLITE_PROFILES = frozenset({"dev", "m1", "m2"})
 PLiteCallable = Callable[[str, str | None], Awaitable[Any] | Any]
+
+
+def _auth_error(code: str, message: str, status_code: int = 400) -> ApiError:
+    """Map local auth failures to the stable additive API error contract."""
+
+    return ApiError(status_code, code, message)
+
+
+def _auth_payload(
+    *,
+    user: Mapping[str, Any],
+    session: Mapping[str, Any],
+    access_token: str | None = None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "authenticated": True,
+        "user": dict(user),
+        "session": dict(session),
+        "token_type": "bearer",
+    }
+    if access_token is not None:
+        # A raw token is returned only at the explicit login/register boundary;
+        # the session endpoint never echoes it back.
+        payload["access_token"] = access_token
+        # ``token`` is a compatibility spelling used by small local clients;
+        # both values are the same opaque bearer token.
+        payload["token"] = access_token
+    return payload
+
+
+def _set_session_cookie(response: Response, token: str) -> None:
+    response.set_cookie(
+        "session_token",
+        token,
+        httponly=True,
+        secure=False,
+        samesite="lax",
+        path="/",
+    )
+
+
+def _clear_session_cookie(response: Response) -> None:
+    response.delete_cookie("session_token", path="/")
+    response.delete_cookie("local_session", path="/")
+
+
+def _login_identifier(body: AuthLoginRequest) -> str:
+    for value in (body.identifier, body.email, body.username):
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    raise _auth_error("IDENTIFIER_REQUIRED", "email, username, or identifier is required")
+
+
+def _run_or_404(run_id: str, runtime: ApiRuntime) -> dict[str, Any]:
+    run = runtime.run_store.get(run_id)
+    if not isinstance(run, Mapping):
+        raise ApiError(404, "NOT_FOUND", "run not found")
+    return dict(run)
+
+
+def _run_events(run: Mapping[str, Any]) -> list[dict[str, Any]]:
+    events = run.get("events")
+    if not isinstance(events, list):
+        events = run.get("trace")
+    if not isinstance(events, list):
+        return []
+    return [dict(item) for item in events if isinstance(item, Mapping)]
+
+
+def _run_evidence_ids(run: Mapping[str, Any], events: list[dict[str, Any]]) -> list[str]:
+    ids: list[str] = []
+
+    def add(value: Any) -> None:
+        if isinstance(value, str) and value.strip() and value not in ids:
+            ids.append(value)
+        elif isinstance(value, list):
+            for item in value:
+                add(item)
+
+    add(run.get("citations"))
+    add(run.get("evidence_ids"))
+    for result in run.get("task_results") or []:
+        if isinstance(result, Mapping):
+            add(result.get("evidence_ids"))
+            add(result.get("citations"))
+    for event in events:
+        add(event.get("selected"))
+        result = event.get("result")
+        if isinstance(result, Mapping):
+            add(result.get("evidence_ids"))
+            add(result.get("citations"))
+    return ids
 
 
 def _runtime_config() -> RuntimeConfig:
@@ -373,6 +479,167 @@ def config():
     }
 
 
+@router.post("/auth/register")
+def register(
+    body: AuthRegisterRequest,
+    response: Response,
+    store: AuthStore = Depends(get_auth_store),
+) -> dict[str, Any]:
+    """Register a local account and start its local session.
+
+    The first account may explicitly request ADMIN for a local bootstrap;
+    later self-registration is constrained to USER by ``AuthStore``.
+    """
+
+    try:
+        user = store.register(
+            email=body.email,
+            username=body.username,
+            display_name=body.display_name or body.name,
+            password=body.password,
+            role=body.role,
+        )
+        token, session = store.create_session(str(user["user_id"]))
+    except DuplicateUserError as exc:
+        raise _auth_error("ACCOUNT_EXISTS", str(exc), 409) from exc
+    except ValueError as exc:
+        raise _auth_error("INVALID_REGISTRATION", str(exc)) from exc
+
+    _set_session_cookie(response, token)
+    return _auth_payload(user=user, session=session, access_token=token)
+
+
+@router.post("/auth/login")
+def login(
+    body: AuthLoginRequest,
+    response: Response,
+    store: AuthStore = Depends(get_auth_store),
+) -> dict[str, Any]:
+    """Authenticate a local account and issue an opaque bearer session."""
+
+    try:
+        user, token, session = store.authenticate(
+            identifier=_login_identifier(body),
+            password=body.password,
+        )
+    except InvalidCredentialsError as exc:
+        raise _auth_error("INVALID_CREDENTIALS", "Invalid email, username, or password", 401) from exc
+    except ValueError as exc:
+        raise _auth_error("INVALID_LOGIN", str(exc)) from exc
+
+    _set_session_cookie(response, token)
+    return _auth_payload(user=user, session=session, access_token=token)
+
+
+@router.post("/auth/logout")
+def logout(
+    response: Response,
+    token: str | None = Depends(get_session_token),
+    store: AuthStore = Depends(get_auth_store),
+) -> dict[str, Any]:
+    """Revoke the current local session; logout is idempotent."""
+
+    store.revoke(token)
+    _clear_session_cookie(response)
+    return {"ok": True, "authenticated": False}
+
+
+@router.get("/auth/session")
+def auth_session(
+    token: str | None = Depends(get_session_token),
+    store: AuthStore = Depends(get_auth_store),
+) -> dict[str, Any]:
+    """Return the current session without echoing its raw token."""
+
+    if not token:
+        return {"authenticated": False, "user": None, "session": None, "token_type": "bearer"}
+    try:
+        user = store.resolve(token)
+    except InvalidSessionError:
+        return {"authenticated": False, "user": None, "session": None, "token_type": "bearer"}
+    session = store.session_for_token(token)
+    if session is None:
+        return {"authenticated": False, "user": None, "session": None, "token_type": "bearer"}
+    return _auth_payload(user=user, session=session)
+
+
+@router.get("/auth/me")
+def auth_me(user: dict[str, Any] = Depends(get_current_user)) -> dict[str, Any]:
+    """Return the authenticated local user without credential material."""
+
+    return {"authenticated": True, "user": user}
+
+
+@router.get("/settings")
+def settings(
+    runtime: ApiRuntime = Depends(get_api_runtime),
+    token: str | None = Depends(get_session_token),
+    store: AuthStore = Depends(get_auth_store),
+) -> dict[str, Any]:
+    """Expose safe local product settings without environment secrets."""
+
+    cfg = _runtime_config()
+    current_user: dict[str, Any] | None = None
+    if token:
+        try:
+            current_user = store.resolve(token)
+        except InvalidSessionError:
+            current_user = None
+    return {
+        "local_only": True,
+        "auth_enabled": True,
+        "user": current_user,
+        "runtime": {
+            **cfg.public_dict(),
+            "allowed_conditions": cfg.allowed_conditions(),
+            "config_hash": cfg.config_hash(),
+        },
+        "source_snapshot_id": runtime.source_store.snapshot_id(),
+        "knowledge_base": _knowledge_status(runtime),
+    }
+
+
+@router.get("/admin/status")
+def admin_status(
+    runtime: ApiRuntime = Depends(get_api_runtime),
+    _admin: dict[str, Any] = Depends(get_admin_user),
+    store: AuthStore = Depends(get_auth_store),
+) -> dict[str, Any]:
+    """Return a bounded local runtime/auth status for administrators."""
+
+    cfg = _runtime_config()
+    return {
+        "ok": True,
+        "local_only": True,
+        "auth": store.status(),
+        "runtime": {
+            "implementation_profile": cfg.implementation_profile,
+            "provider": cfg.provider,
+            "local_model": cfg.local_model,
+            "allowed_conditions": cfg.allowed_conditions(),
+            "config_hash": cfg.config_hash(),
+        },
+        "source_snapshot_id": runtime.source_store.snapshot_id(),
+    }
+
+
+@router.get("/admin/users")
+def admin_users(
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+    _admin: dict[str, Any] = Depends(get_admin_user),
+    store: AuthStore = Depends(get_auth_store),
+) -> dict[str, Any]:
+    """List safe public user records for the local administrator."""
+
+    return {
+        "users": store.list_users(limit=limit, offset=offset),
+        "total": store.user_count(),
+        "limit": limit,
+        "offset": offset,
+    }
+
+
 @router.post("/tasks/decompose", response_model=DECOMPOSITION_RESPONSE_MODEL)
 async def decompose_tasks(
     body: DecompositionRequest,
@@ -609,13 +876,71 @@ async def chat(
 
 
 @router.get("/runs")
-def list_runs(runtime: ApiRuntime = Depends(get_api_runtime)):
-    return runtime.run_store.list()
+def list_runs(
+    runtime: ApiRuntime = Depends(get_api_runtime),
+    limit: int = Query(default=30, ge=1, le=500),
+):
+    # Keep the legacy array response while allowing the product history view
+    # to request a bounded page.
+    return runtime.run_store.list(limit=limit)
 
 
 @router.get("/runs/{run_id}")
 def get_run(run_id: str, runtime: ApiRuntime = Depends(get_api_runtime)):
-    run = runtime.run_store.get(run_id)
-    if not run:
-        raise ApiError(404, "NOT_FOUND", "run not found")
-    return run
+    return _run_or_404(run_id, runtime)
+
+
+@router.get("/runs/{run_id}/trace")
+def get_run_trace(run_id: str, runtime: ApiRuntime = Depends(get_api_runtime)) -> dict[str, Any]:
+    """Return the persisted retrieval/generation trace for one run."""
+
+    run = _run_or_404(run_id, runtime)
+    events = _run_events(run)
+    return {
+        "run_id": run_id,
+        "status": run.get("status"),
+        "events": events,
+        "trace": events,
+        "effective_config": run.get("effective_config"),
+        "metrics": run.get("metrics") if isinstance(run.get("metrics"), Mapping) else {},
+    }
+
+
+@router.get("/runs/{run_id}/evidence")
+def get_run_evidence(run_id: str, runtime: ApiRuntime = Depends(get_api_runtime)) -> dict[str, Any]:
+    """Resolve run evidence IDs to current local source chunks when possible."""
+
+    run = _run_or_404(run_id, runtime)
+    events = _run_events(run)
+    evidence_ids = _run_evidence_ids(run, events)
+    service = _knowledge_service(runtime)
+    items: list[dict[str, Any]] = []
+    missing_ids: list[str] = []
+    for evidence_id in evidence_ids:
+        chunk = (
+            runtime.source_store.chunk(evidence_id)
+            if service is None
+            else _call_knowledge_method(runtime, "chunk", evidence_id)
+        )
+        if chunk is None:
+            missing_ids.append(evidence_id)
+            continue
+        items.append(_chunk_record(chunk))
+    return {
+        "run_id": run_id,
+        "source_snapshot_id": run.get("source_snapshot_id", runtime.source_store.snapshot_id()),
+        "evidence_ids": evidence_ids,
+        "items": items,
+        "evidence": items,
+        "missing_ids": missing_ids,
+    }
+
+
+@router.get("/history")
+def history(
+    runtime: ApiRuntime = Depends(get_api_runtime),
+    limit: int = Query(default=30, ge=1, le=500),
+):
+    """Product-facing history spelling backed by the existing run store."""
+
+    return runtime.run_store.list(limit=limit)

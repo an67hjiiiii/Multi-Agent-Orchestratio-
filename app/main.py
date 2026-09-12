@@ -6,7 +6,9 @@ from typing import Any
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
+from starlette.datastructures import Headers
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.staticfiles import NotModifiedResponse
 from starlette.types import Scope
 
 from app.api.errors import ApiError, register_exception_handlers
@@ -22,9 +24,29 @@ API_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]
 class SPAStaticFiles(StaticFiles):
     """Serve Vite assets and return the app shell for client-side routes."""
 
+    _MEDIA_TYPES = {
+        ".js": "text/javascript",
+        ".mjs": "text/javascript",
+    }
+
     def __init__(self, *, index_path: str | Path, **kwargs: Any) -> None:
         self.index_path = Path(index_path)
         super().__init__(**kwargs)
+
+    def file_response(self, full_path, stat_result, scope, status_code=200):
+        """Serve module assets with a browser-compatible JavaScript MIME type."""
+
+        request_headers = Headers(scope=scope)
+        suffix = Path(full_path).suffix.lower()
+        response = FileResponse(
+            full_path,
+            status_code=status_code,
+            stat_result=stat_result,
+            media_type=self._MEDIA_TYPES.get(suffix),
+        )
+        if self.is_not_modified(response.headers, request_headers):
+            return NotModifiedResponse(response.headers)
+        return response
 
     async def get_response(self, path: str, scope: Scope) -> Response:
         try:
