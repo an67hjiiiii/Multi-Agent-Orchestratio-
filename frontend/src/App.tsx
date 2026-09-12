@@ -145,7 +145,6 @@ export function App() {
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : "Unable to authenticate locally";
       setAuthError(message);
-      throw cause;
     } finally {
       setAuthSubmitting(false);
     }
