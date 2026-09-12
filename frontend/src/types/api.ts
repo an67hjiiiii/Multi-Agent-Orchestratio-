@@ -48,6 +48,39 @@ export interface AuthLoginRequest {
   password: string;
 }
 
+export interface AdminUser {
+  id: string;
+  user_id: string;
+  email?: string | null;
+  username?: string | null;
+  name?: string;
+  display_name?: string;
+  role: string;
+  status?: string;
+  created_at?: string | null;
+  last_login_at?: string | null;
+}
+
+export interface AdminStatusResponse {
+  ok: boolean;
+  local_only: boolean;
+  auth?: {
+    user_count?: number;
+    admin_count?: number;
+    active_session_count?: number;
+    session_ttl_seconds?: number;
+  };
+  runtime?: RuntimeConfigResponse;
+  source_snapshot_id?: string;
+}
+
+export interface AdminUsersResponse {
+  users: AdminUser[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 export interface HealthResponse {
   ok?: boolean;
   app?: string;

@@ -1,5 +1,8 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { api } from "../lib/api";
 import type {
+  AdminStatusResponse,
+  AdminUser,
   HealthResponse,
   KnowledgeBaseStatus,
   RunListItem,
@@ -308,7 +311,23 @@ export function SettingsView({ session, provider, onSignOut }: { session: { name
 
 export function AdminView({ sources, history, health }: { sources: SourceSummary[]; history: RunListItem[]; health: HealthResponse | null }) {
   const status = health?.knowledge_base?.status ?? "UNKNOWN";
-  return <div className="page-stack admin-view"><section className="page-title-row"><div><p className="eyebrow">ADMIN · LOCAL ACCESS</p><h1>Workspace health at a glance.</h1><p>This read-only surface exposes available runtime facts without adding new backend authority.</p></div><span className="admin-badge">Administrator</span></section><section className="admin-grid"><div className="surface-card admin-status-card"><span className="admin-card-label">Runtime</span><strong>{health?.ok ? "Available" : "Unavailable"}</strong><small>{health?.version || "Version not returned"}</small></div><div className="surface-card admin-status-card"><span className="admin-card-label">Corpus</span><strong>{status === "READY" ? "Ready" : status}</strong><small>{sources.length} sources · {sourceChunks(sources)} chunks</small></div><div className="surface-card admin-status-card"><span className="admin-card-label">Saved runs</span><strong>{history.length}</strong><small>Read-only records available</small></div></section><section className="surface-card admin-note"><span className="settings-icon" aria-hidden="true">◆</span><div><h2>Guardrails stay visible.</h2><p>Administrator access does not expose credentials, change research configuration, delete sources, or promote a run to a quality or milestone decision.</p></div></section></div>;
+  const [adminStatus, setAdminStatus] = useState<AdminStatusResponse | null>(null);
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [adminError, setAdminError] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    void Promise.all([api.adminStatus(), api.adminUsers()])
+      .then(([runtime, userList]) => {
+        if (!active) return;
+        setAdminStatus(runtime);
+        setUsers(userList.users);
+      })
+      .catch((cause) => {
+        if (active) setAdminError(cause instanceof Error ? cause.message : "Admin data is unavailable");
+      });
+    return () => { active = false; };
+  }, []);
+  return <div className="page-stack admin-view"><section className="page-title-row"><div><p className="eyebrow">ADMIN · LOCAL ACCESS</p><h1>Workspace health at a glance.</h1><p>This read-only surface exposes available runtime facts without adding new backend authority.</p></div><span className="admin-badge">Administrator</span></section><section className="admin-grid"><div className="surface-card admin-status-card"><span className="admin-card-label">Runtime</span><strong>{health?.ok ? "Available" : "Unavailable"}</strong><small>{health?.version || "Version not returned"}</small></div><div className="surface-card admin-status-card"><span className="admin-card-label">Corpus</span><strong>{status === "READY" ? "Ready" : status}</strong><small>{sources.length} sources · {sourceChunks(sources)} chunks</small></div><div className="surface-card admin-status-card"><span className="admin-card-label">Saved runs</span><strong>{history.length}</strong><small>Read-only records available</small></div></section>{adminError && <div className="notice notice-error" role="alert"><strong>Admin data unavailable.</strong><span>{adminError}</span></div>}<section className="surface-card admin-note"><span className="settings-icon" aria-hidden="true">◆</span><div><h2>Guardrails stay visible.</h2><p>Administrator access does not expose credentials, change research configuration, delete sources, or promote a run to a quality or milestone decision.</p><small>{adminStatus?.auth?.user_count === undefined ? "Account count not available." : `${adminStatus.auth.user_count} local account${adminStatus.auth.user_count === 1 ? "" : "s"} · ${adminStatus.auth.active_session_count ?? 0} active session${adminStatus.auth.active_session_count === 1 ? "" : "s"}`}</small></div></section><section className="surface-card admin-user-card" aria-labelledby="admin-users-title"><div className="section-heading"><div><p className="eyebrow">LOCAL USERS</p><h2 id="admin-users-title">Accounts</h2></div><span className="section-count">{users.length}</span></div>{users.length === 0 ? <div className="empty-inline"><strong>No user records returned.</strong><span>Admin user management remains read-only in P0.</span></div> : <div className="admin-user-list">{users.map((user) => <div className="admin-user-row" key={user.user_id || user.id}><span className="account-avatar" aria-hidden="true">{(user.display_name || user.name || user.email || "?").slice(0, 1).toUpperCase()}</span><span><strong>{user.display_name || user.name || user.email || user.username || "Unnamed user"}</strong><small>{user.email || user.username || "No identifier"}</small></span><span className="admin-user-role">{user.role}</span><span className="admin-user-status">{user.status || "ACTIVE"}</span></div>)}</div>}</section></div>;
 }
 
 export function RunInspector({ run, history, activeTab, onTabChange, onClose, onSelectRun, onOpenCitation }: { run: NormalizedUiRun | null; history: RunListItem[]; activeTab: "run" | "evidence" | "history"; onTabChange: (tab: "run" | "evidence" | "history") => void; onClose: () => void; onSelectRun: (runId: string) => void; onOpenCitation: (citation: string) => void }) {

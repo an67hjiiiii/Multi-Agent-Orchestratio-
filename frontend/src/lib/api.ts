@@ -1,5 +1,7 @@
 import type {
   ApiErrorPayload,
+  AdminStatusResponse,
+  AdminUsersResponse,
   AuthLoginRequest,
   AuthRegisterRequest,
   AuthSessionResponse,
@@ -74,6 +76,8 @@ export const api = {
     request<{ ok: boolean; authenticated: boolean }>("/auth/logout", {
       method: "POST",
     }),
+  adminStatus: () => request<AdminStatusResponse>("/admin/status"),
+  adminUsers: () => request<AdminUsersResponse>("/admin/users"),
   health: () => request<HealthResponse>("/health"),
   config: () => request<RuntimeConfigResponse>("/config"),
   listSources: () => request<SourcesResponse>("/sources"),
