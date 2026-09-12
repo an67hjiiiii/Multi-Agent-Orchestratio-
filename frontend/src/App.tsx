@@ -194,7 +194,7 @@ export function App() {
           {page === "research" && <ResearchView run={run} pendingQuestion={research.pendingQuestion} isRunning={research.isRunning} isImporting={research.isImporting} sourceNotice={research.sourceNotice} provider={provider} onProviderChange={setProvider} onSubmit={submitQuestion} onImport={importSource} onOpenInspector={openInspector} onOpenCitation={(citation) => { openInspector("evidence"); void inspectCitation(citation); }} />}
           {page === "knowledge" && <KnowledgeView sources={research.sources} sourceSnapshotId={research.sourceSnapshotId} knowledgeStatus={research.health?.knowledge_base} importState={research.sourceImport} isImporting={research.isImporting} selectedSource={selectedSource} sourceLoadingId={sourceLoadingId} sourceError={sourceError} onImport={importSource} onInspectSource={(source) => void inspectSource(source)} onCloseSource={() => setSelectedSource(null)} onInspectChunk={inspectKnownChunk} />}
           {page === "history" && <HistoryView history={research.history} activeRunId={research.activeRun?.run_id} onSelectRun={(runId) => void selectRun(runId)} />}
-          {page === "settings" && <SettingsView session={session} provider={provider} onProviderChange={setProvider} onSignOut={signOut} />}
+          {page === "settings" && <SettingsView session={session} provider={provider} onSignOut={signOut} />}
           {page === "admin" && session.role === "admin" && <AdminView sources={research.sources} history={research.history} health={research.health} />}
         </main>
       </div>
