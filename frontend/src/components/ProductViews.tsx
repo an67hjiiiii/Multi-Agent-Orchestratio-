@@ -3,6 +3,7 @@ import { api } from "../lib/api";
 import type {
   AdminStatusResponse,
   AdminUser,
+  Conversation,
   HealthResponse,
   KnowledgeBaseStatus,
   RunListItem,
@@ -111,6 +112,7 @@ function RecentRunsCard({ history, onSelectRun, onViewAll }: { history: RunListI
 }
 
 export function ResearchView({
+  conversation,
   run,
   pendingQuestion,
   isRunning,
@@ -119,10 +121,12 @@ export function ResearchView({
   provider,
   onProviderChange,
   onSubmit,
+  onNewConversation,
   onImport,
   onOpenInspector,
   onOpenCitation,
 }: {
+  conversation: Conversation | null;
   run: NormalizedUiRun | null;
   pendingQuestion: string | null;
   isRunning: boolean;
@@ -131,6 +135,7 @@ export function ResearchView({
   provider: string;
   onProviderChange: (provider: string) => void;
   onSubmit: (message: string) => Promise<void>;
+  onNewConversation: () => void;
   onImport: (file: File) => Promise<void>;
   onOpenInspector: (tab?: "run" | "evidence" | "history") => void;
   onOpenCitation: (citation: string) => void;
@@ -140,9 +145,10 @@ export function ResearchView({
     <div className="page-stack research-view">
       <section className="page-title-row">
         <div><p className="eyebrow">RESEARCH WORKSPACE</p><h1>{run ? "Continue the evidence thread" : "What do you want to understand?"}</h1><p>{run ? "Your answer is paired with an immutable run. Review support without losing the question." : "Start with a focused question against the sources stored on this machine."}</p></div>
-        {run && <button className="button button-secondary" type="button" onClick={() => onOpenInspector("run")}>Open run inspector <span aria-hidden="true">↗</span></button>}
+        <div className="page-title-actions"><button className="button button-secondary" type="button" onClick={onNewConversation}>New conversation <span aria-hidden="true">＋</span></button>{run && <button className="button button-secondary" type="button" onClick={() => onOpenInspector("run")}>Open run inspector <span aria-hidden="true">↗</span></button>}</div>
       </section>
 
+      {conversation && <ConversationThread conversation={conversation} />}
       <ResearchComposer isRunning={isRunning} isImporting={isImporting} provider={provider} onProviderChange={onProviderChange} onSubmit={onSubmit} onImport={onImport} />
       {sourceNotice && <div className="notice notice-success" role="status"><span aria-hidden="true">✓</span>{sourceNotice}</div>}
 
@@ -151,6 +157,11 @@ export function ResearchView({
       {!isRunning && run && <RunResult run={run} onOpenInspector={onOpenInspector} onOpenCitation={onOpenCitation} />}
     </div>
   );
+}
+
+function ConversationThread({ conversation }: { conversation: Conversation }) {
+  if (!conversation.messages.length) return <section className="surface-card conversation-thread" aria-label="New conversation"><div className="section-heading"><div><p className="eyebrow">NEW CONVERSATION</p><h2>{conversation.title}</h2></div></div><p className="conversation-empty">This thread is ready. Your first question will start a bounded, local context.</p></section>;
+  return <section className="surface-card conversation-thread" aria-label="Conversation turns"><div className="section-heading"><div><p className="eyebrow">CONVERSATION</p><h2>{conversation.title}</h2></div><span className="section-count">{conversation.messages.length}</span></div><div className="conversation-turns">{conversation.messages.map((message) => <article className={`conversation-turn conversation-turn-${message.role.toLowerCase()}`} key={message.message_id}><div className="conversation-turn-label">{message.role === "USER" ? "You" : "Assistant"}<small>{formatDate(message.created_at)}</small></div><p>{message.content}</p>{message.run_id && <small className="conversation-run-link">Run {message.run_id}</small>}</article>)}</div></section>;
 }
 
 export function ResearchComposer({
@@ -301,8 +312,8 @@ function ImportStatus({ state }: { state: SourceImportState }) {
   return <div className={`import-status import-status-${state.phase}`} role={state.phase === "error" ? "alert" : "status"}><span className="import-status-dot" aria-hidden="true" /> <strong>{labels[state.phase]}</strong>{state.fileName && <span>{state.fileName}</span>}{state.message && <small>{state.message}</small>}</div>;
 }
 
-export function HistoryView({ history, activeRunId, onSelectRun }: { history: RunListItem[]; activeRunId?: string; onSelectRun: (runId: string) => void }) {
-  return <div className="page-stack history-view"><section className="page-title-row"><div><p className="eyebrow">HISTORY</p><h1>Return to a question without losing its trail.</h1><p>Saved runs are read-only records. Open one to review the answer, status, and supporting chunks.</p></div></section>{history.length === 0 ? <section className="surface-card empty-panel"><span className="empty-mark" aria-hidden="true">↺</span><div><h2>No saved research yet.</h2><p>Your completed questions will appear here.</p></div></section> : <section className="surface-card history-table" aria-labelledby="history-list-title"><div className="section-heading"><div><p className="eyebrow">SAVED RUNS</p><h2 id="history-list-title">All research</h2></div><span className="section-count">{history.length}</span></div><div className="history-list">{history.map((item) => <button className={`history-row${item.run_id === activeRunId ? " history-row-active" : ""}`} type="button" key={item.run_id} onClick={() => onSelectRun(item.run_id)}><span className="history-row-marker" aria-hidden="true">⌁</span><span className="history-row-copy"><strong>{item.query || "Untitled research"}</strong><small>{formatDate(item.created_at)} · {item.run_id}</small></span><StatusBadge status={item.status} compact /><span className="row-arrow" aria-hidden="true">→</span></button>)}</div></section>}</div>;
+export function HistoryView({ conversations, activeConversationId, onNewConversation, onSelectConversation, history, activeRunId, onSelectRun }: { conversations: Conversation[]; activeConversationId?: string; onNewConversation: () => void; onSelectConversation: (conversationId: string) => void; history: RunListItem[]; activeRunId?: string; onSelectRun: (runId: string) => void }) {
+  return <div className="page-stack history-view"><section className="page-title-row"><div><p className="eyebrow">HISTORY</p><h1>Return to a conversation without losing its trail.</h1><p>Threads group bounded turns; each answer still opens its immutable run and source evidence.</p></div><button className="button button-primary" type="button" onClick={onNewConversation}>New conversation <span aria-hidden="true">＋</span></button></section><section className="surface-card history-table" aria-labelledby="conversation-list-title"><div className="section-heading"><div><p className="eyebrow">CONVERSATIONS</p><h2 id="conversation-list-title">Your threads</h2></div><span className="section-count">{conversations.length}</span></div>{conversations.length === 0 ? <div className="empty-inline"><strong>No conversations yet.</strong><span>Start a new local thread from the research workspace.</span></div> : <div className="history-list">{conversations.map((conversation) => <button className={`history-row${conversation.conversation_id === activeConversationId ? " history-row-active" : ""}`} type="button" key={conversation.conversation_id} onClick={() => onSelectConversation(conversation.conversation_id)}><span className="history-row-marker" aria-hidden="true">↺</span><span className="history-row-copy"><strong>{conversation.title}</strong><small>{conversation.messages.length} turn{conversation.messages.length === 1 ? "" : "s"} · {formatDate(conversation.updated_at)}</small></span><span className="row-arrow" aria-hidden="true">→</span></button>)}</div>}</section><section className="surface-card history-table" aria-labelledby="history-list-title"><div className="section-heading"><div><p className="eyebrow">SAVED RUNS</p><h2 id="history-list-title">Run records</h2></div><span className="section-count">{history.length}</span></div>{history.length === 0 ? <div className="empty-inline"><strong>No saved runs yet.</strong><span>Runs will remain available as read-only research records.</span></div> : <div className="history-list">{history.map((item) => <button className={`history-row${item.run_id === activeRunId ? " history-row-active" : ""}`} type="button" key={item.run_id} onClick={() => onSelectRun(item.run_id)}><span className="history-row-marker" aria-hidden="true">⌁</span><span className="history-row-copy"><strong>{item.query || "Untitled research"}</strong><small>{formatDate(item.created_at)} · {item.run_id}</small></span><StatusBadge status={item.status} compact /><span className="row-arrow" aria-hidden="true">→</span></button>)}</div>}</section></div>;
 }
 
 export function SettingsView({ session, provider, onSignOut }: { session: { name: string; email: string; role: "researcher" | "admin"; demo: boolean }; provider: string; onSignOut: () => void }) {

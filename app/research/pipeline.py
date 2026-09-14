@@ -12,6 +12,7 @@ from app.core.telemetry import process_rss_mb, gpu_memory_mb
 from app.core.types import SourceChunk, Task, TaskResult, RunMetrics
 from app.providers.factory import get_provider
 from app.research.context_controller import ContextController, OverlapTracker
+from app.research.conversation_context import ConversationContext
 from app.research.decomposer import decompose
 from app.research.normalizer import normalize_tasks_with_trace
 from app.research.planning_retrieval import (
@@ -75,10 +76,22 @@ class ResearchPipeline:
         self.retriever = _preferred_retriever(self.retrieval_owner)
         self.planning = PlanningRetriever()
 
-    async def run(self, query: str, condition: str = "A", provider_name: str | None = None) -> dict:
+    async def run(
+        self,
+        query: str,
+        condition: str = "A",
+        provider_name: str | None = None,
+        *,
+        conversation_context: ConversationContext | str | None = None,
+        conversation_id: str | None = None,
+    ) -> dict:
         condition = condition.upper()
         if condition not in CONDITIONS:
             raise ValueError(f"Unknown condition {condition}")
+        if isinstance(conversation_context, str):
+            conversation_context = ConversationContext(text=conversation_context)
+        elif not isinstance(conversation_context, ConversationContext):
+            conversation_context = ConversationContext()
         cfg = RuntimeConfig.from_env()
         cfg.assert_condition(condition)
         provider = get_provider(provider_name)
@@ -106,6 +119,8 @@ class ResearchPipeline:
                 "max_output_tokens": cfg.max_output_tokens,
                 "max_run_tokens": cfg.max_run_tokens,
                 "retry_limit": cfg.retry_limit,
+                "conversation_id": conversation_id,
+                "conversation_context": conversation_context.to_trace(),
                 "retrieval_min_score": cfg.retrieval_min_score,
                 "scoring_versions": dict(SCORING_VERSION_METADATA),
                 "retrieval": dict(retrieval_metadata),
@@ -118,6 +133,8 @@ class ResearchPipeline:
                 "provider": provider.name,
                 "model": provider.model,
                 "query": query,
+                "conversation_id": conversation_id,
+                "conversation_context": conversation_context.to_trace(),
                 "status": status,
                 "answer": answer,
                 "source_snapshot_id": source_snapshot,
@@ -175,12 +192,17 @@ class ResearchPipeline:
             scoring_versions=dict(SCORING_VERSION_METADATA),
             retrieval=dict(retrieval_metadata),
         )
+        event(
+            "conversation_context",
+            current_request=query,
+            **conversation_context.to_trace(),
+        )
         all_chunks = self.source_store.chunks()
         try:
             if condition == "A":
                 r0 = time.perf_counter()
                 candidates = await self._retrieve(
-                    query,
+                    _retrieval_query_with_conversation_context(query, conversation_context),
                     all_chunks,
                     top_k=cfg.task_top_k,
                     min_score=cfg.retrieval_min_score,
@@ -219,7 +241,13 @@ class ResearchPipeline:
                         scoring_version=PLANNING_RETRIEVAL_SCORING_VERSION,
                     )
                 g0 = time.perf_counter()
-                decomposition = await decompose(provider, query, planning_context, metrics)
+                decomposition = await decompose(
+                    provider,
+                    query,
+                    planning_context,
+                    metrics,
+                    conversation_context=conversation_context.text,
+                )
                 tasks = _runtime_tasks(decomposition)
                 metrics.generation_latency_ms += int((time.perf_counter() - g0) * 1000)
                 event(
@@ -638,6 +666,21 @@ def _retrieve_task_candidates(
     if fallback:
         return fallback, TASK_QUERY_FALLBACK_REASON
     return [], None
+
+
+def _retrieval_query_with_conversation_context(
+    query: str, conversation_context: ConversationContext
+) -> str:
+    """Use history only as bounded query disambiguation, never as evidence."""
+
+    if not conversation_context.text:
+        return query
+    return (
+        "CURRENT USER REQUEST:\n"
+        f"{query}\n\n"
+        "RECENT CONVERSATION CONTEXT (reference only; not source evidence):\n"
+        f"{conversation_context.text}"
+    )
 
 
 def _task_relevance_terms(

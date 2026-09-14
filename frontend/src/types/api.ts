@@ -276,6 +276,15 @@ export interface RunRecord {
   provider?: string;
   model?: string;
   query?: string;
+  conversation_id?: string | null;
+  conversation_context?: {
+    message_ids?: string[];
+    message_count?: number;
+    chars?: number;
+    truncated?: boolean;
+    source?: string;
+    is_rag_evidence?: boolean;
+  };
   status: RunStatus;
   answer?: string;
   /** Optional additive labels used by richer research/demo run records. */
@@ -305,6 +314,37 @@ export interface RunListItem {
   condition?: string;
   query?: string;
   status?: RunStatus;
+}
+
+export type ConversationRole = "USER" | "ASSISTANT";
+
+export interface ConversationMessage {
+  message_id: string;
+  conversation_id: string;
+  role: ConversationRole;
+  content: string;
+  created_at?: string;
+  run_id?: string | null;
+}
+
+export interface Conversation {
+  conversation_id: string;
+  owner_user_id?: string;
+  title: string;
+  created_at?: string;
+  updated_at?: string;
+  messages: ConversationMessage[];
+}
+
+export interface ConversationsResponse {
+  conversations: Conversation[];
+}
+
+export interface ConversationMessageResponse {
+  conversation: Conversation;
+  user_message: ConversationMessage;
+  assistant_message: ConversationMessage;
+  run: RunRecord;
 }
 
 export interface SourceImportResult {

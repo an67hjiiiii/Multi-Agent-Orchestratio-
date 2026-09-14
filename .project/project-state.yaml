@@ -54,6 +54,7 @@ approval:
 product_baseline:
   version: PRODUCT_BASELINE_V4
   scope: P0
+  MULTI_TURN_AI_CONTEXT: P0
   status: IMPLEMENTED_PENDING_ANTI_QA
   implementation_authorization: OWNER_SPECIFIED
   research_product_boundary: PRESERVED
@@ -71,6 +72,7 @@ product_baseline:
     - P0-M06 research_inspector
     - P0-M07 local_auth_and_session
     - P0-M08 settings_and_minimal_admin
+    - P0-M09 context_aware_conversations
   anti_qa_handoff:
     status: READY_FOR_ANTI_QA
     required_checks:
@@ -81,4 +83,7 @@ product_baseline:
       - local_only_provider_and_no_silent_fallback
       - normal_vs_research_demo_boundary
       - responsive_keyboard_and_recovery_reachability
+      - conversation_owner_isolation_and_reopen
+      - bounded_context_current_message_priority
+      - conversation_history_excluded_from_citations
     evidence_boundary: "Documentation and state contract only; static checks, screens, unit tests, and FakeProvider output do not promote P0 or M0/M1/M2."

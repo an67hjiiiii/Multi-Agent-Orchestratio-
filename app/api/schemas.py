@@ -23,6 +23,16 @@ class ChatRequest(BaseModel):
     provider: str | None = None
 
 
+class ConversationCreateRequest(BaseModel):
+    title: str | None = None
+
+
+class ConversationMessageRequest(BaseModel):
+    message: str
+    condition: str = "A"
+    provider: str | None = None
+
+
 class SourceTextRequest(BaseModel):
     source_name: str
     text: str

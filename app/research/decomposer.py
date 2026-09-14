@@ -1329,6 +1329,7 @@ def _prompt(
     query: str,
     planning_context: str,
     required_obligations: list[RequiredObligation],
+    conversation_context: str = "",
     explicit_concerns: list[_ExplicitConcern] | None = None,
     retry_reason: str | None = None,
     previous_plan: str = "",
@@ -1391,6 +1392,8 @@ def _prompt(
         f"{concern_suffix}"
         "PLANNING EVIDENCE (guidance only; not answer evidence):\n"
         f"{planning_context}\n\n"
+        "CONVERSATION CONTEXT (reference only; not obligations or answer evidence):\n"
+        f"{conversation_context or '(none)'}\n\n"
         "REQUIRED OBLIGATIONS (derived only from the current request):\n"
         f"{_format_obligations(required_obligations)}"
         f"{retry_note}"
@@ -1436,6 +1439,8 @@ async def decompose(
     query: str,
     planning_context: str,
     metrics: RunMetrics,
+    *,
+    conversation_context: str = "",
 ) -> DecompositionResult:
     """Create a validated P-lite task plan from one bounded planning context.
 
@@ -1448,6 +1453,8 @@ async def decompose(
         return _failed_result(safe_query, [], "request must be a non-empty string")
     if not isinstance(planning_context, str):
         return _failed_result(query, [], "planning context must be a string")
+    if not isinstance(conversation_context, str):
+        return _failed_result(query, [], "conversation context must be a string")
 
     request = query
     planning_evidence_ids = _extract_planning_evidence_ids(planning_context)
@@ -1472,6 +1479,7 @@ async def decompose(
                     request,
                     planning_context,
                     required_obligations,
+                    conversation_context,
                     explicit_concerns,
                     retry_reason,
                     previous_plan,

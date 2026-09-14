@@ -9,6 +9,7 @@ from app.providers.factory import get_provider
 from app.research.p_lite_pipeline import PLitePipeline
 from app.research.pipeline import ResearchPipeline
 from app.storage.knowledge_base import KnowledgeBase
+from app.storage.conversation_store import ConversationStore
 from app.storage.run_store import RunStore
 from app.storage.source_store import SourceStore
 
@@ -39,6 +40,7 @@ class ApiRuntime:
     source_store: SourceStore
     knowledge_base: KnowledgeBase
     run_store: RunStore
+    conversation_store: ConversationStore
     pipeline: ResearchPipeline
     p_lite_pipeline: PLitePipelineService
 
@@ -54,10 +56,12 @@ class ApiRuntime:
         source_store = SourceStore(str(data_root))
         knowledge_base = KnowledgeBase.from_env(source_store)
         run_store = RunStore(str(runs_root))
+        conversation_store = ConversationStore(Path(data_root) / "conversations")
         return cls(
             source_store=source_store,
             knowledge_base=knowledge_base,
             run_store=run_store,
+            conversation_store=conversation_store,
             pipeline=ResearchPipeline(
                 source_store,
                 run_store,

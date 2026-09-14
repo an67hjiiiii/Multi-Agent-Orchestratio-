@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useResearchApp } from "./app/useResearchApp";
 import { api } from "./lib/api";
 import { normalizeRun, type NormalizedUiRun } from "./lib/uiAdapter";
-import type { AuthUser, SourceChunk, SourceDetail, SourceSummary } from "./types/api";
+import type { AuthUser, Conversation, SourceChunk, SourceDetail, SourceSummary } from "./types/api";
 import {
   AdminView,
   ChunkDialog,
@@ -46,6 +46,10 @@ export function App() {
   const [sourceError, setSourceError] = useState<string | null>(null);
   const [selectedChunk, setSelectedChunk] = useState<SourceChunk | null>(null);
   const [chunkError, setChunkError] = useState<string | null>(null);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
+  const [conversationError, setConversationError] = useState<string | null>(null);
+  const [conversationBusy, setConversationBusy] = useState(false);
 
   const run: NormalizedUiRun | null = research.activeRun ? normalizeRun(research.activeRun) : null;
   const chunkCount = research.sources.reduce((total, source) => total + (Number.isFinite(source.chunk_count) ? source.chunk_count : 0), 0);
@@ -71,6 +75,24 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    if (!session) {
+      setConversations([]);
+      setActiveConversation(null);
+      return;
+    }
+    let cancelled = false;
+    setConversationError(null);
+    void api.listConversations()
+      .then((result) => {
+        if (!cancelled) setConversations(result.conversations ?? []);
+      })
+      .catch((cause) => {
+        if (!cancelled) setConversationError(cause instanceof Error ? cause.message : "Conversation history is unavailable");
+      });
+    return () => { cancelled = true; };
+  }, [session?.email]);
+
+  useEffect(() => {
     const configured = research.runtimeConfig?.provider ?? research.health?.default_provider;
     if (configured === "ollama" || configured === "fake") setProvider(configured);
   }, [research.health?.default_provider, research.runtimeConfig?.provider]);
@@ -80,9 +102,62 @@ export function App() {
     setInspectorOpen(true);
   }
 
+  async function startNewConversation() {
+    research.startNewRun();
+    setActiveConversation(null);
+    setPage("research");
+    setConversationError(null);
+    try {
+      const conversation = await api.createConversation();
+      setActiveConversation(conversation);
+      setConversations((current) => [conversation, ...current]);
+    } catch (cause) {
+      setConversationError(cause instanceof Error ? cause.message : "Unable to start a conversation");
+    }
+  }
+
+  async function openConversation(conversationId: string) {
+    setConversationBusy(true);
+    setConversationError(null);
+    try {
+      const conversation = await api.getConversation(conversationId);
+      setActiveConversation(conversation);
+      setPage("research");
+      research.startNewRun();
+      const latestRun = [...conversation.messages].reverse().find((message) => message.run_id);
+      if (latestRun?.run_id) await research.selectRun(latestRun.run_id);
+    } catch (cause) {
+      setConversationError(cause instanceof Error ? cause.message : "Unable to reopen this conversation");
+    } finally {
+      setConversationBusy(false);
+    }
+  }
+
   async function submitQuestion(message: string) {
     setPage("research");
-    await research.submitQuestion(message, "A", provider);
+    setConversationBusy(true);
+    setConversationError(null);
+    try {
+      let conversation = activeConversation;
+      if (!conversation) {
+        conversation = await api.createConversation();
+        setActiveConversation(conversation);
+        setConversations((current) => [conversation as Conversation, ...current]);
+      }
+      const response = await api.sendConversationMessage(conversation.conversation_id, {
+        message,
+        condition: "A",
+        provider,
+      });
+      setActiveConversation(response.conversation);
+      setConversations((current) => current.map((item) => item.conversation_id === response.conversation.conversation_id ? response.conversation : item));
+      if (response.run?.run_id) await research.selectRun(response.run.run_id);
+    } catch (cause) {
+      setConversationError(cause instanceof Error ? cause.message : "Unable to continue this conversation");
+      throw cause;
+    } finally {
+      setConversationBusy(false);
+    }
   }
 
   async function importSource(file: File) {
@@ -130,6 +205,8 @@ export function App() {
     setInspectorOpen(false);
     setSelectedSource(null);
     setSelectedChunk(null);
+    setConversations([]);
+    setActiveConversation(null);
   }
 
   async function authenticate(input: { mode: "login" | "register"; name: string; email: string; password: string }) {
@@ -187,12 +264,13 @@ export function App() {
               <button className="icon-button" type="button" aria-label="Dismiss notification" onClick={research.dismissError}>×</button>
             </div>
           )}
+          {conversationError && <div className="notice notice-error global-notice" role="alert"><span><strong>Conversation unavailable.</strong> {conversationError}</span><button className="icon-button" type="button" aria-label="Dismiss conversation notification" onClick={() => setConversationError(null)}>×</button></div>}
           {chunkError && <div className="notice notice-error global-notice" role="alert"><span><strong>Source context unavailable.</strong> {chunkError}</span><button className="icon-button" type="button" aria-label="Dismiss source error" onClick={() => setChunkError(null)}>×</button></div>}
 
-          {page === "home" && <HomeView sources={research.sources} history={research.history} health={research.health} onNewResearch={() => setPage("research")} onKnowledge={() => setPage("knowledge")} onHistory={() => setPage("history")} onSelectRun={(runId) => void selectRun(runId)} />}
-          {page === "research" && <ResearchView run={run} pendingQuestion={research.pendingQuestion} isRunning={research.isRunning} isImporting={research.isImporting} sourceNotice={research.sourceNotice} provider={provider} onProviderChange={setProvider} onSubmit={submitQuestion} onImport={importSource} onOpenInspector={openInspector} onOpenCitation={(citation) => { openInspector("evidence"); void inspectCitation(citation); }} />}
+          {page === "home" && <HomeView sources={research.sources} history={research.history} health={research.health} onNewResearch={() => void startNewConversation()} onKnowledge={() => setPage("knowledge")} onHistory={() => setPage("history")} onSelectRun={(runId) => void selectRun(runId)} />}
+          {page === "research" && <ResearchView conversation={activeConversation} run={run} pendingQuestion={research.pendingQuestion} isRunning={research.isRunning || conversationBusy} isImporting={research.isImporting} sourceNotice={research.sourceNotice} provider={provider} onProviderChange={setProvider} onSubmit={submitQuestion} onNewConversation={() => void startNewConversation()} onImport={importSource} onOpenInspector={openInspector} onOpenCitation={(citation) => { openInspector("evidence"); void inspectCitation(citation); }} />}
           {page === "knowledge" && <KnowledgeView sources={research.sources} sourceSnapshotId={research.sourceSnapshotId} knowledgeStatus={research.health?.knowledge_base} importState={research.sourceImport} isImporting={research.isImporting} selectedSource={selectedSource} sourceLoadingId={sourceLoadingId} sourceError={sourceError} onImport={importSource} onInspectSource={(source) => void inspectSource(source)} onCloseSource={() => setSelectedSource(null)} onInspectChunk={inspectKnownChunk} />}
-          {page === "history" && <HistoryView history={research.history} activeRunId={research.activeRun?.run_id} onSelectRun={(runId) => void selectRun(runId)} />}
+          {page === "history" && <HistoryView conversations={conversations} activeConversationId={activeConversation?.conversation_id} onNewConversation={() => void startNewConversation()} onSelectConversation={(conversationId) => void openConversation(conversationId)} history={research.history} activeRunId={research.activeRun?.run_id} onSelectRun={(runId) => void selectRun(runId)} />}
           {page === "settings" && <SettingsView session={session} provider={provider} onSignOut={signOut} />}
           {page === "admin" && session.role === "admin" && <AdminView sources={research.sources} history={research.history} health={research.health} />}
         </main>

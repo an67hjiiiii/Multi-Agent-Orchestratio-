@@ -6,6 +6,9 @@ import type {
   AuthRegisterRequest,
   AuthSessionResponse,
   ChatRequest,
+  Conversation,
+  ConversationMessageResponse,
+  ConversationsResponse,
   DecompositionRequest,
   HealthResponse,
   KnowledgeBaseStatus,
@@ -88,6 +91,24 @@ export const api = {
     request<SourceChunk>(`/chunks/${encodeURIComponent(chunkId)}`),
   listRuns: () => request<RunListItem[]>("/runs"),
   getRun: (runId: string) => request<RunRecord>(`/runs/${encodeURIComponent(runId)}`),
+  listConversations: () => request<ConversationsResponse>("/conversations"),
+  createConversation: (title?: string) =>
+    request<Conversation>("/conversations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(title ? { title } : {}),
+    }),
+  getConversation: (conversationId: string) =>
+    request<Conversation>(`/conversations/${encodeURIComponent(conversationId)}`),
+  sendConversationMessage: (conversationId: string, body: ChatRequest) =>
+    request<ConversationMessageResponse>(
+      `/conversations/${encodeURIComponent(conversationId)}/messages`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      },
+    ),
   chat: (body: ChatRequest) =>
     request<RunRecord>("/chat", {
       method: "POST",

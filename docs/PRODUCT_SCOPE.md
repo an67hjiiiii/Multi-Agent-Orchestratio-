@@ -6,7 +6,7 @@ and anti-QA review. It is not semantic evidence or milestone approval.
 ## Product boundary
 
 The product is a local evidence desk: a user adds a bounded local corpus,
-asks one question, reads a bounded answer, and follows validated citations to
+asks a bounded conversation, reads a bounded answer, and follows validated citations to
 the source/chunk that supports the answer. The answer is the primary task;
 research detail is progressive disclosure in an explicit Research/Demo view.
 
@@ -22,10 +22,11 @@ quality scores, or research-milestone completion.
 | P0-M02 | Corpus and sources | Import bounded UTF-8 text/code/Markdown, list sources, and inspect canonical chunks. | Import is additive and does not create a run; preserve source/chunk provenance. |
 | P0-M03 | Ask and run | Submit one non-blank request and bind it to one returned persisted run. | A request is not a run; retry creates a new run with explicit condition/provider. |
 | P0-M04 | Answer and evidence | Lead with the answer, terminal state, missing information, and validated citations. | `COMPLETE` is not correctness; invalid locators and planning evidence are not answer citations. |
-| P0-M05 | History and reopen | List and reopen individual persisted runs without replay or mutation. | History is a flat immutable run list, not a conversation/thread product. |
+| P0-M05 | History and reopen | List and reopen persisted runs without replay or mutation. | Runs remain immutable execution records; conversation grouping is separate. |
 | P0-M06 | Research inspector | Disclose returned identity, trace, metrics, citation audit, and permitted P-lite planning detail. | Inspection does not self-approve quality, a gate, or a milestone; planning is not answer evidence. |
 | P0-M07 | Local auth and session | Register, sign in, persist a local session, and sign out with USER/ADMIN boundaries. | Store only password/token hashes; no hosted identity, secret echo, or client-side role elevation. |
 | P0-M08 | Settings and admin | Show safe local settings and a minimal read-only admin surface for ADMIN accounts. | Do not expose secrets; regular users cannot self-elevate; admin endpoints remain server-authorized. |
+| P0-M09 | Context-aware conversations | Group owner-scoped user/assistant turns, attach each turn to its run, and reopen a bounded thread. | Recent history is bounded reference context only; it is not KB evidence, memory, summarization, or a new research method. |
 
 ## Core user flow
 
@@ -36,9 +37,10 @@ quality scores, or research-milestone completion.
    applicable.
 3. **Prepare evidence.** Add a local accepted source. Show import/index
    progress and the resulting source, chunk count, and snapshot when returned.
-4. **Ask.** Enter a non-blank question against the active local corpus and
-   submit it with the capability-returned condition/provider boundary.
-5. **Read the run.** Keep the submitted question with one returned `RunRecord`.
+4. **Ask.** Start or reopen an owner-scoped conversation, then enter a
+   non-blank current question against the active local corpus.
+5. **Read the run.** Keep the current question with one returned `RunRecord`
+   and its corresponding user/assistant turns.
    Render `COMPLETE`, `PARTIAL`, `NO_EVIDENCE`, `FAILED`, or an unknown status
    without coercion.
 6. **Verify support.** Open a valid canonical citation to its chunk/source
@@ -48,7 +50,7 @@ quality scores, or research-milestone completion.
    and offer a bounded next action such as refine or add source. For failures,
    keep the request and use only a safe, explicit retry; do not relabel an API
    or inspection error as `NO_EVIDENCE`.
-8. **Reopen or inspect.** Select a prior run without rerunning it. Research/Demo
+8. **Reopen or inspect.** Select a prior conversation or run without rerunning it. Research/Demo
    may reveal returned technical detail and planning-only output when the
    active profile permits it.
 
@@ -77,6 +79,10 @@ enable unavailable conditions, expose a new research module, or infer approval
 from a screen, static check, unit test, or FakeProvider run. `qwen3:4b` remains
 a calibration candidate, not a research-frozen model.
 
+Conversation context is a separate, bounded request input. The current user
+message remains authoritative; recent authorized turns may disambiguate
+references but are never retrieved evidence and never become citation targets.
+
 ## Explicitly out of scope
 
 - New or redesigned research methods, conditions, ablations, prompts, models,
@@ -84,8 +90,9 @@ a calibration candidate, not a research-frozen model.
 - Cloud/public inference, external worker tools, credentials in client code,
   external identity providers, source deletion/replacement, cancellation,
   background retries, sharing, or a comparison winner/quality score.
-- Agent lifecycle controls, conversation threads, claim offsets/highlights not
-  returned by the backend, or a broad analytics/dashboard product.
+- Agent lifecycle controls, unlimited/cross-conversation memory, claim
+  offsets/highlights not returned by the backend, or a broad analytics/dashboard
+  product.
 - Any dataset/gold, research report/run artifact, milestone promotion, or push
   as part of the product implementation. Code commits remain bounded to the
   explicitly authorized P0 milestone.
@@ -109,6 +116,8 @@ the owner/QA reviewer should check the actual implementation against
   reachable.
 - auth loading/error/session-expiry paths are local and distinguishable;
   settings and admin surfaces do not expose secrets or permit self-elevation.
+- conversation owner isolation, bounded deterministic context, current-message
+  priority, run-to-turn linkage, and history-not-evidence citation semantics.
 
 Those checks may produce implementation or live QA evidence later. They do not
 alter the state contract or promote M0/M1/M2; failed checks remain evidence and

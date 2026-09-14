@@ -163,6 +163,7 @@ export function useResearchApp(): ResearchAppState {
     setPlanningError(null);
     try {
       setActiveRun(await api.getRun(runId));
+      setHistory(await api.listRuns());
       setActiveTab("evidence");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to load this run");

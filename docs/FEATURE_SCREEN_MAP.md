@@ -20,6 +20,7 @@ workspace entity.
 | S06 | Recent runs / reopen | Find and reopen an individual persisted run. | Workspace history; select `run_id`; return to S04/S05. | loading, list, empty-after-success, scoped error; no replay or mutation. |
 | S07 | Research / plan inspector | Disclose returned identity and planning-only detail when allowed. | S05 or explicit Research/Demo action. | condition/profile/provider/model/config, P-lite plan/warnings; unavailable is explicit. |
 | S08 | Settings / minimal admin | Show local account/runtime settings and bounded admin status/users. | S01 account menu; admin controls only for ADMIN. | settings load/error; unauthorized admin is blocked; no secrets or self-elevation. |
+| S09 | Conversations / turns | List owner-scoped threads, reopen turns, and continue with a bounded current-message context. | S01/New research or History → thread detail; New conversation creates a clean boundary. | loading, empty, error, USER/ASSISTANT turns, run links; no cross-user history or unbounded memory. |
 
 ## Feature-to-surface map
 
@@ -33,6 +34,7 @@ workspace entity.
 | F-P0-06 | P0-M06 Research inspector | S05, S07 | returned run `events`/`metrics`; `POST /api/tasks/decompose` | Progressive disclosure; planning IDs never become answer citations. |
 | F-P0-07 | P0-M07 Local auth and session | S00 | `POST /api/auth/register`, `/api/auth/login`, `/api/auth/logout`, `GET /api/auth/session` | Local-only session persistence, hashed credentials/tokens, USER/ADMIN identity. |
 | F-P0-08 | P0-M08 Settings and admin | S08, S05, S06 | `GET /api/settings`, `/api/admin/status`, `/api/admin/users`, `/api/runs/{run_id}/trace`, `/api/runs/{run_id}/evidence`, `GET /api/history` | Safe settings/admin/inspection payloads; server-side role boundary and immutable run access. |
+| F-P0-09 | P0-M09 Context-aware conversations | S09, S04, S05 | `POST/GET /api/conversations`, `GET /api/conversations/{id}`, `POST /api/conversations/{id}/messages` | Owner isolation, bounded deterministic history, current request priority, and citations grounded only in canonical chunks. |
 
 ## Critical paths
 
@@ -41,6 +43,7 @@ S00 ──local session──▶ S01 ──Add source──▶ S02 ──source 
 S01 ──New question──▶ S04 ──terminal result──▶ S05 ──citation──▶ S03
 S04 ──Recent runs──▶ S06 ──open run──▶ S04
 S05 ──Research/Demo──▶ S07 ──back/close──▶ S04 or S05
+S01 ──New conversation──▶ S09 ──current turn──▶ S04 ──reopen──▶ S09
 ```
 
 Alternate paths preserve the same identities:
@@ -55,10 +58,10 @@ Alternate paths preserve the same identities:
 
 ## Deliberately absent P0 surfaces
 
-There is no conversation/thread view, cross-run comparison/winner, agent
-registry, P/N/O toggle, source delete/replace/undo, cancellation/background
-retry, cloud provider, external identity provider, quality score, or milestone
-approval screen. A future capability requires a separately reviewed contract.
+There is no cross-run comparison/winner, agent registry, P/N/O toggle, source
+delete/replace/undo, cancellation/background retry, cloud provider, external
+identity provider, quality score, or milestone approval screen. A future
+capability requires a separately reviewed contract.
 
 ## Anti-QA screen checks
 

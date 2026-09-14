@@ -23,7 +23,8 @@ conditions, providers, models, or retrieval backends.
 ## Domain identities
 
 ```text
-Request (ephemeral input) -> RunRecord (immutable persisted execution)
+Conversation (owner-scoped grouping) -> Message turns -> RunRecord (immutable persisted execution)
+Current user message + bounded authorized history -> existing pipeline request understanding
 Source -> Chunk (canonical inspectable support unit)
 TaskResult -> evidence_ids/citations -> Chunk
 P-lite plan -> planning evidence (never answer evidence)
@@ -32,8 +33,8 @@ Local user -> hashed credential/session -> USER or ADMIN product boundary
 
 The product must keep `Request`, `RunRecord`, `Source`, `Chunk`, task,
 evidence, citation, and planning evidence distinct. A role label or task is not
-proof that an agent was spawned. History selects a stored run; it does not
-represent a conversation, replay, edit, or comparison.
+proof that an agent was spawned. History can select a stored conversation or
+run; reopening never replays, edits, or compares an execution.
 
 ## Backend/frontend endpoint contract
 
@@ -63,6 +64,10 @@ and additive fields may be absent; clients preserve unknown status/fields.
 | `GET /admin/status` | ADMIN session required | bounded local runtime/auth status. | Hide from regular users; preserve 401/403 semantics. |
 | `GET /admin/users` | ADMIN session required | safe public user list/count. | Never return password/token hashes. |
 | `GET /history` | — | bounded persisted run list (alias of `/runs`). | Keep history read-only; lookup errors are not empty history. |
+| `POST /conversations` | optional `{title}`; authenticated local user required. | Owner-scoped `Conversation` with stable ID and empty messages. | Start a clean thread boundary. |
+| `GET /conversations` | authenticated local user required. | `{conversations[]}` owned by the caller. | List threads; 401/error is not an empty list. |
+| `GET /conversations/{conversation_id}` | owned conversation ID. | Conversation with ordered `USER`/`ASSISTANT` messages and optional `run_id`. | Reopen a thread without replay. |
+| `POST /conversations/{conversation_id}/messages` | `{message, condition?, provider?}`; owned conversation and non-blank current message. | `{conversation, user_message, assistant_message, run}`. | Show current turn and preserve run/citation inspection. |
 | `GET /runs/{run_id}/trace` | path ID | persisted trace/effective config/metrics. | Technical disclosure only; no self-approval. |
 | `GET /runs/{run_id}/evidence` | path ID | resolved canonical evidence items plus missing IDs. | Link only returned evidence; preserve missing state. |
 
@@ -75,7 +80,7 @@ The returned run keeps these fields together (some are additive/optional in
 older records):
 
 ```text
-run_id, created_at, condition, implementation_profile,
+run_id, created_at, conversation_id?, condition, implementation_profile,
 provider, model, query, status, answer,
 source_snapshot_id, config_hash, effective_config,
 tasks, task_results, events, metrics
@@ -131,6 +136,22 @@ background retry are not contracted.
 7. Local auth is a product boundary, not a research identity claim. The client
    never grants ADMIN; role checks are enforced by the server and reflected in
    the returned session.
+
+## Conversation and context invariants
+
+- A conversation and a run are different identities. Every conversation message
+  has a role, timestamp, and optional associated `run_id`; the run remains the
+  immutable research record.
+- Conversation reads and writes are owner-scoped. A missing/unauthorized ID is
+  a scoped `404`/`401`, never a fallback to another user's history.
+- The context builder is one deterministic bounded component: it uses only the
+  authorized conversation, excludes the current message, keeps a recent capped
+  set of turns/chars, and may validly return empty context.
+- The pipeline envelope distinguishes `current_request`, `conversation_history`,
+  and retrieved KB evidence. Conversation history is never an evidence ID or
+  citation target; citations resolve only to canonical source chunks.
+- A topic switch remains a new current request. No embeddings, summaries,
+  cross-conversation memory, or memory agent are introduced by P0.
 
 ## Anti-QA handoff boundary
 
