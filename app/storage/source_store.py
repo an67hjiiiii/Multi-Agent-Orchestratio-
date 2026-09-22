@@ -11,7 +11,7 @@ from typing import Any
 
 from app.core.types import SourceChunk
 from app.ingestion.documents import extract_document, extract_document_path
-from app.retrieval.text import make_chunks, normalize_source_name, normalize_text
+from app.ingestion.text import make_chunks, normalize_source_name, normalize_text
 
 
 SOURCE_STORE_SCHEMA_VERSION = "kb-v2-source-store-v1"

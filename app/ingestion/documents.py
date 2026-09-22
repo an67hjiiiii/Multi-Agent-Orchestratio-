@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from app.retrieval.text import normalize_source_name, normalize_text
+from app.ingestion.text import normalize_source_name, normalize_text
 
 
 DOCUMENT_INGESTION_VERSION = "kb-v3-document-ingestion-v1"

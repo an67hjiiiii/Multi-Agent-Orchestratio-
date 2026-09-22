@@ -28,9 +28,9 @@ from app.retrieval.text import (
     RETRIEVAL_SCORING_VERSION,
     apply_token_budget,
     estimate_context_tokens,
-    retrieve,
     terms,
 )
+from app.retrieval.query import retrieve_chunks
 from app.storage.source_store import SourceStore
 from app.storage.run_store import RunStore
 from app.run.contracts import Run
@@ -399,7 +399,7 @@ class ResearchPipeline:
         task_domain: str | None = None,
     ) -> list[SourceChunk]:
         if self.retriever is None:
-            result = retrieve(
+            result = _retrieve_lexically(
                 query,
                 chunks,
                 top_k=top_k,
@@ -476,6 +476,30 @@ def _runtime_tasks(decomposition: object) -> list[Task]:
             raise TypeError("decomposition task must use the canonical task schema")
         tasks.append(planning_task_to_runtime(item))
     return tasks
+
+
+def _retrieve_lexically(
+    query: str,
+    chunks: list[SourceChunk],
+    *,
+    top_k: int,
+    min_score: float,
+    domain: str | None = None,
+    task_domain: str | None = None,
+) -> list[SourceChunk]:
+    """Use the retrieval boundary for the legacy lexical LKG path."""
+
+    return retrieve_chunks(
+        query,
+        chunks,
+        retrieval_mode="LEXICAL",
+        vector_store=None,
+        embedder=None,
+        top_k=top_k,
+        min_score=min_score,
+        domain=domain,
+        task_domain=task_domain,
+    )
 
 
 def _obligation_trace_records(decomposition: object) -> list[dict[str, object]]:
@@ -574,7 +598,7 @@ async def _retrieve_task_candidates_async(
 
     async def search(query: str) -> list[SourceChunk]:
         if retriever is None:
-            result = retrieve(
+            result = _retrieve_lexically(
                 query,
                 chunks,
                 top_k=top_k,
@@ -627,7 +651,23 @@ def _retrieve_task_candidates(
 ) -> tuple[list[SourceChunk], str | None]:
     """Keep task/domain anchors before using the broad request fallback."""
 
-    search = retriever or retrieve
+    def default_search(
+        query: str,
+        chunks: list[SourceChunk],
+        *,
+        top_k: int,
+        min_score: float,
+        task_domain: str | None,
+    ) -> list[SourceChunk]:
+        return _retrieve_lexically(
+            query,
+            chunks,
+            top_k=top_k,
+            min_score=min_score,
+            task_domain=task_domain,
+        )
+
+    search = retriever or default_search
     candidates = search(
         task_query,
         chunks,

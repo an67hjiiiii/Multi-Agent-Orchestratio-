@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -13,7 +12,7 @@ from app.retrieval.embeddings import (
     OllamaEmbedder,
     TextEmbedder,
 )
-from app.retrieval.text import domain_compatibility, retrieve
+from app.retrieval.query import retrieve_chunks
 from app.storage.source_store import SourceStore
 from app.storage.vector_store import (
     InMemoryVectorStore,
@@ -247,61 +246,18 @@ class KnowledgeBase:
     ) -> list[SourceChunk]:
         """Search canonical chunks using the configured local retrieval mode."""
 
-        chunks = self.source_store.chunks()
-        lexical = retrieve(
+        return retrieve_chunks(
             query,
-            chunks,
+            self.source_store.chunks(),
+            retrieval_mode=self.retrieval_mode,
+            vector_store=self.vector_store,
+            embedder=self.embedder,
             top_k=top_k,
             min_score=min_score,
             domain=domain,
             task_domain=task_domain,
+            availability_error=self.availability_error,
         )
-        if self.retrieval_mode == "LEXICAL":
-            return lexical
-
-        self._ensure_available()
-
-        matches = self.vector_store.search(
-            self.embedder.embed(query),
-            limit=max(top_k, top_k * 2),
-        )
-        by_id = {chunk.chunk_id: chunk for chunk in chunks}
-        vector_scores: dict[str, float] = {}
-        for match in matches:
-            chunk = by_id.get(match.id)
-            if chunk is None or match.score <= 0:
-                continue
-            vector_scores[chunk.chunk_id] = float(match.score)
-
-        lexical_scores = {chunk.chunk_id: float(chunk.score) for chunk in lexical}
-        if self.retrieval_mode == "VECTOR":
-            candidate_ids = list(vector_scores)
-            score_for = lambda chunk_id: vector_scores[chunk_id]
-        else:
-            candidate_ids = list(dict.fromkeys([*lexical_scores, *vector_scores]))
-
-            def score_for(chunk_id: str) -> float:
-                lexical_score = lexical_scores.get(chunk_id, 0.0)
-                vector_score = vector_scores.get(chunk_id, 0.0)
-                return round(0.65 * lexical_score + 0.35 * vector_score, 8)
-
-        requested_domain = task_domain if task_domain is not None else domain
-        candidates: list[SourceChunk] = []
-        for chunk_id in candidate_ids:
-            chunk = by_id[chunk_id]
-            score = score_for(chunk_id)
-            if score <= 0 or score < min_score:
-                continue
-            candidates.append(replace(chunk, score=score))
-        candidates.sort(
-            key=lambda item: (-domain_compatibility(item, requested_domain), -item.score, item.chunk_id)
-        )
-        return candidates[:top_k]
-
-    def _ensure_available(self) -> None:
-        if self.retrieval_mode != "LEXICAL" and self.vector_store is None:
-            detail = self.availability_error or "vector backend is unavailable"
-            raise VectorBackendUnavailable(detail)
 
     def _sync_index(self) -> None:
         if self.vector_store is None:

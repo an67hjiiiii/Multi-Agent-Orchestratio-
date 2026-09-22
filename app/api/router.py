@@ -36,7 +36,7 @@ from app.core.api_runtime import ApiRuntime
 from app.core.config import RuntimeConfig
 from app.ingestion.documents import DocumentTypeError
 from app.providers.ollama import OllamaProvider
-from app.retrieval.text import retrieve
+from app.retrieval.query import retrieve_chunks
 from app.research.conversation_context import build_conversation_context
 
 
@@ -831,9 +831,12 @@ def search_knowledge_base(
     try:
         service = _knowledge_service(runtime)
         results = (
-            retrieve(
+            retrieve_chunks(
                 request,
                 runtime.source_store.chunks(),
+                retrieval_mode="LEXICAL",
+                vector_store=None,
+                embedder=None,
                 top_k=top_k,
                 min_score=min_score,
                 domain=domain,
