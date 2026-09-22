@@ -8,6 +8,7 @@ from typing import Any
 from app.providers.factory import get_provider
 from app.research.p_lite_pipeline import PLitePipeline
 from app.research.pipeline import ResearchPipeline
+from app.run.coordinator import RunCoordinator
 from app.storage.knowledge_base import KnowledgeBase
 from app.storage.conversation_store import ConversationStore
 from app.storage.run_store import RunStore
@@ -42,6 +43,7 @@ class ApiRuntime:
     run_store: RunStore
     conversation_store: ConversationStore
     pipeline: ResearchPipeline
+    run_coordinator: RunCoordinator
     p_lite_pipeline: PLitePipelineService
 
     @classmethod
@@ -57,15 +59,17 @@ class ApiRuntime:
         knowledge_base = KnowledgeBase.from_env(source_store)
         run_store = RunStore(str(runs_root))
         conversation_store = ConversationStore(Path(data_root) / "conversations")
+        pipeline = ResearchPipeline(
+            source_store,
+            run_store,
+            knowledge_base=knowledge_base,
+        )
         return cls(
             source_store=source_store,
             knowledge_base=knowledge_base,
             run_store=run_store,
             conversation_store=conversation_store,
-            pipeline=ResearchPipeline(
-                source_store,
-                run_store,
-                knowledge_base=knowledge_base,
-            ),
+            pipeline=pipeline,
+            run_coordinator=pipeline.run_coordinator,
             p_lite_pipeline=PLitePipelineService(PLitePipeline()),
         )

@@ -1,17 +1,13 @@
 from __future__ import annotations
 import inspect
 import time
-import uuid
 from collections.abc import Callable, Mapping
 from dataclasses import asdict
-from datetime import datetime, timezone
 from typing import Any
-from app.core.config import CONDITION_DEFINITIONS, RuntimeConfig
 from app.core.graph import topological_order
-from app.core.telemetry import process_rss_mb, gpu_memory_mb
 from app.core.types import SourceChunk, Task, TaskResult, RunMetrics
-from app.research.contracts import planning_task_to_runtime
 from app.providers.factory import get_provider
+from app.research.contracts import planning_task_to_runtime
 from app.research.context_controller import ContextController, OverlapTracker
 from app.research.conversation_context import ConversationContext
 from app.research.decomposer import decompose
@@ -33,9 +29,7 @@ from app.retrieval.text import (
 from app.retrieval.query import retrieve_chunks
 from app.storage.source_store import SourceStore
 from app.storage.run_store import RunStore
-from app.run.contracts import Run
-
-CONDITIONS = {"A", "B", "C", "C-P", "C-N", "C-O"}
+from app.run.coordinator import RunCoordinator
 TASK_QUERY_FORMULATION_VERSION = "task-query-v2-anchor-preserving"
 TASK_QUERY_FALLBACK_REASON = "task_query_no_results_fallback_to_user_request"
 TASK_QUERY_DOMAIN_FALLBACK_REASON = "task_query_no_results_fallback_to_task_domain"
@@ -77,6 +71,18 @@ class ResearchPipeline:
         self.retrieval_owner = retriever if retriever is not None else knowledge_base
         self.retriever = _preferred_retriever(self.retrieval_owner)
         self.planning = PlanningRetriever()
+        self.run_coordinator = RunCoordinator(
+            source_store,
+            run_store,
+            process=self.process,
+            retrieval_metadata=self._retrieval_metadata,
+            provider_resolver=get_provider,
+            scoring_versions=SCORING_VERSION_METADATA,
+            planning_retrieval_scoring_version=PLANNING_RETRIEVAL_SCORING_VERSION,
+            retrieval_scoring_version=RETRIEVAL_SCORING_VERSION,
+            domain_ranking_version=DOMAIN_RANKING_VERSION,
+            retrieval_metadata_defaults=_RETRIEVAL_METADATA_DEFAULTS,
+        )
 
     async def run(
         self,
@@ -87,119 +93,30 @@ class ResearchPipeline:
         conversation_context: ConversationContext | str | None = None,
         conversation_id: str | None = None,
     ) -> dict:
-        condition = condition.upper()
-        if condition not in CONDITIONS:
-            raise ValueError(f"Unknown condition {condition}")
-        if isinstance(conversation_context, str):
-            conversation_context = ConversationContext(text=conversation_context)
-        elif not isinstance(conversation_context, ConversationContext):
-            conversation_context = ConversationContext()
-        cfg = RuntimeConfig.from_env()
-        cfg.assert_condition(condition)
-        provider = get_provider(provider_name)
-        started = time.perf_counter()
-        metrics = RunMetrics(peak_rss_mb=process_rss_mb(), gpu_memory_mb=gpu_memory_mb())
-        events: list[dict] = []
-        run_id = "run_" + uuid.uuid4().hex[:12]
-        flags = self._flags(condition)
-        source_snapshot = self.source_store.snapshot_id()
+        """Compatibility entry point retained for research harness callers."""
 
-        def event(stage: str, **data):
-            events.append({"stage": stage, "ts": datetime.now(timezone.utc).isoformat(), **data})
-
-        def finalize(status: str, answer: str, tasks: list[Task], task_results: list[TaskResult]) -> dict:
-            metrics.latency_ms = int((time.perf_counter() - started) * 1000)
-            metrics.peak_rss_mb = max(filter(lambda x: x is not None, [metrics.peak_rss_mb, process_rss_mb()]), default=None)
-            metrics.gpu_memory_mb = gpu_memory_mb()
-            effective = {
-                "condition": condition,
-                "implementation_profile": cfg.implementation_profile,
-                "flags": flags,
-                "task_top_k": cfg.task_top_k,
-                "planning_top_k": cfg.planning_top_k,
-                "max_context_tokens": cfg.max_context_tokens,
-                "max_output_tokens": cfg.max_output_tokens,
-                "max_run_tokens": cfg.max_run_tokens,
-                "retry_limit": cfg.retry_limit,
-                "conversation_id": conversation_id,
-                "conversation_context": conversation_context.to_trace(),
-                "retrieval_min_score": cfg.retrieval_min_score,
-                "scoring_versions": dict(SCORING_VERSION_METADATA),
-                "retrieval": dict(retrieval_metadata),
-            }
-            run = {
-                "run_id": run_id,
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "condition": condition,
-                "implementation_profile": cfg.implementation_profile,
-                "provider": provider.name,
-                "model": provider.model,
-                "query": query,
-                "conversation_id": conversation_id,
-                "conversation_context": conversation_context.to_trace(),
-                "status": status,
-                "answer": answer,
-                "source_snapshot_id": source_snapshot,
-                "config_hash": cfg.config_hash(),
-                "tasks": [asdict(t) for t in tasks],
-                "task_results": [asdict(r) for r in task_results],
-                "metrics": metrics.to_dict(),
-                "events": events,
-                "effective_config": effective,
-                "scoring_versions": dict(SCORING_VERSION_METADATA),
-                "planning_retrieval_scoring_version": PLANNING_RETRIEVAL_SCORING_VERSION,
-                "retrieval_scoring_version": RETRIEVAL_SCORING_VERSION,
-                "domain_ranking_version": DOMAIN_RANKING_VERSION,
-                "retrieval": dict(retrieval_metadata),
-            }
-            typed_run = Run.from_mapping(run)
-            self.run_store.save(typed_run)
-            return typed_run.to_dict()
-
-        try:
-            retrieval_metadata = await self._retrieval_metadata()
-        except Exception as exc:
-            retrieval_metadata = {
-                **_RETRIEVAL_METADATA_DEFAULTS,
-                "retrieval_backend": "unavailable",
-            }
-            event(
-                "run_started",
-                condition=condition,
-                provider=provider.name,
-                model=provider.model,
-                implementation_profile=cfg.implementation_profile,
-                source_snapshot_id=source_snapshot,
-                config_hash=cfg.config_hash(),
-                flags=flags,
-                scoring_versions=dict(SCORING_VERSION_METADATA),
-                retrieval=dict(retrieval_metadata),
-            )
-            event("retrieval_failed", error_type=type(exc).__name__)
-            return finalize(
-                "FAILED",
-                f"Pipeline failed: retrieval metadata unavailable ({type(exc).__name__})",
-                [],
-                [],
-            )
-
-        event(
-            "run_started",
-            condition=condition,
-            provider=provider.name,
-            model=provider.model,
-            implementation_profile=cfg.implementation_profile,
-            source_snapshot_id=source_snapshot,
-            config_hash=cfg.config_hash(),
-            flags=flags,
-            scoring_versions=dict(SCORING_VERSION_METADATA),
-            retrieval=dict(retrieval_metadata),
+        return await self.run_coordinator.execute(
+            query,
+            condition,
+            provider_name,
+            conversation_context=conversation_context,
+            conversation_id=conversation_id,
         )
-        event(
-            "conversation_context",
-            current_request=query,
-            **conversation_context.to_trace(),
-        )
+
+    async def process(
+        self,
+        query: str,
+        condition: str,
+        provider: Any,
+        cfg: Any,
+        flags: dict[str, bool],
+        conversation_context: ConversationContext,
+        metrics: RunMetrics,
+        event: Callable[..., None],
+        retrieval_metadata: dict[str, Any],
+    ) -> tuple[str, str, list[Task], list[TaskResult], bool]:
+        """Run existing research processing stages without owning Run persistence."""
+
         all_chunks = self.source_store.chunks()
         try:
             if condition == "A":
@@ -278,11 +195,12 @@ class ResearchPipeline:
                         "decomposition_failed",
                         warnings=list(getattr(decomposition, "warnings", [])),
                     )
-                    return finalize(
+                    return (
                         "FAILED",
                         "Pipeline failed: decomposer returned no valid tasks",
                         [],
                         [],
+                        False,
                     )
                 if flags["N"]:
                     task_count_before_normalization = len(tasks)
@@ -375,18 +293,10 @@ class ResearchPipeline:
             status = "COMPLETE" if task_results and all(r.status == "COMPLETE" for r in task_results) else "PARTIAL"
             if task_results and all(r.status == "NO_EVIDENCE" for r in task_results):
                 status = "NO_EVIDENCE"
-            event("run_finished", status=status)
-            return finalize(status, answer, tasks, task_results)
-        except Exception as exc:
-            event("run_failed", error_type=type(exc).__name__, error=str(exc))
-            return finalize("FAILED", f"Pipeline failed: {type(exc).__name__}: {exc}", [], [])
-
-    @staticmethod
-    def _flags(condition: str) -> dict[str, bool]:
-        definition = CONDITION_DEFINITIONS.get(condition)
-        if definition is None:
-            raise ValueError(f"Unknown condition {condition}")
-        return {flag: bool(definition[flag]) for flag in ("P", "N", "O")}
+            return status, answer, tasks, task_results, True
+        except Exception:
+            # RunCoordinator records the terminal failure and persists the Run.
+            raise
 
     async def _retrieve(
         self,

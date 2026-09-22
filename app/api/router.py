@@ -889,7 +889,11 @@ async def chat(
     # fallback for a request that selected a different retrieval backend.
     _knowledge_service(runtime)
     try:
-        run = await runtime.pipeline.run(body.message.strip(), body.condition, body.provider)
+        run = await runtime.run_coordinator.execute(
+            body.message.strip(),
+            body.condition,
+            body.provider,
+        )
         return run
     except ValueError as exc:
         raise _pipeline_value_error(exc) from exc
@@ -949,7 +953,7 @@ async def send_conversation_message(
         content=message,
     )
     try:
-        run = await runtime.pipeline.run(
+        run = await runtime.run_coordinator.execute(
             message,
             body.condition,
             body.provider,
