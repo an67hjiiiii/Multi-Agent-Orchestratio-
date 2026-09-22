@@ -3,6 +3,7 @@ import json
 import re
 from app.core.citations import resolve_citations
 from app.core.types import Task, TaskResult, SourceChunk, RunMetrics
+from app.research.contracts import WorkerResult
 from app.research.registry import profile
 
 
@@ -13,7 +14,7 @@ def _extract_json(text: str) -> dict:
         m = re.search(r"\{.*\}", text, re.S)
         return json.loads(m.group(0)) if m else {"status":"PARTIAL","answer":text,"citations":[],"missing_information":[]}
 
-async def execute_task(provider, task: Task, evidence: list[SourceChunk], metrics: RunMetrics) -> TaskResult:
+async def execute_task(provider, task: Task, evidence: list[SourceChunk], metrics: RunMetrics) -> WorkerResult:
     if not evidence:
         return TaskResult(
             task_id=task.task_id,

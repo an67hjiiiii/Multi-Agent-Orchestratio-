@@ -9,6 +9,8 @@ from pathlib import Path
 from threading import RLock
 from typing import Any, Mapping
 
+from app.conversation.contracts import Conversation, Message
+
 
 CONVERSATION_SCHEMA_VERSION = "conversation-v1"
 CONVERSATION_ROLES = frozenset({"USER", "ASSISTANT"})
@@ -41,18 +43,7 @@ class ConversationStore:
 
     @staticmethod
     def _public(record: Mapping[str, Any]) -> dict[str, Any]:
-        return {
-            "conversation_id": record.get("conversation_id"),
-            "owner_user_id": record.get("owner_user_id"),
-            "title": record.get("title") or "New conversation",
-            "created_at": record.get("created_at"),
-            "updated_at": record.get("updated_at"),
-            "messages": [
-                dict(message)
-                for message in (record.get("messages") or [])
-                if isinstance(message, Mapping)
-            ],
-        }
+        return Conversation.from_mapping(record).to_public_dict()
 
     def _read(self, conversation_id: str) -> dict[str, Any] | None:
         if not conversation_id or Path(conversation_id).name != conversation_id:
@@ -152,14 +143,14 @@ class ConversationStore:
             if not isinstance(messages, list):
                 messages = []
                 record["messages"] = messages
-            message = {
-                "message_id": f"msg_{uuid.uuid4().hex[:12]}",
-                "conversation_id": conversation_id,
-                "role": normalized_role,
-                "content": normalized_content,
-                "created_at": _utc_now(),
-                "run_id": run_id,
-            }
+            message = Message(
+                message_id=f"msg_{uuid.uuid4().hex[:12]}",
+                conversation_id=conversation_id,
+                role=normalized_role,
+                content=normalized_content,
+                created_at=_utc_now(),
+                run_id=run_id,
+            ).to_dict()
             messages.append(message)
             if normalized_role == "USER" and str(record.get("title") or "New conversation") == "New conversation":
                 record["title"] = normalized_content[:120]

@@ -1,15 +1,20 @@
 from __future__ import annotations
 import json
 from pathlib import Path
+from typing import Any, Mapping
+
+from app.run.contracts import Run
 
 class RunStore:
     def __init__(self, root: str = "runs"):
         self.root = Path(root)
         self.root.mkdir(parents=True, exist_ok=True)
 
-    def save(self, run: dict) -> None:
-        run_id = run["run_id"]
-        (self.root / f"{run_id}.json").write_text(json.dumps(run, ensure_ascii=False, indent=2), encoding="utf-8")
+    def save(self, run: Run | Mapping[str, Any]) -> None:
+        typed_run = run if isinstance(run, Run) else Run.from_mapping(run)
+        payload = typed_run.to_dict()
+        run_id = payload["run_id"]
+        (self.root / f"{run_id}.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
     def get(self, run_id: str) -> dict | None:
         path = self.root / f"{run_id}.json"

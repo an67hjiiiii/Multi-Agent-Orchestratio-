@@ -1,6 +1,9 @@
 from __future__ import annotations
 from dataclasses import dataclass, field, asdict
-from typing import Any
+from typing import Any, Literal, TypeAlias
+
+
+Status: TypeAlias = Literal["COMPLETE", "PARTIAL", "NO_EVIDENCE", "FAILED"]
 
 @dataclass
 class Usage:
@@ -28,6 +31,20 @@ class SourceChunk:
     score: float = 0.0
     provenance: dict[str, Any] = field(default_factory=dict)
 
+
+@dataclass(frozen=True)
+class Citation:
+    """A validated locator, kept separate from the evidence it points to."""
+
+    locator: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.locator, str) or not self.locator.strip():
+            raise ValueError("citation locator must be a non-empty string")
+
+    def to_value(self) -> str:
+        return self.locator
+
 @dataclass
 class Task:
     task_id: str
@@ -40,6 +57,12 @@ class Task:
     deliverable: str = ""
     requirement_ids: list[str] = field(default_factory=list)
     constraints: list[str] = field(default_factory=list)
+    # Planning metadata is additive. Existing runtime callers can continue
+    # to use goal/object/domain while the adapter preserves the richer plan.
+    title: str = ""
+    expected_output: str = ""
+    role_profile: str = ""
+    covers_obligations: list[str] = field(default_factory=list)
 
 @dataclass
 class TaskResult:
@@ -89,3 +112,8 @@ class RunMetrics:
             if self.citations_emitted else None
         )
         return d
+
+
+# SourceChunk is the existing canonical evidence payload. The alias makes
+# that boundary explicit without introducing a second runtime representation.
+Evidence = SourceChunk

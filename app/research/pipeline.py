@@ -10,6 +10,7 @@ from app.core.config import CONDITION_DEFINITIONS, RuntimeConfig
 from app.core.graph import topological_order, validate_tasks
 from app.core.telemetry import process_rss_mb, gpu_memory_mb
 from app.core.types import SourceChunk, Task, TaskResult, RunMetrics
+from app.research.contracts import planning_task_to_runtime
 from app.providers.factory import get_provider
 from app.research.context_controller import ContextController, OverlapTracker
 from app.research.conversation_context import ConversationContext
@@ -32,6 +33,7 @@ from app.retrieval.text import (
 )
 from app.storage.source_store import SourceStore
 from app.storage.run_store import RunStore
+from app.run.contracts import Run
 
 CONDITIONS = {"A", "B", "C", "C-P", "C-N", "C-O"}
 TASK_QUERY_FORMULATION_VERSION = "task-query-v2-anchor-preserving"
@@ -150,8 +152,9 @@ class ResearchPipeline:
                 "domain_ranking_version": DOMAIN_RANKING_VERSION,
                 "retrieval": dict(retrieval_metadata),
             }
-            self.run_store.save(run)
-            return run
+            typed_run = Run.from_mapping(run)
+            self.run_store.save(typed_run)
+            return typed_run.to_dict()
 
         try:
             retrieval_metadata = await self._retrieval_metadata()
@@ -472,15 +475,7 @@ def _runtime_tasks(decomposition: object) -> list[Task]:
         model_dump = getattr(item, "model_dump", None)
         if not callable(model_dump):
             raise TypeError("decomposition task must use the canonical task schema")
-        values = model_dump()
-        tasks.append(
-            Task(
-                task_id=values["task_id"],
-                goal=values["objective"],
-                domain=values["domain"],
-                depends_on=list(values["depends_on"]),
-            )
-        )
+        tasks.append(planning_task_to_runtime(item))
     return tasks
 
 
