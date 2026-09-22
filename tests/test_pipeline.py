@@ -11,13 +11,36 @@ from app.research.pipeline import (
     _retrieve_task_candidates,
 )
 from app.core.types import SourceChunk, Task
+from app.providers.fake import FakeProvider
 from app.research.context_controller import ContextController
 from app.storage.source_store import SourceStore
 from app.storage.run_store import RunStore
 
 
+class _CoverageAwareFakeProvider(FakeProvider):
+    """Test-only fixture aligned with the accepted decomposer coverage contract."""
+
+    def _tasks(self, user: str) -> list[dict]:
+        tasks = super()._tasks(user)
+        request = user.split("CURRENT REQUEST:\n", 1)[1].split("\n\n", 1)[0]
+        for task in tasks:
+            task["title"] = f"{request} — {task['title']}"
+            task["expected_output"] = f"{request}. {task['expected_output']}"
+            task["covers_obligations"] = ["O1"]
+        return tasks
+
+
+def _coverage_aware_fake_provider(monkeypatch):
+    from app.research import pipeline as pipeline_module
+
+    provider = _CoverageAwareFakeProvider()
+    monkeypatch.setattr(pipeline_module, "get_provider", lambda _name: provider)
+    return provider
+
+
 def test_a_b_c_fake_dev_profile(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("IMPLEMENTATION_PROFILE", "dev")
+    _coverage_aware_fake_provider(monkeypatch)
     sources=SourceStore(str(tmp_path/'data'))
     sources.import_text('security.md','Authentication uses bearer JWT. Authorization checks permissions server-side.')
     sources.import_text('db.md','Database queries should use indexes for frequent identifiers.')
@@ -162,6 +185,7 @@ def test_task_query_preserves_request_anchors_without_noisy_paraphrase():
 
 def test_pipeline_records_anchor_query_version_and_fallback_reason(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("IMPLEMENTATION_PROFILE", "dev")
+    _coverage_aware_fake_provider(monkeypatch)
     sources = SourceStore(str(tmp_path / "data"))
     sources.import_text("db.md", "Queries need indexes for frequent identifiers.")
     run = asyncio.run(
@@ -188,7 +212,7 @@ def test_failed_decomposition_is_explicit_not_an_empty_partial(tmp_path: Path, m
     from app.research import pipeline as pipeline_module
     from app.research.task_schema import DecompositionResult
 
-    async def failed_decompose(*_args):
+    async def failed_decompose(*_args, conversation_context: str = ""):
         return DecompositionResult(
             request="Review authentication",
             tasks=[],
@@ -216,7 +240,7 @@ def test_pipeline_traces_explicit_obligation_coverage(tmp_path: Path, monkeypatc
         TaskItem,
     )
 
-    async def covered_decompose(*_args):
+    async def covered_decompose(*_args, conversation_context: str = ""):
         return DecompositionResult(
             request="Combine authentication and authorization obligations.",
             tasks=[
