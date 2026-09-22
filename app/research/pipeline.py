@@ -7,7 +7,7 @@ from dataclasses import asdict
 from datetime import datetime, timezone
 from typing import Any
 from app.core.config import CONDITION_DEFINITIONS, RuntimeConfig
-from app.core.graph import topological_order, validate_tasks
+from app.core.graph import topological_order
 from app.core.telemetry import process_rss_mb, gpu_memory_mb
 from app.core.types import SourceChunk, Task, TaskResult, RunMetrics
 from app.research.contracts import planning_task_to_runtime
@@ -290,7 +290,6 @@ class ResearchPipeline:
                     removed = task_count_before_normalization - len(tasks)
                     metrics.duplicate_tasks_removed += removed
                     event("normalization", removed=removed, trace=normalization_trace, tasks=[asdict(t) for t in tasks])
-                validate_tasks(tasks)
                 ordered = topological_order(tasks)
                 task_results = []
                 completed: dict[str, TaskResult] = {}
