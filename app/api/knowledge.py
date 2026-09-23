@@ -6,7 +6,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, File, Query, UploadFile
 
-from app.api.dependencies import get_api_runtime
+from app.api.dependencies import get_api_runtime, get_current_user
 from app.api.errors import ApiError
 from app.api.schemas import SourceTextRequest
 from app.core.api_runtime import ApiRuntime
@@ -15,6 +15,30 @@ from app.ingestion.documents import DocumentTypeError
 
 router = APIRouter()
 MAX_SOURCE_BYTES = 2_000_000
+
+
+def source_owner_id(user: Mapping[str, Any]) -> str:
+    """Return the stable local account identifier used for source scope."""
+
+    return str(user.get("user_id") or user.get("id") or "").strip()
+
+
+def source_is_owned_by(record: Mapping[str, Any], owner_id: str) -> bool:
+    """Fail closed when a source has no owner or belongs to another account."""
+
+    provenance = record.get("provenance")
+    if not isinstance(provenance, Mapping):
+        metadata = record.get("metadata")
+        provenance = metadata.get("provenance") if isinstance(metadata, Mapping) else None
+    return (
+        bool(owner_id)
+        and isinstance(provenance, Mapping)
+        and provenance.get("owner_user_id") == owner_id
+    )
+
+
+def owner_provenance(user: Mapping[str, Any]) -> dict[str, str]:
+    return {"owner_user_id": source_owner_id(user)}
 
 
 def vector_backend_requested() -> bool:
@@ -212,51 +236,78 @@ def knowledge_status(runtime: ApiRuntime) -> dict[str, Any]:
 
 
 @router.get("/sources")
-def list_sources(runtime: ApiRuntime = Depends(get_api_runtime)):
+def list_sources(
+    user: dict[str, Any] = Depends(get_current_user),
+    runtime: ApiRuntime = Depends(get_api_runtime),
+):
     service = knowledge_service(runtime)
     sources = (
         runtime.source_store.list_sources()
         if service is None
         else call_knowledge_method(runtime, "list_sources")
     )
-    return {"snapshot_id": runtime.source_store.snapshot_id(), "sources": sources}
+    owner_id = source_owner_id(user)
+    return {
+        "snapshot_id": runtime.source_store.snapshot_id(),
+        "sources": [
+            source
+            for source in sources
+            if isinstance(source, Mapping) and source_is_owned_by(source, owner_id)
+        ],
+    }
 
 
 @router.get("/sources/{source_id}")
-def get_source(source_id: str, runtime: ApiRuntime = Depends(get_api_runtime)):
+def get_source(
+    source_id: str,
+    user: dict[str, Any] = Depends(get_current_user),
+    runtime: ApiRuntime = Depends(get_api_runtime),
+):
     service = knowledge_service(runtime)
     item = (
         runtime.source_store.source(source_id)
         if service is None
         else call_knowledge_method(runtime, "source", source_id)
     )
-    if not item:
+    if not isinstance(item, Mapping) or not source_is_owned_by(item, source_owner_id(user)):
         raise ApiError(404, "NOT_FOUND", "source not found")
     return as_record(item, error_code="INVALID_KNOWLEDGE_SOURCE")
 
 
 @router.get("/chunks/{chunk_id}")
-def get_chunk(chunk_id: str, runtime: ApiRuntime = Depends(get_api_runtime)):
+def get_chunk(
+    chunk_id: str,
+    user: dict[str, Any] = Depends(get_current_user),
+    runtime: ApiRuntime = Depends(get_api_runtime),
+):
     service = knowledge_service(runtime)
     item = (
         runtime.source_store.chunk(chunk_id)
         if service is None
         else call_knowledge_method(runtime, "chunk", chunk_id)
     )
-    if not item:
+    if not isinstance(item, Mapping) or not source_is_owned_by(item, source_owner_id(user)):
         raise ApiError(404, "NOT_FOUND", "chunk not found")
     return chunk_record(item)
 
 
 @router.post("/sources/text")
-def import_text(body: SourceTextRequest, runtime: ApiRuntime = Depends(get_api_runtime)):
+def import_text(
+    body: SourceTextRequest,
+    user: dict[str, Any] = Depends(get_current_user),
+    runtime: ApiRuntime = Depends(get_api_runtime),
+):
     if not body.source_name.strip():
         raise ApiError(400, "SOURCE_NAME_REQUIRED", "source_name is required")
     if not body.text.strip():
         raise ApiError(400, "EMPTY_SOURCE", "text is empty")
     service = knowledge_service(runtime)
     if service is None:
-        return runtime.source_store.import_text(body.source_name, body.text)
+        return runtime.source_store.import_text(
+            body.source_name,
+            body.text,
+            provenance=owner_provenance(user),
+        )
     return call_knowledge_import(
         runtime,
         "import_text",
@@ -267,6 +318,7 @@ def import_text(body: SourceTextRequest, runtime: ApiRuntime = Depends(get_api_r
             "source_type": "text/plain",
             "source_format": "text",
             "origin": "api_text",
+            **owner_provenance(user),
         },
     )
 
@@ -274,6 +326,7 @@ def import_text(body: SourceTextRequest, runtime: ApiRuntime = Depends(get_api_r
 @router.post("/sources/file")
 async def import_file(
     file: UploadFile = File(...),
+    user: dict[str, Any] = Depends(get_current_user),
     runtime: ApiRuntime = Depends(get_api_runtime),
 ):
     data = await file.read(MAX_SOURCE_BYTES + 1)
@@ -289,6 +342,7 @@ async def import_file(
             data,
             origin="upload",
             content_type=file.content_type,
+            provenance=owner_provenance(user),
         )
     try:
         text = data.decode("utf-8")
@@ -296,7 +350,11 @@ async def import_file(
         raise ApiError(415, "UNSUPPORTED_ENCODING", "M0 accepts UTF-8 text/code/markdown files only") from exc
     if not text.strip():
         raise ApiError(400, "EMPTY_SOURCE", "file is empty")
-    return runtime.source_store.import_text(filename, text)
+    return runtime.source_store.import_text(
+        filename,
+        text,
+        provenance=owner_provenance(user),
+    )
 
 
 @router.get("/kb/status")
@@ -305,26 +363,35 @@ def kb_status(runtime: ApiRuntime = Depends(get_api_runtime)):
 
 
 @router.get("/kb/sources")
-def list_knowledge_base_sources(runtime: ApiRuntime = Depends(get_api_runtime)):
-    return list_sources(runtime)
+def list_knowledge_base_sources(
+    user: dict[str, Any] = Depends(get_current_user),
+    runtime: ApiRuntime = Depends(get_api_runtime),
+):
+    return list_sources(user, runtime)
 
 
 @router.get("/kb/sources/{source_id}")
-def inspect_knowledge_base_source(source_id: str, runtime: ApiRuntime = Depends(get_api_runtime)):
-    return get_source(source_id, runtime)
+def inspect_knowledge_base_source(
+    source_id: str,
+    user: dict[str, Any] = Depends(get_current_user),
+    runtime: ApiRuntime = Depends(get_api_runtime),
+):
+    return get_source(source_id, user, runtime)
 
 
 @router.post("/kb/import/text")
 def import_knowledge_base_text(
     body: SourceTextRequest,
+    user: dict[str, Any] = Depends(get_current_user),
     runtime: ApiRuntime = Depends(get_api_runtime),
 ):
-    return import_text(body, runtime)
+    return import_text(body, user, runtime)
 
 
 @router.post("/kb/import/file")
 async def import_knowledge_base_file(
     file: UploadFile = File(...),
+    user: dict[str, Any] = Depends(get_current_user),
     runtime: ApiRuntime = Depends(get_api_runtime),
 ):
-    return await import_file(file, runtime)
+    return await import_file(file, user, runtime)

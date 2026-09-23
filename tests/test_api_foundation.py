@@ -26,13 +26,19 @@ def make_client(tmp_path: Path, monkeypatch) -> TestClient:
     monkeypatch.setenv("IMPLEMENTATION_PROFILE", "m0")
     monkeypatch.setenv("PROVIDER", "fake")
     monkeypatch.delenv("VECTOR_BACKEND", raising=False)
-    return TestClient(
+    client = TestClient(
         create_app(
             data_dir=tmp_path / "data",
             runs_dir=tmp_path / "runs",
             frontend_dist_dir=make_frontend_dist(tmp_path),
         )
     )
+    registered = client.post(
+        "/api/auth/register",
+        json={"email": "api@example.test", "name": "API", "password": "Password123!"},
+    )
+    assert registered.status_code == 200
+    return client
 
 
 def test_api_boundary_preserves_static_frontend_and_m0_health(tmp_path, monkeypatch):
@@ -265,6 +271,7 @@ def test_api_boundary_delegates_to_optional_knowledge_base_service(tmp_path, mon
         runs_dir=tmp_path / "runs",
         frontend_dist_dir=make_frontend_dist(tmp_path),
     )
+    owner_user_id = ""
 
     class StubKnowledgeBase:
         def status(self):
@@ -279,12 +286,18 @@ def test_api_boundary_delegates_to_optional_knowledge_base_service(tmp_path, mon
             }
 
         def list_sources(self):
-            return [{"source_id": "src_vector", "source_name": "notes.md", "chunk_count": 1}]
+            return [{
+                "source_id": "src_vector",
+                "source_name": "notes.md",
+                "chunk_count": 1,
+                "provenance": {"owner_user_id": owner_user_id},
+            }]
 
         def source(self, source_id):
             return {
                 "source_id": source_id,
                 "source_name": "notes.md",
+                "provenance": {"owner_user_id": owner_user_id},
                 "chunks": [self.chunk("chunk_vector")],
             }
 
@@ -296,11 +309,12 @@ def test_api_boundary_delegates_to_optional_knowledge_base_service(tmp_path, mon
                 "text": "Vector-backed evidence",
                 "index": 0,
                 "score": 0.9,
-                "provenance": {"origin": "upload"},
+                "provenance": {"origin": "upload", "owner_user_id": owner_user_id},
             }
 
         def import_text(self, source_name, text, *, provenance):
             assert provenance["origin"] == "api_text"
+            assert provenance["owner_user_id"] == owner_user_id
             return {
                 "source_id": "src_vector",
                 "source_name": source_name,
@@ -311,11 +325,12 @@ def test_api_boundary_delegates_to_optional_knowledge_base_service(tmp_path, mon
                 "vector_indexed_chunks": 1,
             }
 
-        def import_document(self, source_name, data, *, origin, content_type):
+        def import_document(self, source_name, data, *, origin, content_type, provenance):
             assert source_name == "upload.md"
             assert data == b"Uploaded evidence"
             assert origin == "upload"
             assert content_type == "text/markdown"
+            assert provenance["owner_user_id"] == owner_user_id
             return {
                 "source_id": "src_vector",
                 "source_name": source_name,
@@ -328,6 +343,12 @@ def test_api_boundary_delegates_to_optional_knowledge_base_service(tmp_path, mon
 
     application.state.api_runtime.knowledge_base = StubKnowledgeBase()
     client = TestClient(application)
+    registered = client.post(
+        "/api/auth/register",
+        json={"email": "vector@example.test", "name": "Vector", "password": "Password123!"},
+    )
+    assert registered.status_code == 200
+    owner_user_id = registered.json()["user"]["user_id"]
 
     status = client.get("/api/kb/status").json()
     assert status["status"] == "READY"
@@ -346,7 +367,10 @@ def test_api_boundary_delegates_to_optional_knowledge_base_service(tmp_path, mon
     assert uploaded.status_code == 200
     assert uploaded.json()["retrieval_backend"] == "qdrant"
     assert client.get("/api/sources/src_vector").json()["source_name"] == "notes.md"
-    assert client.get("/api/chunks/chunk_vector").json()["provenance"] == {"origin": "upload"}
+    assert client.get("/api/chunks/chunk_vector").json()["provenance"] == {
+        "origin": "upload",
+        "owner_user_id": owner_user_id,
+    }
 
 
 def test_api_boundary_does_not_silently_fallback_when_vector_backend_is_explicit(

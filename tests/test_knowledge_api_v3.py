@@ -12,13 +12,19 @@ def _client(tmp_path: Path, monkeypatch) -> TestClient:
     monkeypatch.setenv("PROVIDER", "fake")
     monkeypatch.setenv("RETRIEVAL_MODE", "HYBRID")
     monkeypatch.setenv("VECTOR_BACKEND", "memory")
-    return TestClient(
+    client = TestClient(
         create_app(
             data_dir=tmp_path / "data",
             runs_dir=tmp_path / "runs",
             frontend_dist_dir=tmp_path,
         )
     )
+    registered = client.post(
+        "/api/auth/register",
+        json={"email": "knowledge@example.test", "name": "Knowledge", "password": "Password123!"},
+    )
+    assert registered.status_code == 200
+    return client
 
 
 def test_api_exposes_hybrid_status_and_indexes_imported_text(tmp_path, monkeypatch):

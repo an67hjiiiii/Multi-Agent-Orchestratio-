@@ -153,6 +153,7 @@ class KnowledgeBase:
         *,
         origin: str = "upload",
         content_type: str | None = None,
+        provenance: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         from app.ingestion.documents import extract_document
 
@@ -165,7 +166,7 @@ class KnowledgeBase:
         return self.import_text(
             document.source_name,
             document.text,
-            provenance=document.provenance,
+            provenance={**document.provenance, **(provenance or {})},
         )
 
     def import_path(self, path: str | Path) -> dict[str, Any]:
