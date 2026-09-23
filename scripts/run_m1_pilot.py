@@ -11,9 +11,7 @@ from pathlib import Path
 
 from app.core.config import RuntimeConfig
 from app.evaluation.pilot_ledger import PilotLedger, single_writer_lock
-from app.research.pipeline import ResearchPipeline
-from app.storage.run_store import RunStore
-from scripts.run_m0_calibration import prepare_store
+from app.research.runtime_factory import build_research_pipeline, prepare_source_store
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CASES = ROOT / "datasets" / "pilot" / "m1_dev_cases.json"
@@ -79,8 +77,7 @@ async def run_pilot(
     if not cases:
         raise ValueError("pilot phase must select at least one case")
 
-    store = prepare_store(ROOT / "data" / experiment_id)
-    runs = RunStore(str(runs_dir))
+    store = prepare_source_store(ROOT / "data" / experiment_id)
     with runtime(provider, implementation_profile):
         cfg = RuntimeConfig.from_env()
         for condition in conditions:
@@ -98,7 +95,7 @@ async def run_pilot(
         with single_writer_lock(output_dir):
             output_dir.mkdir(parents=True, exist_ok=True)
             ledger = PilotLedger(output_dir / "canonical_attempt_ledger.json", identity)
-            pipeline = ResearchPipeline(store, runs)
+            pipeline = build_research_pipeline(store, runs_dir)
             for case in cases:
                 for condition in conditions:
                     for repeat in range(1, repeats + 1):

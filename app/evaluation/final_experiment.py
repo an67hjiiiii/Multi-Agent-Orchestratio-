@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterator, Mapping
+
 from app.evaluation.pilot_ledger import PilotLockedError
 
 FINAL_CONDITIONS = ("A", "B", "C", "C-P", "C-N", "C-O")
@@ -366,11 +367,14 @@ async def run_final_experiment(
 
 
 def _default_pipeline(runs_dir: str | Path) -> Any:
-    from app.research.pipeline import ResearchPipeline
-    from app.storage.run_store import RunStore
-    from scripts.run_m0_calibration import prepare_store
+    # Keep dry-run dependency-light; compose runtime services only after the
+    # explicit launch-approval gate has passed.
+    from app.research.runtime_factory import build_pipeline_from_corpus
 
-    return ResearchPipeline(prepare_store(Path(runs_dir).parent / "data"), RunStore(str(runs_dir)))
+    return build_pipeline_from_corpus(
+        data_dir=Path(runs_dir).parent / "data",
+        runs_dir=runs_dir,
+    )
 
 
 def evaluate_after_inference(

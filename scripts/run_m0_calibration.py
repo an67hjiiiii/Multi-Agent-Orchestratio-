@@ -19,8 +19,7 @@ _ROOT_FOR_IMPORT = Path(__file__).resolve().parents[1]
 if str(_ROOT_FOR_IMPORT) not in sys.path:
     sys.path.insert(0, str(_ROOT_FOR_IMPORT))
 
-from app.research.pipeline import ResearchPipeline
-from app.storage.run_store import RunStore
+from app.research.runtime_factory import build_research_pipeline, prepare_source_store
 from app.storage.source_store import SourceStore
 
 
@@ -156,19 +155,9 @@ def prepare_store(
     data_dir: str | Path = DEFAULT_DATA_DIR,
     corpus_dir: str | Path = DEFAULT_CORPUS_DIR,
 ) -> SourceStore:
-    """Build a fresh deterministic source store from the checked-in domain corpus."""
+    """Compatibility wrapper for the shared application composition seam."""
 
-    data_path = _as_path(data_dir)
-    corpus_path = _as_path(corpus_dir)
-    source_files = sorted(corpus_path.glob("*.md"), key=lambda item: item.name)
-    if not source_files:
-        raise ValueError(f"No Markdown calibration sources found in {corpus_path}")
-
-    store = SourceStore(str(data_path))
-    store.clear()
-    for source_path in source_files:
-        store.import_text(source_path.name, source_path.read_text(encoding="utf-8"))
-    return store
+    return prepare_source_store(data_dir=data_dir, corpus_dir=corpus_dir)
 
 
 def _ordered_unique(values: list[Any]) -> list[str]:
@@ -539,7 +528,7 @@ async def run_calibration(
 
     rows: list[dict[str, Any]] = []
     with _runtime_environment(selected_provider):
-        pipeline = ResearchPipeline(store, RunStore(str(_as_path(runs_dir))))
+        pipeline = build_research_pipeline(store, _as_path(runs_dir))
         for case in cases:
             try:
                 run = await pipeline.run(case["query"], "A", selected_provider)
