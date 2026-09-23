@@ -13,11 +13,17 @@ import type {
   LocalModelHealthResponse,
   RuntimeConfigResponse,
   SettingsResponse,
+  PLiteInspectionResponse,
 } from "../types/api";
 import type { WorkspaceReadiness } from "../features/workspace/readiness";
 import type { SourceImportState } from "../app/useResearchApp";
 import type { NormalizedUiRun } from "../lib/uiAdapter";
+import type { ViewMode } from "./ProductNavigation";
+import { getPlanningInspectionResult } from "./Inspector";
+import { PlanningEvidencePanel } from "./PlanningEvidencePanel";
+import { ResearchWorkspace } from "./ResearchWorkspace";
 import { StatusBadge } from "./StatusBadge";
+import { TaskResultPanel } from "./TaskResultPanel";
 
 export function formatDate(value?: string) {
   if (!value) return "Date not recorded";
@@ -116,6 +122,7 @@ function RecentRunsCard({ history, onSelectRun, onViewAll }: { history: RunListI
 }
 
 export function ResearchView({
+  mode = "normal",
   conversation,
   run,
   pendingQuestion,
@@ -130,6 +137,7 @@ export function ResearchView({
   onOpenInspector,
   onOpenCitation,
 }: {
+  mode?: ViewMode;
   conversation: Conversation | null;
   run: NormalizedUiRun | null;
   pendingQuestion: string | null;
@@ -159,6 +167,7 @@ export function ResearchView({
       {!run && !isRunning && <section className="surface-card research-ready" aria-label="Ready to research"><span className="ready-orbit" aria-hidden="true">⌁</span><div><h2>Ready when you are.</h2><p>Import a source or ask a question. The answer will stay here, with source context one click away.</p></div></section>}
       {isRunning && <ResearchLoading question={question} />}
       {!isRunning && run && <RunResult run={run} onOpenInspector={onOpenInspector} onOpenCitation={onOpenCitation} />}
+      {!isRunning && run && mode === "research" && <ResearchWorkspace run={run} onOpenResearch={() => onOpenInspector("run")} />}
     </div>
   );
 }
@@ -414,8 +423,104 @@ export function AdminView({ sources, history, health }: { sources: SourceSummary
   return <div className="page-stack admin-view"><section className="page-title-row"><div><p className="eyebrow">ADMIN · LOCAL ACCESS</p><h1>Workspace health at a glance.</h1><p>This read-only surface exposes available runtime facts without adding new backend authority.</p></div><span className="admin-badge">Administrator</span></section><section className="admin-grid"><div className="surface-card admin-status-card"><span className="admin-card-label">Runtime</span><strong>{health?.ok ? "Available" : "Unavailable"}</strong><small>{health?.version || "Version not returned"}</small></div><div className="surface-card admin-status-card"><span className="admin-card-label">Corpus</span><strong>{status === "READY" ? "Ready" : status}</strong><small>{sources.length} sources · {sourceChunks(sources)} chunks</small></div><div className="surface-card admin-status-card"><span className="admin-card-label">Saved runs</span><strong>{history.length}</strong><small>Read-only records available</small></div></section>{adminError && <div className="notice notice-error" role="alert"><strong>Admin data unavailable.</strong><span>{adminError}</span></div>}<section className="surface-card admin-note"><span className="settings-icon" aria-hidden="true">◆</span><div><h2>Guardrails stay visible.</h2><p>Administrator access does not expose credentials, change research configuration, delete sources, or promote a run to a quality or milestone decision.</p><small>{adminStatus?.auth?.user_count === undefined ? "Account count not available." : `${adminStatus.auth.user_count} local account${adminStatus.auth.user_count === 1 ? "" : "s"} · ${adminStatus.auth.active_session_count ?? 0} active session${adminStatus.auth.active_session_count === 1 ? "" : "s"}`}</small></div></section><section className="surface-card admin-user-card" aria-labelledby="admin-users-title"><div className="section-heading"><div><p className="eyebrow">LOCAL USERS</p><h2 id="admin-users-title">Accounts</h2></div><span className="section-count">{users.length}</span></div>{users.length === 0 ? <div className="empty-inline"><strong>No user records returned.</strong><span>Admin user management remains read-only in P0.</span></div> : <div className="admin-user-list">{users.map((user) => <div className="admin-user-row" key={user.user_id || user.id}><span className="account-avatar" aria-hidden="true">{(user.display_name || user.name || user.email || "?").slice(0, 1).toUpperCase()}</span><span><strong>{user.display_name || user.name || user.email || user.username || "Unnamed user"}</strong><small>{user.email || user.username || "No identifier"}</small></span><span className="admin-user-role">{user.role}</span><span className="admin-user-status">{user.status || "ACTIVE"}</span></div>)}</div>}</section></div>;
 }
 
-export function RunInspector({ run, history, activeTab, onTabChange, onClose, onSelectRun, onOpenCitation }: { run: NormalizedUiRun | null; history: RunListItem[]; activeTab: "run" | "evidence" | "history"; onTabChange: (tab: "run" | "evidence" | "history") => void; onClose: () => void; onSelectRun: (runId: string) => void; onOpenCitation: (citation: string) => void }) {
-  return <aside className="inspector-drawer" aria-label="Run inspector"><div className="inspector-drawer-header"><div><p className="eyebrow">PROGRESSIVE DETAIL</p><h2>{activeTab === "run" ? "Run inspector" : activeTab === "evidence" ? "Evidence review" : "Research history"}</h2></div><button className="icon-button" type="button" aria-label="Close inspector" onClick={onClose}>×</button></div><div className="inspector-tabs" role="tablist" aria-label="Run details"><InspectorTab active={activeTab === "run"} label="Run" onClick={() => onTabChange("run")} /><InspectorTab active={activeTab === "evidence"} label="Evidence" onClick={() => onTabChange("evidence")} /><InspectorTab active={activeTab === "history"} label="History" onClick={() => onTabChange("history")} /></div><div className="inspector-body">{activeTab === "run" && <InspectorRun run={run} />}{activeTab === "evidence" && <InspectorEvidence run={run} onOpenCitation={onOpenCitation} />}{activeTab === "history" && <InspectorHistory history={history} activeRunId={run?.runId} onSelectRun={onSelectRun} />}</div></aside>;
+export type RunInspectorTab = "run" | "evidence" | "history" | "plan";
+
+interface RunInspectorProps {
+  run: NormalizedUiRun | null;
+  history: RunListItem[];
+  activeTab: RunInspectorTab;
+  onTabChange: (tab: RunInspectorTab) => void;
+  onClose: () => void;
+  onSelectRun: (runId: string) => void;
+  onOpenCitation: (citation: string) => void;
+  canInspectPlan?: boolean;
+  planningInspection?: PLiteInspectionResponse | null;
+  planningError?: string | null;
+  isInspectingPlan?: boolean;
+  onInspectPlan?: () => void;
+}
+
+function InspectorPlan({
+  result,
+  error,
+  isLoading,
+}: {
+  result: PLiteInspectionResponse | null;
+  error: string | null;
+  isLoading: boolean;
+}) {
+  return (
+    <div className="inspector-list" aria-busy={isLoading}>
+      {isLoading && (
+        <div className="inspector-empty" role="status">
+          <strong>Inspecting P-lite plan</strong>
+          <span>Retrieving bounded planning guidance and validating the task schema…</span>
+        </div>
+      )}
+      <PlanningEvidencePanel result={getPlanningInspectionResult(result)} />
+      <TaskResultPanel result={result} error={error} />
+    </div>
+  );
+}
+
+export function RunInspector({
+  run,
+  history,
+  activeTab,
+  onTabChange,
+  onClose,
+  onSelectRun,
+  onOpenCitation,
+  canInspectPlan = false,
+  planningInspection = null,
+  planningError = null,
+  isInspectingPlan = false,
+  onInspectPlan = () => undefined,
+}: RunInspectorProps) {
+  const tabs: Array<{ id: RunInspectorTab; label: string }> = [
+    { id: "run", label: "Run" },
+    { id: "evidence", label: "Evidence" },
+    { id: "history", label: "History" },
+    ...(canInspectPlan ? [{ id: "plan" as const, label: "Plan" }] : []),
+  ];
+  const safeTab = tabs.some((tab) => tab.id === activeTab) ? activeTab : "run";
+  const title = safeTab === "run"
+    ? "Run inspector"
+    : safeTab === "evidence"
+      ? "Evidence review"
+      : safeTab === "history"
+        ? "Research history"
+        : "P-lite planning inspector";
+
+  return (
+    <aside className="inspector-drawer" aria-label="Run inspector">
+      <div className="inspector-drawer-header">
+        <div>
+          <p className="eyebrow">PROGRESSIVE DETAIL</p>
+          <h2>{title}</h2>
+        </div>
+        <div className="inspector-drawer-header-actions">
+          {canInspectPlan && run?.raw.query && (
+            <button className="text-button inspector-plan-action" type="button" onClick={onInspectPlan} disabled={isInspectingPlan}>
+              {isInspectingPlan ? "Inspecting…" : planningInspection ? "Refresh P-lite plan" : "Inspect P-lite plan"}
+            </button>
+          )}
+          <button className="icon-button" type="button" aria-label="Close inspector" onClick={onClose}>×</button>
+        </div>
+      </div>
+      <div className={`inspector-tabs${canInspectPlan ? " inspector-tabs-plan" : ""}`} role="tablist" aria-label="Run details">
+        {tabs.map((tab) => (
+          <InspectorTab key={tab.id} active={safeTab === tab.id} label={tab.label} onClick={() => onTabChange(tab.id)} />
+        ))}
+      </div>
+      <div className="inspector-body">
+        {safeTab === "run" && <InspectorRun run={run} />}
+        {safeTab === "evidence" && <InspectorEvidence run={run} onOpenCitation={onOpenCitation} />}
+        {safeTab === "history" && <InspectorHistory history={history} activeRunId={run?.runId} onSelectRun={onSelectRun} />}
+        {safeTab === "plan" && canInspectPlan && <InspectorPlan result={planningInspection} error={planningError} isLoading={isInspectingPlan} />}
+      </div>
+    </aside>
+  );
 }
 
 function InspectorTab({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) { return <button className={`inspector-tab${active ? " inspector-tab-active" : ""}`} type="button" role="tab" aria-selected={active} onClick={onClick}>{label}</button>; }

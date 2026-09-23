@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { AuthScreen, AppHeader, NavigationRail, authRestoreState, hasRememberedSession, rememberSession, toSession, type DemoSession, type ProductPage } from "./features/auth";
+import { AuthScreen, AppHeader, NavigationRail, authRestoreState, hasRememberedSession, rememberSession, toSession, type DemoSession, type ProductPage, type ViewMode } from "./features/auth";
 import { useConversationWorkspace } from "./features/conversation";
 import { AdminView } from "./features/admin";
 import { ChunkDialog, RunInspector, normalizeRun, type NormalizedUiRun } from "./features/evidence";
@@ -21,8 +21,9 @@ export function App() {
   const [page, setPage] = useState<ProductPage>("home");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [provider, setProvider] = useState<string | null>(null);
+  const [mode, setMode] = useState<ViewMode>("normal");
   const [inspectorOpen, setInspectorOpen] = useState(false);
-  const [inspectorTab, setInspectorTab] = useState<"run" | "evidence" | "history">("run");
+  const [inspectorTab, setInspectorTab] = useState<"run" | "evidence" | "history" | "plan">("run");
   const knowledge = useKnowledgeInspection();
   const conversationWorkspace = useConversationWorkspace({
     sessionKey: session?.email ?? null,
@@ -72,9 +73,22 @@ export function App() {
     if (typeof configured === "string" && configured.trim()) setProvider(configured);
   }, [research.health?.default_provider, research.runtimeConfig?.provider]);
 
-  function openInspector(tab: "run" | "evidence" | "history" = "run") {
+  function openInspector(tab: "run" | "evidence" | "history" | "plan" = "run") {
     setInspectorTab(tab);
     setInspectorOpen(true);
+  }
+
+  function changeMode(nextMode: ViewMode) {
+    setMode(nextMode);
+    if (nextMode === "normal" && inspectorTab === "plan") setInspectorTab("run");
+  }
+
+  function inspectPlan() {
+    const request = research.activeRun?.query?.trim() ?? "";
+    const runProvider = research.activeRun?.provider ?? provider;
+    if (!request || !runProvider) return;
+    openInspector("plan");
+    void research.inspectPlan(request, runProvider);
   }
 
   async function importSource(file: File) {
@@ -150,6 +164,8 @@ export function App() {
           runtimeStatus={runtimeStatus}
           health={research.health}
           run={run}
+          mode={mode}
+          onModeChange={changeMode}
           onOpenNav={() => setMobileNavOpen(true)}
           onOpenInspector={() => openInspector("run")}
         />
@@ -167,7 +183,7 @@ export function App() {
           <WorkspaceReadinessBanner status={research.readiness} detail={research.readinessDetail} retrying={research.isBooting} onRetry={() => void research.retryBootstrap()} />
 
           {page === "home" && <HomeView sources={research.sources} history={research.history} health={research.health} onNewResearch={() => void conversationWorkspace.startNewConversation()} onKnowledge={() => setPage("knowledge")} onHistory={() => setPage("history")} onSelectRun={(runId) => void selectRun(runId)} />}
-          {page === "research" && <ResearchView conversation={conversationWorkspace.activeConversation} run={run} pendingQuestion={research.pendingQuestion} isRunning={research.isRunning || conversationWorkspace.conversationBusy} isImporting={research.isImporting} sourceNotice={research.sourceNotice} provider={provider} onProviderChange={setProvider} onSubmit={conversationWorkspace.submitQuestion} onNewConversation={() => void conversationWorkspace.startNewConversation()} onImport={importSource} onOpenInspector={openInspector} onOpenCitation={(citation) => { openInspector("evidence"); void knowledge.inspectCitation(citation); }} />}
+          {page === "research" && <ResearchView mode={mode} conversation={conversationWorkspace.activeConversation} run={run} pendingQuestion={research.pendingQuestion} isRunning={research.isRunning || conversationWorkspace.conversationBusy} isImporting={research.isImporting} sourceNotice={research.sourceNotice} provider={provider} onProviderChange={setProvider} onSubmit={conversationWorkspace.submitQuestion} onNewConversation={() => void conversationWorkspace.startNewConversation()} onImport={importSource} onOpenInspector={openInspector} onOpenCitation={(citation) => { openInspector("evidence"); void knowledge.inspectCitation(citation); }} />}
           {page === "knowledge" && <KnowledgeView sources={research.sources} sourceSnapshotId={research.sourceSnapshotId} knowledgeStatus={research.knowledgeStatus ?? research.health?.knowledge_base} importState={research.sourceImport} isImporting={research.isImporting} selectedSource={knowledge.selectedSource} sourceLoadingId={knowledge.sourceLoadingId} sourceError={knowledge.sourceError} onImport={importSource} onInspectSource={(source) => void knowledge.inspectSource(source)} onCloseSource={knowledge.closeSource} onInspectChunk={knowledge.inspectKnownChunk} />}
           {page === "history" && <HistoryView conversations={conversationWorkspace.conversations} activeConversationId={conversationWorkspace.activeConversation?.conversation_id} onNewConversation={() => void conversationWorkspace.startNewConversation()} onSelectConversation={(conversationId) => void conversationWorkspace.openConversation(conversationId)} history={research.history} activeRunId={research.activeRun?.run_id} onSelectRun={(runId) => void selectRun(runId)} />}
           {page === "settings" && <SettingsView session={session} provider={provider} runtimeConfig={research.runtimeConfig} settings={research.settings} knowledgeStatus={research.knowledgeStatus} localModelHealth={research.localModelHealth} readiness={research.readiness} settingsError={research.bootstrapIssues.settings ?? null} localModelError={research.bootstrapIssues.localModel ?? null} onSignOut={signOut} />}
@@ -175,7 +191,7 @@ export function App() {
         </main>
       </div>
 
-      {inspectorOpen && <RunInspector run={run} history={research.history} activeTab={inspectorTab} onTabChange={setInspectorTab} onClose={() => setInspectorOpen(false)} onSelectRun={(runId) => void selectRun(runId)} onOpenCitation={(citation) => void knowledge.inspectCitation(citation)} />}
+      {inspectorOpen && <RunInspector run={run} history={research.history} activeTab={inspectorTab} onTabChange={setInspectorTab} onClose={() => setInspectorOpen(false)} onSelectRun={(runId) => void selectRun(runId)} onOpenCitation={(citation) => void knowledge.inspectCitation(citation)} canInspectPlan={mode === "research" && research.canInspectPlan} planningInspection={research.planningInspection} planningError={research.planningError} isInspectingPlan={research.isInspectingPlan} onInspectPlan={inspectPlan} />}
       {knowledge.selectedChunk && <ChunkDialog chunk={knowledge.selectedChunk} onClose={knowledge.closeChunk} />}
     </div>
   );

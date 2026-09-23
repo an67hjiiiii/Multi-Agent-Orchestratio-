@@ -5,6 +5,7 @@ import type { AuthRestoreState } from "../features/auth/model";
 import { StatusBadge } from "./StatusBadge";
 
 export type ProductPage = "home" | "research" | "knowledge" | "history" | "settings" | "admin";
+export type ViewMode = "normal" | "research";
 
 export interface DemoSession {
   name: string;
@@ -173,6 +174,8 @@ interface AppHeaderProps {
   runtimeStatus: RunStatus | string;
   health: HealthResponse | null;
   run: NormalizedUiRun | null;
+  mode?: ViewMode;
+  onModeChange?: (mode: ViewMode) => void;
   onOpenNav: () => void;
   onOpenInspector: () => void;
 }
@@ -186,7 +189,17 @@ const pageTitles: Record<ProductPage, string> = {
   admin: "Admin",
 };
 
-export function AppHeader({ page, session, runtimeStatus, health, run, onOpenNav, onOpenInspector }: AppHeaderProps) {
+export function AppHeader({
+  page,
+  session,
+  runtimeStatus,
+  health,
+  run,
+  mode = "normal",
+  onModeChange = () => undefined,
+  onOpenNav,
+  onOpenInspector,
+}: AppHeaderProps) {
   const showInspector = Boolean(run) && page === "research";
   return (
     <header className="app-header">
@@ -198,6 +211,24 @@ export function AppHeader({ page, session, runtimeStatus, health, run, onOpenNav
         </div>
       </div>
       <div className="header-actions">
+        <div className="presentation-mode-switch" role="group" aria-label="Presentation mode">
+          <button
+            className={`presentation-mode-button${mode === "normal" ? " presentation-mode-button-active" : ""}`}
+            type="button"
+            aria-pressed={mode === "normal"}
+            onClick={() => onModeChange("normal")}
+          >
+            Normal
+          </button>
+          <button
+            className={`presentation-mode-button${mode === "research" ? " presentation-mode-button-active" : ""}`}
+            type="button"
+            aria-pressed={mode === "research"}
+            onClick={() => onModeChange("research")}
+          >
+            Research / Demo
+          </button>
+        </div>
         <div className="runtime-pill">
           <span className={`runtime-dot runtime-dot-${String(runtimeStatus).toLowerCase()}`} aria-hidden="true" />
           <span>{runtimeLabel(runtimeStatus)}</span>
