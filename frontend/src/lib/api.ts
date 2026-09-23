@@ -14,8 +14,10 @@ import type {
   KnowledgeBaseStatus,
   LocalModelHealthResponse,
   PLiteInspectionResponse,
+  RunEvidenceResponse,
   RunListItem,
   RunRecord,
+  RunTraceResponse,
   RuntimeConfigResponse,
   SourceChunk,
   SourceDetail,
@@ -95,6 +97,10 @@ export const api = {
     request<SourceChunk>(`/chunks/${encodeURIComponent(chunkId)}`),
   listRuns: () => request<RunListItem[]>("/runs"),
   getRun: (runId: string) => request<RunRecord>(`/runs/${encodeURIComponent(runId)}`),
+  getRunTrace: (runId: string) =>
+    request<RunTraceResponse>(`/runs/${encodeURIComponent(runId)}/trace`),
+  getRunEvidence: (runId: string) =>
+    request<RunEvidenceResponse>(`/runs/${encodeURIComponent(runId)}/evidence`),
   listConversations: () => request<ConversationsResponse>("/conversations"),
   createConversation: (title?: string) =>
     request<Conversation>("/conversations", {

@@ -326,6 +326,30 @@ export interface RunRecord {
   error?: string;
 }
 
+/** Read-only technical disclosure returned by GET /runs/{run_id}/trace. */
+export interface RunTraceResponse {
+  run_id: string;
+  status?: RunStatus | null;
+  events?: RunEvent[];
+  /** Compatibility alias retained by the backend contract. */
+  trace?: RunEvent[];
+  effective_config?: EffectiveConfig | null;
+  metrics?: RunMetrics;
+  [key: string]: unknown;
+}
+
+/** Resolved canonical evidence returned by GET /runs/{run_id}/evidence. */
+export interface RunEvidenceResponse {
+  run_id: string;
+  source_snapshot_id?: string | null;
+  evidence_ids?: string[];
+  items?: SourceChunk[];
+  /** Compatibility alias retained by the backend contract. */
+  evidence?: SourceChunk[];
+  missing_ids?: string[];
+  [key: string]: unknown;
+}
+
 export interface ChatRequest {
   message: string;
   condition: string;
