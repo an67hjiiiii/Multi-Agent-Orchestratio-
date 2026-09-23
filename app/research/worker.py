@@ -3,8 +3,8 @@ import json
 import re
 from app.core.citations import resolve_citations
 from app.core.types import Task, TaskResult, SourceChunk, RunMetrics
+from app.orchestration.routing import worker_profile
 from app.research.contracts import WorkerResult
-from app.research.registry import profile
 
 
 def _extract_json(text: str) -> dict:
@@ -25,7 +25,7 @@ async def execute_task(provider, task: Task, evidence: list[SourceChunk], metric
             citations=[],
             missing_information=["relevant evidence"],
         )
-    p = profile(task.domain)
+    p = worker_profile(task.domain)
     # The application owns the stable E1/E2 mapping, as it does for Vanilla
     # RAG. Short keys prevent the local model from truncating a canonical ID.
     evidence_text = "\n\n".join(

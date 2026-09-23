@@ -4,14 +4,15 @@ import time
 from collections.abc import Callable, Mapping
 from dataclasses import asdict
 from typing import Any
-from app.core.graph import topological_order
 from app.core.types import SourceChunk, Task, TaskResult, RunMetrics
+from app.orchestration.task_preparation import (
+    prepare_runtime_tasks,
+    runtime_tasks_from_plan,
+)
 from app.providers.factory import get_provider
-from app.research.contracts import planning_task_to_runtime
 from app.research.context_controller import ContextController, OverlapTracker
 from app.research.conversation_context import ConversationContext
 from app.research.decomposer import decompose
-from app.research.normalizer import normalize_tasks_with_trace
 from app.research.planning_retrieval import (
     PLANNING_RETRIEVAL_SCORING_VERSION,
     PlanningRetriever,
@@ -168,7 +169,7 @@ class ResearchPipeline:
                     metrics,
                     conversation_context=conversation_context.text,
                 )
-                tasks = _runtime_tasks(decomposition)
+                tasks = runtime_tasks_from_plan(decomposition)
                 metrics.generation_latency_ms += int((time.perf_counter() - g0) * 1000)
                 event(
                     "decomposition",
@@ -202,13 +203,17 @@ class ResearchPipeline:
                         [],
                         False,
                     )
+                prepared_tasks = prepare_runtime_tasks(tasks, normalize=flags["N"])
+                tasks = prepared_tasks.tasks
                 if flags["N"]:
-                    task_count_before_normalization = len(tasks)
-                    tasks, normalization_trace = normalize_tasks_with_trace(tasks)
-                    removed = task_count_before_normalization - len(tasks)
-                    metrics.duplicate_tasks_removed += removed
-                    event("normalization", removed=removed, trace=normalization_trace, tasks=[asdict(t) for t in tasks])
-                ordered = topological_order(tasks)
+                    metrics.duplicate_tasks_removed += prepared_tasks.duplicate_tasks_removed
+                    event(
+                        "normalization",
+                        removed=prepared_tasks.duplicate_tasks_removed,
+                        trace=prepared_tasks.normalization_trace,
+                        tasks=[asdict(task) for task in tasks],
+                    )
+                ordered = prepared_tasks.ordered_tasks
                 task_results = []
                 completed: dict[str, TaskResult] = {}
                 per_task_budget = max(256, cfg.max_context_tokens // max(1, len(tasks)))
@@ -367,25 +372,6 @@ class ResearchPipeline:
                 continue
             metadata[key] = candidate
         return metadata
-
-
-def _runtime_tasks(decomposition: object) -> list[Task]:
-    """Adapt the decomposer's locked schema to the legacy execution contract."""
-
-    raw_tasks = getattr(decomposition, "tasks", decomposition)
-    if not isinstance(raw_tasks, list):
-        raise TypeError("decomposition must provide a task list")
-
-    tasks: list[Task] = []
-    for item in raw_tasks:
-        if isinstance(item, Task):
-            tasks.append(item)
-            continue
-        model_dump = getattr(item, "model_dump", None)
-        if not callable(model_dump):
-            raise TypeError("decomposition task must use the canonical task schema")
-        tasks.append(planning_task_to_runtime(item))
-    return tasks
 
 
 def _retrieve_lexically(
