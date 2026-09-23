@@ -37,6 +37,20 @@ export interface AuthSessionResponse {
   token_type?: string;
 }
 
+export interface LocalModelHealthResponse {
+  ok?: boolean;
+  provider?: string;
+  status?: string;
+  configured_model?: string;
+  model?: string;
+  model_available?: boolean;
+  message?: string;
+  error?: string;
+  code?: string;
+  retryable?: boolean;
+  [key: string]: unknown;
+}
+
 export interface AuthRegisterRequest {
   email: string;
   name: string;
@@ -102,6 +116,16 @@ export interface RuntimeConfigResponse {
   local_embedding_model?: string | null;
   allowed_conditions?: string[];
   config_hash?: string;
+}
+
+export interface SettingsResponse {
+  local_only?: boolean;
+  auth_enabled?: boolean;
+  user?: AuthUser | null;
+  runtime?: RuntimeConfigResponse | null;
+  source_snapshot_id?: string;
+  knowledge_base?: KnowledgeBaseStatus;
+  [key: string]: unknown;
 }
 
 export interface SourceSummary {

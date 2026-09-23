@@ -12,6 +12,7 @@ import type {
   DecompositionRequest,
   HealthResponse,
   KnowledgeBaseStatus,
+  LocalModelHealthResponse,
   PLiteInspectionResponse,
   RunListItem,
   RunRecord,
@@ -21,6 +22,7 @@ import type {
   SourceImportResult,
   SourcesResponse,
   SourceTextRequest,
+  SettingsResponse,
 } from "../types/api";
 
 export class ApiError extends Error {
@@ -83,6 +85,8 @@ export const api = {
   adminUsers: () => request<AdminUsersResponse>("/admin/users"),
   health: () => request<HealthResponse>("/health"),
   config: () => request<RuntimeConfigResponse>("/config"),
+  settings: () => request<SettingsResponse>("/settings"),
+  localModelHealth: () => request<LocalModelHealthResponse>("/local-model/health"),
   listSources: () => request<SourcesResponse>("/sources"),
   kbStatus: () => request<KnowledgeBaseStatus>("/kb/status"),
   getSource: (sourceId: string) =>

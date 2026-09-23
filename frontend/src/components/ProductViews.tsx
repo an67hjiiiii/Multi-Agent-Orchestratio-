@@ -10,7 +10,11 @@ import type {
   SourceChunk,
   SourceDetail,
   SourceSummary,
+  LocalModelHealthResponse,
+  RuntimeConfigResponse,
+  SettingsResponse,
 } from "../types/api";
+import type { WorkspaceReadiness } from "../features/workspace/readiness";
 import type { SourceImportState } from "../app/useResearchApp";
 import type { NormalizedUiRun } from "../lib/uiAdapter";
 import { StatusBadge } from "./StatusBadge";
@@ -132,7 +136,7 @@ export function ResearchView({
   isRunning: boolean;
   isImporting: boolean;
   sourceNotice: string | null;
-  provider: string;
+  provider: string | null;
   onProviderChange: (provider: string) => void;
   onSubmit: (message: string) => Promise<void>;
   onNewConversation: () => void;
@@ -174,13 +178,18 @@ export function ResearchComposer({
 }: {
   isRunning: boolean;
   isImporting: boolean;
-  provider: string;
+  provider: string | null;
   onProviderChange: (provider: string) => void;
   onSubmit: (message: string) => Promise<void>;
   onImport: (file: File) => Promise<void>;
 }) {
   const [message, setMessage] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  const providerLabel = provider === "ollama"
+    ? "Local Ollama"
+    : provider === "fake"
+      ? "Fake · wiring/test only"
+      : "Provider not returned";
 
   async function submit() {
     const trimmed = message.trim();
@@ -199,7 +208,7 @@ export function ResearchComposer({
       <form className="research-form" aria-busy={isRunning} onSubmit={(event) => { event.preventDefault(); void submit(); }}>
         <label className="visually-hidden" htmlFor="research-question-v4">Research question</label>
         <textarea id="research-question-v4" rows={4} value={message} disabled={isRunning} placeholder="For example: What does the project say about its retrieval limits?" onChange={(event) => setMessage(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); void submit(); } }} />
-        <div className="composer-footer"><div className="composer-tools"><input ref={fileRef} className="visually-hidden" id="research-source-v4" type="file" accept=".txt,.md,.markdown,.pdf,.py,.js,.ts,.tsx,.json,.yaml,.yml,.csv" onChange={(event) => { const file = event.target.files?.[0]; if (file) void onImport(file); event.target.value = ""; }} /><label className="button button-quiet" htmlFor="research-source-v4"><span aria-hidden="true">＋</span> Add source</label><details className="composer-settings"><summary>Run settings</summary><div className="composer-settings-panel"><span className="field-label">Provider</span><strong>{provider === "ollama" ? "Local Ollama" : "Runtime-selected local provider"}</strong><small>Provider identity is returned with each run. No credentials are stored here.</small></div></details></div><button className="button button-primary composer-submit" type="submit" disabled={isRunning || !message.trim()}>{isRunning ? "Running locally…" : "Run research"}<span aria-hidden="true">→</span></button></div>
+        <div className="composer-footer"><div className="composer-tools"><input ref={fileRef} className="visually-hidden" id="research-source-v4" type="file" accept=".txt,.md,.markdown,.pdf,.py,.js,.ts,.tsx,.json,.yaml,.yml,.csv" onChange={(event) => { const file = event.target.files?.[0]; if (file) void onImport(file); event.target.value = ""; }} /><label className="button button-quiet" htmlFor="research-source-v4"><span aria-hidden="true">＋</span> Add source</label><details className="composer-settings"><summary>Run settings</summary><div className="composer-settings-panel"><span className="field-label">Provider</span><strong>{providerLabel}</strong><small>Provider identity is returned with each run. No credentials are stored here.</small></div></details></div><button className="button button-primary composer-submit" type="submit" disabled={isRunning || !provider || !message.trim()}>{isRunning ? "Running locally…" : !provider ? "Runtime not ready" : "Run research"}<span aria-hidden="true">→</span></button></div>
       </form>
       <p className="composer-help">Press Ctrl/⌘ + Enter to run · UTF-8 text and code sources up to 2 MB</p>
       {isImporting && <div className="inline-loading" role="status"><span className="loading-dot" aria-hidden="true" /> Adding and indexing your source…</div>}
@@ -316,8 +325,72 @@ export function HistoryView({ conversations, activeConversationId, onNewConversa
   return <div className="page-stack history-view"><section className="page-title-row"><div><p className="eyebrow">HISTORY</p><h1>Return to a conversation without losing its trail.</h1><p>Threads group bounded turns; each answer still opens its immutable run and source evidence.</p></div><button className="button button-primary" type="button" onClick={onNewConversation}>New conversation <span aria-hidden="true">＋</span></button></section><section className="surface-card history-table" aria-labelledby="conversation-list-title"><div className="section-heading"><div><p className="eyebrow">CONVERSATIONS</p><h2 id="conversation-list-title">Your threads</h2></div><span className="section-count">{conversations.length}</span></div>{conversations.length === 0 ? <div className="empty-inline"><strong>No conversations yet.</strong><span>Start a new local thread from the research workspace.</span></div> : <div className="history-list">{conversations.map((conversation) => <button className={`history-row${conversation.conversation_id === activeConversationId ? " history-row-active" : ""}`} type="button" key={conversation.conversation_id} onClick={() => onSelectConversation(conversation.conversation_id)}><span className="history-row-marker" aria-hidden="true">↺</span><span className="history-row-copy"><strong>{conversation.title}</strong><small>{conversation.messages.length} turn{conversation.messages.length === 1 ? "" : "s"} · {formatDate(conversation.updated_at)}</small></span><span className="row-arrow" aria-hidden="true">→</span></button>)}</div>}</section><section className="surface-card history-table" aria-labelledby="history-list-title"><div className="section-heading"><div><p className="eyebrow">SAVED RUNS</p><h2 id="history-list-title">Run records</h2></div><span className="section-count">{history.length}</span></div>{history.length === 0 ? <div className="empty-inline"><strong>No saved runs yet.</strong><span>Runs will remain available as read-only research records.</span></div> : <div className="history-list">{history.map((item) => <button className={`history-row${item.run_id === activeRunId ? " history-row-active" : ""}`} type="button" key={item.run_id} onClick={() => onSelectRun(item.run_id)}><span className="history-row-marker" aria-hidden="true">⌁</span><span className="history-row-copy"><strong>{item.query || "Untitled research"}</strong><small>{formatDate(item.created_at)} · {item.run_id}</small></span><StatusBadge status={item.status} compact /><span className="row-arrow" aria-hidden="true">→</span></button>)}</div>}</section></div>;
 }
 
-export function SettingsView({ session, provider, onSignOut }: { session: { name: string; email: string; role: "researcher" | "admin"; demo: boolean }; provider: string; onSignOut: () => void }) {
-  return <div className="page-stack settings-view"><section className="page-title-row"><div><p className="eyebrow">SETTINGS</p><h1>Keep the desk useful and understandable.</h1><p>These preferences belong to this local workspace. Runtime and research identity still come from the API.</p></div></section><section className="settings-grid"><div className="surface-card settings-card"><div className="settings-card-heading"><span className="settings-icon" aria-hidden="true">◉</span><div><p className="eyebrow">ACCOUNT</p><h2>{session.name}</h2><p>{session.email}</p></div></div><div className="settings-row"><span>Session</span><strong>Local account</strong></div><div className="settings-row"><span>Access level</span><strong>{session.role === "admin" ? "Administrator" : "Researcher"}</strong></div><button className="button button-secondary" type="button" onClick={onSignOut}>Sign out</button></div><div className="surface-card settings-card"><div><p className="eyebrow">RUN DEFAULTS</p><h2>Local provider</h2><p className="settings-copy">The runtime chooses the local provider. The selected identity is retained in the returned run when available.</p></div><div className="settings-row"><span>Provider</span><strong>{provider === "ollama" ? "Local Ollama" : "Runtime-selected local provider"}</strong></div><div className="settings-callout"><span aria-hidden="true">◉</span><span>Questions and sources stay on this machine. No hosted provider connection is configured here.</span></div></div><div className="surface-card settings-card settings-admin-card"><div><p className="eyebrow">ACCESS CONTROL</p><h2>Admin tools</h2><p className="settings-copy">Admin navigation is available only to local administrator accounts. Researcher accounts cannot elevate themselves.</p></div>{session.role === "admin" ? <div className="admin-access-granted" role="status"><span aria-hidden="true">✓</span> Administrator access is active for this local account.</div> : <div className="settings-callout"><span aria-hidden="true">◉</span><span>Ask a local administrator to grant access if needed.</span></div>}</div></section></div>;
+export function SettingsView({
+  session,
+  provider,
+  runtimeConfig,
+  settings,
+  knowledgeStatus,
+  localModelHealth,
+  readiness,
+  settingsError,
+  localModelError,
+  onSignOut,
+}: {
+  session: { name: string; email: string; role: "researcher" | "admin"; demo: boolean };
+  provider: string | null;
+  runtimeConfig: RuntimeConfigResponse | null;
+  settings: SettingsResponse | null;
+  knowledgeStatus: KnowledgeBaseStatus | null;
+  localModelHealth: LocalModelHealthResponse | null;
+  readiness: WorkspaceReadiness;
+  settingsError: string | null;
+  localModelError: string | null;
+  onSignOut: () => void;
+}) {
+  const runtime = settings?.runtime ?? runtimeConfig;
+  const returnedProvider = runtime?.provider ?? provider;
+  const returnedModel = runtime?.local_model;
+  const corpus = settings?.knowledge_base ?? knowledgeStatus;
+  const modelStatus = localModelHealth?.ok === true
+    ? "Ready"
+    : localModelHealth?.ok === false
+      ? "Unavailable"
+      : "Not available";
+  const modelMessage = localModelHealth?.message || localModelHealth?.error || localModelError || "The local-model diagnostic has not returned data.";
+
+  return (
+    <div className="page-stack settings-view">
+      <section className="page-title-row"><div><p className="eyebrow">SETTINGS</p><h1>Keep the desk useful and understandable.</h1><p>These preferences belong to this local workspace. Runtime and research identity still come from the API.</p></div></section>
+      {settingsError && <div className="notice notice-error" role="alert"><strong>Settings unavailable.</strong><span>{settingsError}</span></div>}
+      <section className="settings-grid">
+        <div className="surface-card settings-card">
+          <div className="settings-card-heading"><span className="settings-icon" aria-hidden="true">◉</span><div><p className="eyebrow">ACCOUNT</p><h2>{session.name}</h2><p>{session.email}</p></div></div>
+          <div className="settings-row"><span>Session</span><strong>Local account</strong></div>
+          <div className="settings-row"><span>Access level</span><strong>{session.role === "admin" ? "Administrator" : "Researcher"}</strong></div>
+          <button className="button button-secondary" type="button" onClick={onSignOut}>Sign out</button>
+        </div>
+        <div className="surface-card settings-card">
+          <div><p className="eyebrow">RUNTIME IDENTITY</p><h2>Returned configuration</h2><p className="settings-copy">These values are read from the local API. Missing values remain unavailable; the client does not select a fallback.</p></div>
+          <div className="settings-row"><span>Workspace readiness</span><strong>{readiness === "READY_EMPTY" ? "Ready · empty corpus" : readiness}</strong></div>
+          <div className="settings-row"><span>Provider</span><strong>{returnedProvider ? returnedProvider : "Not returned"}</strong></div>
+          <div className="settings-row"><span>Local model</span><strong>{returnedModel || "Not returned"}</strong></div>
+          <div className="settings-row"><span>Retrieval</span><strong>{runtime?.retrieval_mode || "Not returned"}</strong></div>
+          <div className="settings-row"><span>Corpus</span><strong>{corpus?.status || "Not returned"}</strong></div>
+          <div className="settings-row"><span>Config identity</span><code>{runtime?.config_hash || "Not returned"}</code></div>
+        </div>
+        <div className="surface-card settings-card">
+          <div><p className="eyebrow">LOCAL MODEL HEALTH</p><h2>{localModelHealth?.configured_model || returnedModel || "Configured model"}</h2><p className="settings-copy">This diagnostic is separate from the answer/run status and never enables an unreturned provider.</p></div>
+          <div className="settings-row"><span>Diagnostic</span><strong>{modelStatus}</strong></div>
+          <div className={`settings-callout${localModelHealth?.ok === false || localModelError ? " settings-callout-warning" : ""}`} role={localModelHealth?.ok === false || localModelError ? "status" : undefined}><span aria-hidden="true">{localModelHealth?.ok === true ? "✓" : "!"}</span><span>{modelMessage}</span></div>
+        </div>
+        <div className="surface-card settings-card settings-admin-card">
+          <div><p className="eyebrow">ACCESS CONTROL</p><h2>Admin tools</h2><p className="settings-copy">Admin navigation is available only to local administrator accounts. Researcher accounts cannot elevate themselves.</p></div>
+          {session.role === "admin" ? <div className="admin-access-granted" role="status"><span aria-hidden="true">✓</span> Administrator access is active for this local account.</div> : <div className="settings-callout"><span aria-hidden="true">◉</span><span>Ask a local administrator to grant access if needed.</span></div>}
+        </div>
+      </section>
+    </div>
+  );
 }
 
 export function AdminView({ sources, history, health }: { sources: SourceSummary[]; history: RunListItem[]; health: HealthResponse | null }) {

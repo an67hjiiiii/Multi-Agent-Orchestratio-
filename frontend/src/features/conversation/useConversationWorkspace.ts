@@ -21,7 +21,7 @@ export interface ConversationWorkspaceState {
 
 interface UseConversationWorkspaceOptions {
   sessionKey: string | null;
-  provider: string;
+  provider: string | null;
   research: ResearchControls;
   onNavigateToResearch: () => void;
 }
@@ -101,7 +101,7 @@ export function useConversationWorkspace({
       const response = await conversationApi.sendConversationMessage(conversation.conversation_id, {
         message,
         condition: "A",
-        provider,
+        provider: provider ?? undefined,
       });
       setActiveConversation(response.conversation);
       setConversations((current) => current.map((item) => item.conversation_id === response.conversation.conversation_id ? response.conversation : item));

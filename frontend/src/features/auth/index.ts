@@ -2,4 +2,10 @@
 export { AuthScreen, AppHeader, NavigationRail } from "../../components/ProductNavigation";
 export type { DemoSession, ProductPage } from "../../components/ProductNavigation";
 export { authApi } from "./api";
-export { toSession } from "./model";
+export {
+  authRestoreState,
+  hasRememberedSession,
+  rememberSession,
+  toSession,
+} from "./model";
+export type { AuthRestoreState } from "./model";

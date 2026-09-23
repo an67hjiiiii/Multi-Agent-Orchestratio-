@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { HealthResponse, RunStatus } from "../types/api";
 import type { NormalizedUiRun } from "../lib/uiAdapter";
+import type { AuthRestoreState } from "../features/auth/model";
 import { StatusBadge } from "./StatusBadge";
 
 export type ProductPage = "home" | "research" | "knowledge" | "history" | "settings" | "admin";
@@ -15,10 +16,13 @@ export interface DemoSession {
 interface AuthScreenProps {
   onSubmit: (input: { mode: "login" | "register"; name: string; email: string; password: string }) => Promise<void>;
   error: string | null;
+  restoreError?: string | null;
+  status?: AuthRestoreState | "ERROR";
+  onRetryRestore?: () => void;
   submitting: boolean;
 }
 
-export function AuthScreen({ onSubmit, error, submitting }: AuthScreenProps) {
+export function AuthScreen({ onSubmit, error, restoreError, status, onRetryRestore, submitting }: AuthScreenProps) {
   const [mode, setMode] = useState<"login" | "register">("register");
 
   return (
@@ -28,6 +32,8 @@ export function AuthScreen({ onSubmit, error, submitting }: AuthScreenProps) {
         <p className="eyebrow">MERIDIAN · LOCAL EVIDENCE DESK</p>
         <h1 id="auth-title">A clear path from question to evidence.</h1>
         <p className="auth-copy">{mode === "register" ? "Create a local account for asking focused questions against a corpus stored on this machine." : "Sign in to your local research workspace."}</p>
+        {status === "EXPIRED" && <div className="notice notice-warning" role="status"><strong>Local session expired.</strong><span>Sign in again to restore access to this workspace.</span></div>}
+        {status === "ERROR" && restoreError && <div className="notice notice-error auth-restore-error" role="alert"><span><strong>Session restore failed.</strong> {restoreError}</span>{onRetryRestore && <button className="button button-quiet" type="button" onClick={onRetryRestore}>Try again</button>}</div>}
         <div className="auth-mode-toggle" role="tablist" aria-label="Account access mode">
           <button type="button" role="tab" aria-selected={mode === "register"} className={`auth-mode-button${mode === "register" ? " auth-mode-button-active" : ""}`} onClick={() => setMode("register")}>Register</button>
           <button type="button" role="tab" aria-selected={mode === "login"} className={`auth-mode-button${mode === "login" ? " auth-mode-button-active" : ""}`} onClick={() => setMode("login")}>Login</button>
@@ -206,8 +212,11 @@ export function AppHeader({ page, session, runtimeStatus, health, run, onOpenNav
 
 function runtimeLabel(status: RunStatus | string) {
   switch (String(status).toUpperCase()) {
+    case "BOOTING": return "Booting workspace";
     case "CONNECTING": return "Connecting";
     case "RUNNING": return "Running locally";
+    case "DEGRADED": return "Runtime degraded";
+    case "READY_EMPTY": return "Runtime ready · empty corpus";
     case "READY": return "Runtime ready";
     case "OFFLINE": return "Runtime unavailable";
     default: return "Status unknown";

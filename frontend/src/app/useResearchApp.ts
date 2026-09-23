@@ -1,12 +1,22 @@
 import { useCallback, useEffect, useState } from "react";
 import { knowledgeApi } from "../features/knowledge/api";
 import { runApi } from "../features/run/api";
+import { settingsApi } from "../features/settings/api";
+import {
+  resolveWorkspaceReadiness,
+  workspaceReadinessCopy,
+  type BootstrapIssues,
+  type WorkspaceReadiness,
+} from "../features/workspace/readiness";
 import type {
   HealthResponse,
+  KnowledgeBaseStatus,
+  LocalModelHealthResponse,
   PLiteInspectionResponse,
   RunListItem,
   RunRecord,
   RuntimeConfigResponse,
+  SettingsResponse,
   SourceImportResult,
   SourceSummary,
 } from "../types/api";
@@ -26,6 +36,12 @@ const PLITE_PROFILES = new Set(["dev", "m1", "m2"]);
 export interface ResearchAppState {
   health: HealthResponse | null;
   runtimeConfig: RuntimeConfigResponse | null;
+  settings: SettingsResponse | null;
+  knowledgeStatus: KnowledgeBaseStatus | null;
+  localModelHealth: LocalModelHealthResponse | null;
+  readiness: WorkspaceReadiness;
+  readinessDetail: string;
+  bootstrapIssues: BootstrapIssues;
   sources: SourceSummary[];
   sourceSnapshotId: string | null;
   history: RunListItem[];
@@ -42,6 +58,7 @@ export interface ResearchAppState {
   planningError: string | null;
   error: string | null;
   sourceNotice: string | null;
+  retryBootstrap: () => Promise<void>;
   setActiveTab: (tab: InspectorTab) => void;
   startNewRun: () => void;
   submitQuestion: (message: string, condition: string, provider: string) => Promise<void>;
@@ -53,6 +70,10 @@ export interface ResearchAppState {
 export function useResearchApp(): ResearchAppState {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [runtimeConfig, setRuntimeConfig] = useState<RuntimeConfigResponse | null>(null);
+  const [settings, setSettings] = useState<SettingsResponse | null>(null);
+  const [knowledgeStatus, setKnowledgeStatus] = useState<KnowledgeBaseStatus | null>(null);
+  const [localModelHealth, setLocalModelHealth] = useState<LocalModelHealthResponse | null>(null);
+  const [bootstrapIssues, setBootstrapIssues] = useState<BootstrapIssues>({});
   const [sources, setSources] = useState<SourceSummary[]>([]);
   const [sourceSnapshotId, setSourceSnapshotId] = useState<string | null>(null);
   const [history, setHistory] = useState<RunListItem[]>([]);
@@ -75,49 +96,74 @@ export function useResearchApp(): ResearchAppState {
   });
 
   const refreshSources = useCallback(async () => {
-    const response = await knowledgeApi.listSources();
+    const [response, corpus] = await Promise.all([
+      knowledgeApi.listSources(),
+      knowledgeApi.kbStatus(),
+    ]);
     setSources(response.sources ?? []);
     setSourceSnapshotId(response.snapshot_id ?? null);
+    setKnowledgeStatus(corpus);
   }, []);
 
   const refreshHistory = useCallback(async () => {
     setHistory(await runApi.listRuns());
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
+  const bootstrap = useCallback(async () => {
+    setIsBooting(true);
+    setError(null);
+    setBootstrapIssues({});
+    setHealth(null);
+    setRuntimeConfig(null);
+    setSettings(null);
+    setKnowledgeStatus(null);
+    setLocalModelHealth(null);
 
-    async function boot() {
-      setIsBooting(true);
-      const [healthResult, sourcesResult, historyResult, configResult] = await Promise.allSettled([
-        runApi.health(),
-        knowledgeApi.listSources(),
-        runApi.listRuns(),
-        runApi.config(),
-      ]);
+    const [healthResult, configResult, corpusResult, modelResult, settingsResult, sourcesResult, historyResult] = await Promise.allSettled([
+      runApi.health(),
+      runApi.config(),
+      knowledgeApi.kbStatus(),
+      runApi.localModelHealth(),
+      settingsApi.settings(),
+      knowledgeApi.listSources(),
+      runApi.listRuns(),
+    ]);
 
-      if (cancelled) return;
-
-      if (healthResult.status === "fulfilled") setHealth(healthResult.value);
-      if (configResult.status === "fulfilled") setRuntimeConfig(configResult.value);
-      if (sourcesResult.status === "fulfilled") {
-        setSources(sourcesResult.value.sources ?? []);
-        setSourceSnapshotId(sourcesResult.value.snapshot_id ?? null);
-      }
-      if (historyResult.status === "fulfilled") setHistory(historyResult.value);
-
-      const failed = [healthResult, sourcesResult, historyResult].find(
-        (result) => result.status === "rejected",
-      );
-      if (failed?.status === "rejected") setError(failed.reason?.message ?? "Backend unavailable");
-      setIsBooting(false);
-    }
-
-    void boot();
-    return () => {
-      cancelled = true;
+    const issue = (result: PromiseSettledResult<unknown>) => (
+      result.status === "rejected"
+        ? result.reason instanceof Error ? result.reason.message : "Local request failed"
+        : null
+    );
+    const issues: BootstrapIssues = {
+      health: issue(healthResult),
+      config: issue(configResult),
+      corpus: issue(corpusResult),
+      localModel: issue(modelResult),
+      settings: issue(settingsResult),
     };
+    setBootstrapIssues(issues);
+
+    if (healthResult.status === "fulfilled") setHealth(healthResult.value);
+    if (configResult.status === "fulfilled") setRuntimeConfig(configResult.value);
+    if (corpusResult.status === "fulfilled") setKnowledgeStatus(corpusResult.value);
+    if (modelResult.status === "fulfilled") setLocalModelHealth(modelResult.value);
+    if (settingsResult.status === "fulfilled") setSettings(settingsResult.value);
+    if (sourcesResult.status === "fulfilled") {
+      setSources(sourcesResult.value.sources ?? []);
+      setSourceSnapshotId(sourcesResult.value.snapshot_id ?? null);
+    }
+    if (historyResult.status === "fulfilled") setHistory(historyResult.value);
+
+    const failed = [healthResult, configResult, corpusResult, sourcesResult, historyResult].find(
+      (result) => result.status === "rejected",
+    );
+    if (failed?.status === "rejected") setError(failed.reason?.message ?? "Local workspace bootstrap failed");
+    setIsBooting(false);
   }, []);
+
+  useEffect(() => {
+    void bootstrap();
+  }, [bootstrap]);
 
   const submitQuestion = useCallback(
     async (message: string, condition: string, provider: string) => {
@@ -218,9 +264,26 @@ export function useResearchApp(): ResearchAppState {
     }
   }, [refreshSources]);
 
+  const readinessInput = {
+    isBooting,
+    health,
+    runtimeConfig,
+    knowledgeStatus,
+    localModelHealth,
+    issues: bootstrapIssues,
+  };
+  const readiness = resolveWorkspaceReadiness(readinessInput);
+  const readinessDetail = workspaceReadinessCopy(readiness, readinessInput).detail;
+
   return {
     health,
     runtimeConfig,
+    settings,
+    knowledgeStatus,
+    localModelHealth,
+    readiness,
+    readinessDetail,
+    bootstrapIssues,
     sources,
     sourceSnapshotId,
     history,
@@ -247,6 +310,7 @@ export function useResearchApp(): ResearchAppState {
     inspectPlan,
     importSource,
     dismissError: () => setError(null),
+    retryBootstrap: bootstrap,
     isInspectingPlan,
     canInspectPlan: PLITE_PROFILES.has(health?.implementation_profile ?? ""),
     planningInspection,

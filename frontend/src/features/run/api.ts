@@ -4,6 +4,7 @@ import { api } from "../../lib/api";
 export const runApi = {
   health: api.health,
   config: api.config,
+  localModelHealth: api.localModelHealth,
   listRuns: api.listRuns,
   getRun: api.getRun,
   chat: api.chat,
