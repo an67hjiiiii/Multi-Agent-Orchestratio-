@@ -1,34 +1,14 @@
 import { useEffect, useState } from "react";
-import { useResearchApp } from "./app/useResearchApp";
-import { api } from "./lib/api";
-import { normalizeRun, type NormalizedUiRun } from "./lib/uiAdapter";
-import type { AuthUser, Conversation, SourceChunk, SourceDetail, SourceSummary } from "./types/api";
-import {
-  AdminView,
-  ChunkDialog,
-  HistoryView,
-  HomeView,
-  KnowledgeView,
-  ResearchView,
-  RunInspector,
-  SettingsView,
-} from "./components/ProductViews";
-import {
-  AuthScreen,
-  AppHeader,
-  NavigationRail,
-  type DemoSession,
-  type ProductPage,
-} from "./components/ProductNavigation";
-
-function toSession(user: AuthUser): DemoSession {
-  return {
-    name: user.display_name || user.name || user.email || user.username || "Local researcher",
-    email: user.email || user.username || "researcher@local",
-    role: String(user.role).toUpperCase() === "ADMIN" ? "admin" : "researcher",
-    demo: false,
-  };
-}
+import { AuthScreen, AppHeader, NavigationRail, toSession, type DemoSession, type ProductPage } from "./features/auth";
+import { useConversationWorkspace } from "./features/conversation";
+import { AdminView } from "./features/admin";
+import { ChunkDialog, RunInspector, normalizeRun, type NormalizedUiRun } from "./features/evidence";
+import { HistoryView } from "./features/history";
+import { HomeView } from "./features/workspace";
+import { KnowledgeView, useKnowledgeInspection } from "./features/knowledge";
+import { ResearchView, useResearchApp } from "./features/run";
+import { SettingsView } from "./features/settings";
+import { authApi } from "./features/auth/api";
 
 export function App() {
   const research = useResearchApp();
@@ -41,15 +21,13 @@ export function App() {
   const [provider, setProvider] = useState("ollama");
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [inspectorTab, setInspectorTab] = useState<"run" | "evidence" | "history">("run");
-  const [selectedSource, setSelectedSource] = useState<SourceDetail | null>(null);
-  const [sourceLoadingId, setSourceLoadingId] = useState<string | null>(null);
-  const [sourceError, setSourceError] = useState<string | null>(null);
-  const [selectedChunk, setSelectedChunk] = useState<SourceChunk | null>(null);
-  const [chunkError, setChunkError] = useState<string | null>(null);
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
-  const [conversationError, setConversationError] = useState<string | null>(null);
-  const [conversationBusy, setConversationBusy] = useState(false);
+  const knowledge = useKnowledgeInspection();
+  const conversationWorkspace = useConversationWorkspace({
+    sessionKey: session?.email ?? null,
+    provider,
+    research,
+    onNavigateToResearch: () => setPage("research"),
+  });
 
   const run: NormalizedUiRun | null = research.activeRun ? normalizeRun(research.activeRun) : null;
   const chunkCount = research.sources.reduce((total, source) => total + (Number.isFinite(source.chunk_count) ? source.chunk_count : 0), 0);
@@ -63,7 +41,7 @@ export function App() {
 
   useEffect(() => {
     let cancelled = false;
-    void api.authSession()
+    void authApi.authSession()
       .then((result) => {
         if (!cancelled && result.authenticated && result.user) setSession(toSession(result.user));
       })
@@ -75,24 +53,6 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (!session) {
-      setConversations([]);
-      setActiveConversation(null);
-      return;
-    }
-    let cancelled = false;
-    setConversationError(null);
-    void api.listConversations()
-      .then((result) => {
-        if (!cancelled) setConversations(result.conversations ?? []);
-      })
-      .catch((cause) => {
-        if (!cancelled) setConversationError(cause instanceof Error ? cause.message : "Conversation history is unavailable");
-      });
-    return () => { cancelled = true; };
-  }, [session?.email]);
-
-  useEffect(() => {
     const configured = research.runtimeConfig?.provider ?? research.health?.default_provider;
     if (configured === "ollama" || configured === "fake") setProvider(configured);
   }, [research.health?.default_provider, research.runtimeConfig?.provider]);
@@ -100,64 +60,6 @@ export function App() {
   function openInspector(tab: "run" | "evidence" | "history" = "run") {
     setInspectorTab(tab);
     setInspectorOpen(true);
-  }
-
-  async function startNewConversation() {
-    research.startNewRun();
-    setActiveConversation(null);
-    setPage("research");
-    setConversationError(null);
-    try {
-      const conversation = await api.createConversation();
-      setActiveConversation(conversation);
-      setConversations((current) => [conversation, ...current]);
-    } catch (cause) {
-      setConversationError(cause instanceof Error ? cause.message : "Unable to start a conversation");
-    }
-  }
-
-  async function openConversation(conversationId: string) {
-    setConversationBusy(true);
-    setConversationError(null);
-    try {
-      const conversation = await api.getConversation(conversationId);
-      setActiveConversation(conversation);
-      setPage("research");
-      research.startNewRun();
-      const latestRun = [...conversation.messages].reverse().find((message) => message.run_id);
-      if (latestRun?.run_id) await research.selectRun(latestRun.run_id);
-    } catch (cause) {
-      setConversationError(cause instanceof Error ? cause.message : "Unable to reopen this conversation");
-    } finally {
-      setConversationBusy(false);
-    }
-  }
-
-  async function submitQuestion(message: string) {
-    setPage("research");
-    setConversationBusy(true);
-    setConversationError(null);
-    try {
-      let conversation = activeConversation;
-      if (!conversation) {
-        conversation = await api.createConversation();
-        setActiveConversation(conversation);
-        setConversations((current) => [conversation as Conversation, ...current]);
-      }
-      const response = await api.sendConversationMessage(conversation.conversation_id, {
-        message,
-        condition: "A",
-        provider,
-      });
-      setActiveConversation(response.conversation);
-      setConversations((current) => current.map((item) => item.conversation_id === response.conversation.conversation_id ? response.conversation : item));
-      if (response.run?.run_id) await research.selectRun(response.run.run_id);
-    } catch (cause) {
-      setConversationError(cause instanceof Error ? cause.message : "Unable to continue this conversation");
-      throw cause;
-    } finally {
-      setConversationBusy(false);
-    }
   }
 
   async function importSource(file: File) {
@@ -170,43 +72,14 @@ export function App() {
     setInspectorTab("run");
   }
 
-  async function inspectSource(source: SourceSummary) {
-    setSourceLoadingId(source.source_id);
-    setSourceError(null);
-    try {
-      setSelectedSource(await api.getSource(source.source_id));
-    } catch (cause) {
-      setSelectedSource(null);
-      setSourceError(cause instanceof Error ? cause.message : "Unable to load this source");
-    } finally {
-      setSourceLoadingId(null);
-    }
-  }
-
-  function inspectKnownChunk(chunk: SourceChunk) {
-    setChunkError(null);
-    setSelectedChunk(chunk);
-  }
-
-  async function inspectCitation(citation: string) {
-    setChunkError(null);
-    setSelectedChunk(null);
-    try {
-      setSelectedChunk(await api.getChunk(citation));
-    } catch (cause) {
-      setChunkError(cause instanceof Error ? cause.message : "Unable to load this source context");
-    }
-  }
-
   async function signOut() {
-    await api.logout().catch(() => undefined);
+    await authApi.logout().catch(() => undefined);
     setSession(null);
     setPage("home");
     setInspectorOpen(false);
-    setSelectedSource(null);
-    setSelectedChunk(null);
-    setConversations([]);
-    setActiveConversation(null);
+    knowledge.closeSource();
+    knowledge.closeChunk();
+    conversationWorkspace.reset();
   }
 
   async function authenticate(input: { mode: "login" | "register"; name: string; email: string; password: string }) {
@@ -214,8 +87,8 @@ export function App() {
     setAuthError(null);
     try {
       const result = input.mode === "register"
-        ? await api.register({ name: input.name, email: input.email, password: input.password })
-        : await api.login({ identifier: input.email, password: input.password });
+        ? await authApi.register({ name: input.name, email: input.email, password: input.password })
+        : await authApi.login({ identifier: input.email, password: input.password });
       if (!result.authenticated || !result.user) throw new Error("Local authentication did not return a user session.");
       setSession(toSession(result.user));
       setPage("home");
@@ -264,20 +137,20 @@ export function App() {
               <button className="icon-button" type="button" aria-label="Dismiss notification" onClick={research.dismissError}>×</button>
             </div>
           )}
-          {conversationError && <div className="notice notice-error global-notice" role="alert"><span><strong>Conversation unavailable.</strong> {conversationError}</span><button className="icon-button" type="button" aria-label="Dismiss conversation notification" onClick={() => setConversationError(null)}>×</button></div>}
-          {chunkError && <div className="notice notice-error global-notice" role="alert"><span><strong>Source context unavailable.</strong> {chunkError}</span><button className="icon-button" type="button" aria-label="Dismiss source error" onClick={() => setChunkError(null)}>×</button></div>}
+          {conversationWorkspace.conversationError && <div className="notice notice-error global-notice" role="alert"><span><strong>Conversation unavailable.</strong> {conversationWorkspace.conversationError}</span><button className="icon-button" type="button" aria-label="Dismiss conversation notification" onClick={conversationWorkspace.dismissConversationError}>×</button></div>}
+          {knowledge.chunkError && <div className="notice notice-error global-notice" role="alert"><span><strong>Source context unavailable.</strong> {knowledge.chunkError}</span><button className="icon-button" type="button" aria-label="Dismiss source error" onClick={knowledge.dismissChunkError}>×</button></div>}
 
-          {page === "home" && <HomeView sources={research.sources} history={research.history} health={research.health} onNewResearch={() => void startNewConversation()} onKnowledge={() => setPage("knowledge")} onHistory={() => setPage("history")} onSelectRun={(runId) => void selectRun(runId)} />}
-          {page === "research" && <ResearchView conversation={activeConversation} run={run} pendingQuestion={research.pendingQuestion} isRunning={research.isRunning || conversationBusy} isImporting={research.isImporting} sourceNotice={research.sourceNotice} provider={provider} onProviderChange={setProvider} onSubmit={submitQuestion} onNewConversation={() => void startNewConversation()} onImport={importSource} onOpenInspector={openInspector} onOpenCitation={(citation) => { openInspector("evidence"); void inspectCitation(citation); }} />}
-          {page === "knowledge" && <KnowledgeView sources={research.sources} sourceSnapshotId={research.sourceSnapshotId} knowledgeStatus={research.health?.knowledge_base} importState={research.sourceImport} isImporting={research.isImporting} selectedSource={selectedSource} sourceLoadingId={sourceLoadingId} sourceError={sourceError} onImport={importSource} onInspectSource={(source) => void inspectSource(source)} onCloseSource={() => setSelectedSource(null)} onInspectChunk={inspectKnownChunk} />}
-          {page === "history" && <HistoryView conversations={conversations} activeConversationId={activeConversation?.conversation_id} onNewConversation={() => void startNewConversation()} onSelectConversation={(conversationId) => void openConversation(conversationId)} history={research.history} activeRunId={research.activeRun?.run_id} onSelectRun={(runId) => void selectRun(runId)} />}
+          {page === "home" && <HomeView sources={research.sources} history={research.history} health={research.health} onNewResearch={() => void conversationWorkspace.startNewConversation()} onKnowledge={() => setPage("knowledge")} onHistory={() => setPage("history")} onSelectRun={(runId) => void selectRun(runId)} />}
+          {page === "research" && <ResearchView conversation={conversationWorkspace.activeConversation} run={run} pendingQuestion={research.pendingQuestion} isRunning={research.isRunning || conversationWorkspace.conversationBusy} isImporting={research.isImporting} sourceNotice={research.sourceNotice} provider={provider} onProviderChange={setProvider} onSubmit={conversationWorkspace.submitQuestion} onNewConversation={() => void conversationWorkspace.startNewConversation()} onImport={importSource} onOpenInspector={openInspector} onOpenCitation={(citation) => { openInspector("evidence"); void knowledge.inspectCitation(citation); }} />}
+          {page === "knowledge" && <KnowledgeView sources={research.sources} sourceSnapshotId={research.sourceSnapshotId} knowledgeStatus={research.health?.knowledge_base} importState={research.sourceImport} isImporting={research.isImporting} selectedSource={knowledge.selectedSource} sourceLoadingId={knowledge.sourceLoadingId} sourceError={knowledge.sourceError} onImport={importSource} onInspectSource={(source) => void knowledge.inspectSource(source)} onCloseSource={knowledge.closeSource} onInspectChunk={knowledge.inspectKnownChunk} />}
+          {page === "history" && <HistoryView conversations={conversationWorkspace.conversations} activeConversationId={conversationWorkspace.activeConversation?.conversation_id} onNewConversation={() => void conversationWorkspace.startNewConversation()} onSelectConversation={(conversationId) => void conversationWorkspace.openConversation(conversationId)} history={research.history} activeRunId={research.activeRun?.run_id} onSelectRun={(runId) => void selectRun(runId)} />}
           {page === "settings" && <SettingsView session={session} provider={provider} onSignOut={signOut} />}
           {page === "admin" && session.role === "admin" && <AdminView sources={research.sources} history={research.history} health={research.health} />}
         </main>
       </div>
 
-      {inspectorOpen && <RunInspector run={run} history={research.history} activeTab={inspectorTab} onTabChange={setInspectorTab} onClose={() => setInspectorOpen(false)} onSelectRun={(runId) => void selectRun(runId)} onOpenCitation={(citation) => void inspectCitation(citation)} />}
-      {selectedChunk && <ChunkDialog chunk={selectedChunk} onClose={() => setSelectedChunk(null)} />}
+      {inspectorOpen && <RunInspector run={run} history={research.history} activeTab={inspectorTab} onTabChange={setInspectorTab} onClose={() => setInspectorOpen(false)} onSelectRun={(runId) => void selectRun(runId)} onOpenCitation={(citation) => void knowledge.inspectCitation(citation)} />}
+      {knowledge.selectedChunk && <ChunkDialog chunk={knowledge.selectedChunk} onClose={knowledge.closeChunk} />}
     </div>
   );
 }

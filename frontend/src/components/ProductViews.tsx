@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { api } from "../lib/api";
+import { adminApi } from "../features/admin/api";
 import type {
   AdminStatusResponse,
   AdminUser,
@@ -327,7 +327,7 @@ export function AdminView({ sources, history, health }: { sources: SourceSummary
   const [adminError, setAdminError] = useState<string | null>(null);
   useEffect(() => {
     let active = true;
-    void Promise.all([api.adminStatus(), api.adminUsers()])
+    void Promise.all([adminApi.adminStatus(), adminApi.adminUsers()])
       .then(([runtime, userList]) => {
         if (!active) return;
         setAdminStatus(runtime);

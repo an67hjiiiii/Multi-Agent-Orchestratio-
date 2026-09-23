@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { api } from "../lib/api";
+import { knowledgeApi } from "../features/knowledge/api";
+import { runApi } from "../features/run/api";
 import type {
   HealthResponse,
   PLiteInspectionResponse,
@@ -74,13 +75,13 @@ export function useResearchApp(): ResearchAppState {
   });
 
   const refreshSources = useCallback(async () => {
-    const response = await api.listSources();
+    const response = await knowledgeApi.listSources();
     setSources(response.sources ?? []);
     setSourceSnapshotId(response.snapshot_id ?? null);
   }, []);
 
   const refreshHistory = useCallback(async () => {
-    setHistory(await api.listRuns());
+    setHistory(await runApi.listRuns());
   }, []);
 
   useEffect(() => {
@@ -89,10 +90,10 @@ export function useResearchApp(): ResearchAppState {
     async function boot() {
       setIsBooting(true);
       const [healthResult, sourcesResult, historyResult, configResult] = await Promise.allSettled([
-        api.health(),
-        api.listSources(),
-        api.listRuns(),
-        api.config(),
+        runApi.health(),
+        knowledgeApi.listSources(),
+        runApi.listRuns(),
+        runApi.config(),
       ]);
 
       if (cancelled) return;
@@ -141,7 +142,7 @@ export function useResearchApp(): ResearchAppState {
       setPlanningInspection(null);
       setPlanningError(null);
       try {
-        const run = await api.chat({ message: normalizedMessage, condition, provider });
+        const run = await runApi.chat({ message: normalizedMessage, condition, provider });
         setActiveRun(run);
         setActiveTab("evidence");
         await Promise.all([refreshHistory(), refreshSources()]);
@@ -162,8 +163,8 @@ export function useResearchApp(): ResearchAppState {
     setPlanningInspection(null);
     setPlanningError(null);
     try {
-      setActiveRun(await api.getRun(runId));
-      setHistory(await api.listRuns());
+      setActiveRun(await runApi.getRun(runId));
+      setHistory(await runApi.listRuns());
       setActiveTab("evidence");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to load this run");
@@ -180,7 +181,7 @@ export function useResearchApp(): ResearchAppState {
       setPlanningError(null);
       try {
         setPlanningInspection(
-          await api.decompose({ request: normalizedRequest, provider }),
+          await runApi.decompose({ request: normalizedRequest, provider }),
         );
         setActiveTab("plan");
       } catch (cause) {
@@ -201,7 +202,7 @@ export function useResearchApp(): ResearchAppState {
     setSourceNotice(null);
     setSourceImport({ phase: "uploading", fileName: file.name, message: "Sending the file to the local source store…", result: null });
     try {
-      const result = await api.importFile(file);
+      const result = await knowledgeApi.importFile(file);
       setSourceImport({ phase: "indexing", fileName: file.name, message: "Source accepted. Refreshing indexed chunks…", result });
       setSourceNotice(`${result.source_name ?? file.name} added to the corpus.`);
       await refreshSources();
