@@ -3,6 +3,7 @@ import json
 
 from app.core.citations import resolve_citation_ids
 from app.core.types import TaskResult, RunMetrics
+from app.research.contracts import WorkerResult
 
 
 def _json_object(text: str) -> dict:
@@ -55,7 +56,10 @@ def _answer_is_usable(answer: object) -> bool:
     clean = " ".join(answer.split())
     return len(clean) >= 24 and clean.casefold() not in {"ok", "yes", "no"}
 
-async def synthesize(provider, query: str, results: list[TaskResult], metrics: RunMetrics) -> str:
+async def synthesize_completed_results(
+    provider, query: str, results: list[WorkerResult], metrics: RunMetrics
+) -> str:
+    """Consolidate completed worker results through the existing citation policy."""
     compact = []
     available_ids: list[str] = []
     worker_citations: list[str] = []
@@ -93,3 +97,7 @@ async def synthesize(provider, query: str, results: list[TaskResult], metrics: R
     if canonical:
         answer = answer.rstrip() + "\n\nNguồn: " + ", ".join(f"[{item}]" for item in canonical)
     return answer
+
+
+# Retain the established import name for existing callers and tests.
+synthesize = synthesize_completed_results

@@ -17,8 +17,8 @@ from app.research.planning_retrieval import (
     PLANNING_RETRIEVAL_SCORING_VERSION,
     PlanningRetriever,
 )
-from app.research.worker import execute_task
-from app.research.synthesizer import synthesize
+from app.research.execution import execute_prepared_tasks
+from app.research.synthesizer import synthesize_completed_results
 from app.research.vanilla import answer_vanilla
 from app.retrieval.text import (
     DOMAIN_RANKING_VERSION,
@@ -214,13 +214,12 @@ class ResearchPipeline:
                         tasks=[asdict(task) for task in tasks],
                     )
                 ordered = prepared_tasks.ordered_tasks
-                task_results = []
-                completed: dict[str, TaskResult] = {}
                 per_task_budget = max(256, cfg.max_context_tokens // max(1, len(tasks)))
                 controller = ContextController(max_tokens=per_task_budget)
                 overlap_tracker = OverlapTracker() if flags["O"] else None
-                for task in ordered:
-                    dependency_context = " ".join(completed[d].answer for d in task.depends_on if d in completed)
+                async def resolve_task_evidence(
+                    task: Task, dependency_context: str
+                ) -> list[SourceChunk]:
                     retrieval_query, task_query_anchors = _build_task_retrieval_query(
                         task,
                         query,
@@ -280,19 +279,22 @@ class ResearchPipeline:
                         domain_ranking_version=DOMAIN_RANKING_VERSION,
                         retrieval=dict(retrieval_metadata),
                     )
-                    g0 = time.perf_counter()
-                    result = await execute_task(provider, task, selected, metrics)
-                    metrics.generation_latency_ms += int((time.perf_counter() - g0) * 1000)
-                    completed[task.task_id] = result
-                    task_results.append(result)
-                    event("task_completed", result=asdict(result))
-                    if metrics.input_tokens + metrics.output_tokens > cfg.max_run_tokens:
-                        event("run_budget_exceeded", total_tokens=metrics.input_tokens + metrics.output_tokens)
-                        break
+                    return selected
+
+                task_results = await execute_prepared_tasks(
+                    provider,
+                    ordered,
+                    resolve_task_evidence=resolve_task_evidence,
+                    metrics=metrics,
+                    event=event,
+                    max_run_tokens=cfg.max_run_tokens,
+                )
                 if overlap_tracker:
                     event("overlap_summary", o_enabled=True, **overlap_tracker.summary())
                 g0 = time.perf_counter()
-                answer = await synthesize(provider, query, task_results, metrics)
+                answer = await synthesize_completed_results(
+                    provider, query, task_results, metrics
+                )
                 metrics.generation_latency_ms += int((time.perf_counter() - g0) * 1000)
 
             status = "COMPLETE" if task_results and all(r.status == "COMPLETE" for r in task_results) else "PARTIAL"
