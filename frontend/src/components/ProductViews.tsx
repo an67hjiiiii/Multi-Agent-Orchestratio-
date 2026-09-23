@@ -330,8 +330,51 @@ function ImportStatus({ state }: { state: SourceImportState }) {
   return <div className={`import-status import-status-${state.phase}`} role={state.phase === "error" ? "alert" : "status"}><span className="import-status-dot" aria-hidden="true" /> <strong>{labels[state.phase]}</strong>{state.fileName && <span>{state.fileName}</span>}{state.message && <small>{state.message}</small>}</div>;
 }
 
-export function HistoryView({ conversations, activeConversationId, onNewConversation, onSelectConversation, history, activeRunId, onSelectRun }: { conversations: Conversation[]; activeConversationId?: string; onNewConversation: () => void; onSelectConversation: (conversationId: string) => void; history: RunListItem[]; activeRunId?: string; onSelectRun: (runId: string) => void }) {
-  return <div className="page-stack history-view"><section className="page-title-row"><div><p className="eyebrow">HISTORY</p><h1>Return to a conversation without losing its trail.</h1><p>Threads group bounded turns; each answer still opens its immutable run and source evidence.</p></div><button className="button button-primary" type="button" onClick={onNewConversation}>New conversation <span aria-hidden="true">＋</span></button></section><section className="surface-card history-table" aria-labelledby="conversation-list-title"><div className="section-heading"><div><p className="eyebrow">CONVERSATIONS</p><h2 id="conversation-list-title">Your threads</h2></div><span className="section-count">{conversations.length}</span></div>{conversations.length === 0 ? <div className="empty-inline"><strong>No conversations yet.</strong><span>Start a new local thread from the research workspace.</span></div> : <div className="history-list">{conversations.map((conversation) => <button className={`history-row${conversation.conversation_id === activeConversationId ? " history-row-active" : ""}`} type="button" key={conversation.conversation_id} onClick={() => onSelectConversation(conversation.conversation_id)}><span className="history-row-marker" aria-hidden="true">↺</span><span className="history-row-copy"><strong>{conversation.title}</strong><small>{conversation.messages.length} turn{conversation.messages.length === 1 ? "" : "s"} · {formatDate(conversation.updated_at)}</small></span><span className="row-arrow" aria-hidden="true">→</span></button>)}</div>}</section><section className="surface-card history-table" aria-labelledby="history-list-title"><div className="section-heading"><div><p className="eyebrow">SAVED RUNS</p><h2 id="history-list-title">Run records</h2></div><span className="section-count">{history.length}</span></div>{history.length === 0 ? <div className="empty-inline"><strong>No saved runs yet.</strong><span>Runs will remain available as read-only research records.</span></div> : <div className="history-list">{history.map((item) => <button className={`history-row${item.run_id === activeRunId ? " history-row-active" : ""}`} type="button" key={item.run_id} onClick={() => onSelectRun(item.run_id)}><span className="history-row-marker" aria-hidden="true">⌁</span><span className="history-row-copy"><strong>{item.query || "Untitled research"}</strong><small>{formatDate(item.created_at)} · {item.run_id}</small></span><StatusBadge status={item.status} compact /><span className="row-arrow" aria-hidden="true">→</span></button>)}</div>}</section></div>;
+export interface HistoryViewProps {
+  conversations: Conversation[];
+  activeConversationId?: string;
+  onNewConversation: () => void;
+  onSelectConversation: (conversationId: string) => void;
+  history: RunListItem[];
+  activeRunId?: string;
+  onSelectRun: (runId: string) => void;
+  conversationHistoryLoading?: boolean;
+  conversationHistoryError?: string | null;
+  onRetryConversationHistory?: () => void;
+  conversationBusy?: boolean;
+}
+
+export function HistoryView({
+  conversations,
+  activeConversationId,
+  onNewConversation,
+  onSelectConversation,
+  history,
+  activeRunId,
+  onSelectRun,
+  conversationHistoryLoading = false,
+  conversationHistoryError = null,
+  onRetryConversationHistory,
+  conversationBusy = false,
+}: HistoryViewProps) {
+  const showConversationLoading = conversationHistoryLoading && conversations.length === 0;
+  return (
+    <div className="page-stack history-view">
+      <section className="page-title-row">
+        <div><p className="eyebrow">HISTORY</p><h1>Return to a conversation without losing its trail.</h1><p>Threads group bounded turns; each answer still opens its immutable run and source evidence.</p></div>
+        <button className="button button-primary" type="button" onClick={onNewConversation}>New conversation <span aria-hidden="true">＋</span></button>
+      </section>
+      <section className="surface-card history-table" aria-labelledby="conversation-list-title" aria-busy={conversationHistoryLoading}>
+        <div className="section-heading"><div><p className="eyebrow">CONVERSATIONS</p><h2 id="conversation-list-title">Your threads</h2></div><span className="section-count">{conversations.length}</span></div>
+        {conversationHistoryError && <div className="history-recovery notice notice-error" role="alert"><span><strong>Conversation history could not be loaded.</strong> {conversationHistoryError} Existing threads remain available if any were already loaded.</span>{onRetryConversationHistory && <button className="button button-quiet" type="button" onClick={onRetryConversationHistory} disabled={conversationHistoryLoading}>{conversationHistoryLoading ? "Retrying…" : "Try again"}</button>}</div>}
+        {showConversationLoading ? <div className="empty-inline" role="status"><strong>Loading conversation history…</strong><span>Checking the local conversation store.</span></div> : conversations.length === 0 ? <div className="empty-inline"><strong>No conversations yet.</strong><span>Start a new local thread from the research workspace.</span></div> : <div className="history-list">{conversations.map((conversation) => <button className={`history-row${conversation.conversation_id === activeConversationId ? " history-row-active" : ""}`} type="button" key={conversation.conversation_id} onClick={() => onSelectConversation(conversation.conversation_id)} disabled={conversationBusy}><span className="history-row-marker" aria-hidden="true">↺</span><span className="history-row-copy"><strong>{conversation.title}</strong><small>{conversation.messages.length} turn{conversation.messages.length === 1 ? "" : "s"} · {formatDate(conversation.updated_at)}</small></span><span className="row-arrow" aria-hidden="true">{conversationBusy ? "…" : "→"}</span></button>)}</div>}
+      </section>
+      <section className="surface-card history-table" aria-labelledby="history-list-title">
+        <div className="section-heading"><div><p className="eyebrow">SAVED RUNS</p><h2 id="history-list-title">Run records</h2></div><span className="section-count">{history.length}</span></div>
+        {history.length === 0 ? <div className="empty-inline"><strong>No saved runs yet.</strong><span>Runs will remain available as read-only research records.</span></div> : <div className="history-list">{history.map((item) => <button className={`history-row${item.run_id === activeRunId ? " history-row-active" : ""}`} type="button" key={item.run_id} onClick={() => onSelectRun(item.run_id)}><span className="history-row-marker" aria-hidden="true">⌁</span><span className="history-row-copy"><strong>{item.query || "Untitled research"}</strong><small>{formatDate(item.created_at)} · {item.run_id}</small></span><StatusBadge status={item.status} compact /><span className="row-arrow" aria-hidden="true">→</span></button>)}</div>}
+      </section>
+    </div>
+  );
 }
 
 export function SettingsView({

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { conversationApi } from "./api";
 import type { Conversation } from "../../types/api";
 
@@ -12,6 +12,11 @@ export interface ConversationWorkspaceState {
   activeConversation: Conversation | null;
   conversationError: string | null;
   conversationBusy: boolean;
+  conversationHistoryLoading: boolean;
+  conversationHistoryError: string | null;
+  retryConversationHistory: () => Promise<void>;
+  retryOpenConversation: () => Promise<void>;
+  retryableConversationId: string | null;
   startNewConversation: () => Promise<void>;
   openConversation: (conversationId: string) => Promise<void>;
   submitQuestion: (message: string) => Promise<void>;
@@ -37,42 +42,55 @@ export function useConversationWorkspace({
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
   const [conversationError, setConversationError] = useState<string | null>(null);
   const [conversationBusy, setConversationBusy] = useState(false);
+  const [conversationHistoryLoading, setConversationHistoryLoading] = useState(false);
+  const [conversationHistoryError, setConversationHistoryError] = useState<string | null>(null);
+  const [retryableConversationId, setRetryableConversationId] = useState<string | null>(null);
+
+  const loadConversationHistory = useCallback(async () => {
+    if (!sessionKey) return;
+    setConversationHistoryLoading(true);
+    setConversationHistoryError(null);
+    try {
+      const result = await conversationApi.listConversations();
+      setConversations(result.conversations ?? []);
+    } catch (cause) {
+      setConversationHistoryError(cause instanceof Error ? cause.message : "Conversation history is unavailable");
+    } finally {
+      setConversationHistoryLoading(false);
+    }
+  }, [sessionKey]);
 
   useEffect(() => {
     if (!sessionKey) {
       setConversations([]);
       setActiveConversation(null);
+      setConversationHistoryLoading(false);
+      setConversationHistoryError(null);
       return;
     }
-    let cancelled = false;
-    setConversationError(null);
-    void conversationApi.listConversations()
-      .then((result) => {
-        if (!cancelled) setConversations(result.conversations ?? []);
-      })
-      .catch((cause) => {
-        if (!cancelled) setConversationError(cause instanceof Error ? cause.message : "Conversation history is unavailable");
-      });
-    return () => { cancelled = true; };
-  }, [sessionKey]);
+    void loadConversationHistory();
+  }, [loadConversationHistory, sessionKey]);
 
   async function startNewConversation() {
     research.startNewRun();
     setActiveConversation(null);
     onNavigateToResearch();
     setConversationError(null);
+    setRetryableConversationId(null);
     try {
       const conversation = await conversationApi.createConversation();
       setActiveConversation(conversation);
       setConversations((current) => [conversation, ...current]);
     } catch (cause) {
-      setConversationError(cause instanceof Error ? cause.message : "Unable to start a conversation");
+      const detail = cause instanceof Error ? cause.message : "Unable to start a conversation";
+      setConversationError(`${detail} Your question is still available in the composer; try again when the local service is ready.`);
     }
   }
 
   async function openConversation(conversationId: string) {
     setConversationBusy(true);
     setConversationError(null);
+    setRetryableConversationId(null);
     try {
       const conversation = await conversationApi.getConversation(conversationId);
       setActiveConversation(conversation);
@@ -81,16 +99,23 @@ export function useConversationWorkspace({
       const latestRun = [...conversation.messages].reverse().find((message) => message.run_id);
       if (latestRun?.run_id) await research.selectRun(latestRun.run_id);
     } catch (cause) {
-      setConversationError(cause instanceof Error ? cause.message : "Unable to reopen this conversation");
+      const detail = cause instanceof Error ? cause.message : "Unable to reopen this conversation";
+      setConversationError(`${detail} Check the local service, then try again.`);
+      setRetryableConversationId(conversationId);
     } finally {
       setConversationBusy(false);
     }
+  }
+
+  async function retryOpenConversation() {
+    if (retryableConversationId) await openConversation(retryableConversationId);
   }
 
   async function submitQuestion(message: string) {
     onNavigateToResearch();
     setConversationBusy(true);
     setConversationError(null);
+    setRetryableConversationId(null);
     try {
       let conversation = activeConversation;
       if (!conversation) {
@@ -107,7 +132,8 @@ export function useConversationWorkspace({
       setConversations((current) => current.map((item) => item.conversation_id === response.conversation.conversation_id ? response.conversation : item));
       if (response.run?.run_id) await research.selectRun(response.run.run_id);
     } catch (cause) {
-      setConversationError(cause instanceof Error ? cause.message : "Unable to continue this conversation");
+      const detail = cause instanceof Error ? cause.message : "Unable to continue this conversation";
+      setConversationError(`${detail} Your question is still available in the composer; try again when the local service is ready.`);
       throw cause;
     } finally {
       setConversationBusy(false);
@@ -119,6 +145,11 @@ export function useConversationWorkspace({
     activeConversation,
     conversationError,
     conversationBusy,
+    conversationHistoryLoading,
+    conversationHistoryError,
+    retryConversationHistory: loadConversationHistory,
+    retryOpenConversation,
+    retryableConversationId,
     startNewConversation,
     openConversation,
     submitQuestion,
@@ -128,6 +159,9 @@ export function useConversationWorkspace({
       setActiveConversation(null);
       setConversationError(null);
       setConversationBusy(false);
+      setConversationHistoryLoading(false);
+      setConversationHistoryError(null);
+      setRetryableConversationId(null);
     },
   };
 }
