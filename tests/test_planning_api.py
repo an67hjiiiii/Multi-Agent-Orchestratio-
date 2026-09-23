@@ -60,6 +60,49 @@ def test_decomposition_endpoint_returns_locked_result_from_callable_boundary(
     assert calls == [("Review the API contract.", "fake")]
 
 
+def test_decomposition_endpoint_preserves_existing_inspection_details(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    application = make_app(tmp_path, monkeypatch)
+
+    async def fake_pipeline(request: str, _provider: str | None = None):
+        return {
+            "request": request,
+            "tasks": [],
+            "planning_evidence_ids": ["plan-api-01"],
+            "status": "NO_EVIDENCE",
+            "warnings": ["planning context is empty"],
+            "planning": {
+                "request": request,
+                "item_ids": ["plan-api-01"],
+                "scores": [0.75],
+                "context": "Planning guidance only.",
+                "snapshot_id": "planning_123",
+                "selected_item_ids": ["plan-api-01"],
+            },
+            "planning_context": "Planning guidance only.",
+            "latency_ms": 12,
+            "llm_calls": 1,
+            "metrics": {"latency_ms": 12, "llm_calls": 1},
+        }
+
+    application.dependency_overrides[get_p_lite_pipeline] = lambda: fake_pipeline
+
+    with TestClient(application) as client:
+        response = client.post(
+            "/api/tasks/decompose",
+            json={"request": "Review the API contract."},
+        )
+
+    assert response.status_code == 200
+    assert response.json()["planning"]["snapshot_id"] == "planning_123"
+    assert response.json()["planning_context"] == "Planning guidance only."
+    assert response.json()["latency_ms"] == 12
+    assert response.json()["llm_calls"] == 1
+    assert response.json()["metrics"] == {"latency_ms": 12, "llm_calls": 1}
+
+
 def test_decomposition_endpoint_preserves_error_contract_for_blank_request(
     tmp_path: Path,
     monkeypatch,

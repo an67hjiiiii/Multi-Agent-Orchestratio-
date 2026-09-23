@@ -14,7 +14,25 @@ except ModuleNotFoundError as exc:
     DecompositionResult: Any = None
 
 
-DECOMPOSITION_RESPONSE_MODEL = DecompositionResult
+if DecompositionResult is None:
+    DECOMPOSITION_RESPONSE_MODEL = None
+else:
+
+    class PLiteInspectionResponse(DecompositionResult):
+        """Expose the existing inspection-only P-lite telemetry to the UI.
+
+        The inherited fields remain the locked decomposition contract.  These
+        optional fields are already emitted by ``PLiteInspectionResult`` and
+        are display-only; they do not alter planning, decomposition, or runs.
+        """
+
+        planning: dict[str, Any] | None = None
+        planning_context: str | None = None
+        latency_ms: int | None = None
+        llm_calls: int | None = None
+        metrics: dict[str, Any] | None = None
+
+    DECOMPOSITION_RESPONSE_MODEL = PLiteInspectionResponse
 
 
 class ChatRequest(BaseModel):
