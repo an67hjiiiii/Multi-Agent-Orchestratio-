@@ -1,18 +1,8 @@
 from __future__ import annotations
-import json
-import re
-from app.core.citations import resolve_citations
 from app.core.types import Task, TaskResult, SourceChunk, RunMetrics
 from app.orchestration.routing import worker_profile
 from app.research.contracts import WorkerResult
-
-
-def _extract_json(text: str) -> dict:
-    try:
-        return json.loads(text)
-    except Exception:
-        m = re.search(r"\{.*\}", text, re.S)
-        return json.loads(m.group(0)) if m else {"status":"PARTIAL","answer":text,"citations":[],"missing_information":[]}
+from app.research.verification import verify_worker_response
 
 async def execute_task(provider, task: Task, evidence: list[SourceChunk], metrics: RunMetrics) -> WorkerResult:
     if not evidence:
@@ -44,31 +34,4 @@ async def execute_task(provider, task: Task, evidence: list[SourceChunk], metric
     )
     result = await provider.generate(system=system, user=user)
     metrics.add_usage(result.usage)
-    obj = _extract_json(result.text)
-    raw_citations = obj.get("citations")
-    valid, invalid = resolve_citations(raw_citations, evidence)
-    metrics.add_citations(valid, invalid)
-    status = str(obj.get("status") or "PARTIAL").upper()
-    missing = [str(x) for x in obj.get("missing_information") or []]
-    status_reason = ""
-    if invalid:
-        status = "PARTIAL"
-        missing.append("invalid citation locator(s) removed")
-        status_reason = "INVALID_CITATION_LOCATOR"
-    if status == "COMPLETE" and not valid:
-        status = "PARTIAL"
-        missing.append("worker answer has no valid citation")
-        status_reason = "NO_VALID_CITATION"
-    if status == "PARTIAL" and not missing:
-        status_reason = "WORKER_PARTIAL_WITHOUT_REASON"
-    return TaskResult(
-        task_id=task.task_id,
-        domain=task.domain,
-        status=status,
-        answer=str(obj.get("answer") or ""),
-        evidence_ids=[c.chunk_id for c in evidence],
-        citations=valid,
-        invalid_citations=invalid,
-        missing_information=missing,
-        status_reason=status_reason,
-    )
+    return verify_worker_response(result.text, task, evidence, metrics)

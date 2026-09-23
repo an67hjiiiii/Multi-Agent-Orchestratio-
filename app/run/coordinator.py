@@ -19,6 +19,7 @@ from app.core.telemetry import gpu_memory_mb, process_rss_mb
 from app.core.types import RunMetrics, Task, TaskResult
 from app.research.conversation_context import ConversationContext
 from app.run.contracts import Run
+from app.run.trace import append_run_event
 
 
 ProcessingCallback = Callable[
@@ -97,7 +98,7 @@ class RunCoordinator:
         source_snapshot = self.source_store.snapshot_id()
 
         def event(stage: str, **data: Any) -> None:
-            events.append({"stage": stage, "ts": datetime.now(timezone.utc).isoformat(), **data})
+            append_run_event(events, stage, **data)
 
         def finalize(
             status: str,

@@ -38,6 +38,7 @@ from app.ingestion.documents import DocumentTypeError
 from app.providers.ollama import OllamaProvider
 from app.retrieval.query import retrieve_chunks
 from app.research.conversation_context import build_conversation_context
+from app.run.trace import persisted_run_events
 
 
 router = APIRouter(prefix="/api")
@@ -116,15 +117,6 @@ def _conversation_or_404(
     if conversation is None:
         raise ApiError(404, "NOT_FOUND", "conversation not found")
     return conversation
-
-
-def _run_events(run: Mapping[str, Any]) -> list[dict[str, Any]]:
-    events = run.get("events")
-    if not isinstance(events, list):
-        events = run.get("trace")
-    if not isinstance(events, list):
-        return []
-    return [dict(item) for item in events if isinstance(item, Mapping)]
 
 
 def _run_evidence_ids(run: Mapping[str, Any], events: list[dict[str, Any]]) -> list[str]:
@@ -1010,7 +1002,7 @@ def get_run_trace(run_id: str, runtime: ApiRuntime = Depends(get_api_runtime)) -
     """Return the persisted retrieval/generation trace for one run."""
 
     run = _run_or_404(run_id, runtime)
-    events = _run_events(run)
+    events = persisted_run_events(run)
     return {
         "run_id": run_id,
         "status": run.get("status"),
@@ -1026,7 +1018,7 @@ def get_run_evidence(run_id: str, runtime: ApiRuntime = Depends(get_api_runtime)
     """Resolve run evidence IDs to current local source chunks when possible."""
 
     run = _run_or_404(run_id, runtime)
-    events = _run_events(run)
+    events = persisted_run_events(run)
     evidence_ids = _run_evidence_ids(run, events)
     service = _knowledge_service(runtime)
     items: list[dict[str, Any]] = []
