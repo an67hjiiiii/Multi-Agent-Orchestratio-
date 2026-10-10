@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from http.cookies import SimpleCookie
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -33,14 +35,28 @@ def test_logout_revokes_session_clears_cookies_and_is_idempotent(
     )
     assert registered.status_code == 200
     token = registered.json()["access_token"]
+    client.cookies.clear()
 
-    response = client.post("/api/auth/logout")
+    bearer_headers = {"Authorization": f"Bearer {token}"}
+    authenticated_session = client.get("/api/auth/session", headers=bearer_headers)
+    assert authenticated_session.status_code == 200
+    assert authenticated_session.json()["authenticated"] is True
+    authorized_user = client.get("/api/auth/me", headers=bearer_headers)
+    assert authorized_user.status_code == 200
+    assert authorized_user.json()["authenticated"] is True
+
+    response = client.post("/api/auth/logout", headers=bearer_headers)
 
     assert response.status_code == 200
     assert response.json() == {"ok": True, "authenticated": False}
-    cleared_cookies = [header.lower() for header in response.headers.get_list("set-cookie")]
-    for cookie_name in ("session_token=", "local_session="):
-        assert any(cookie_name in header and "max-age=0" in header for header in cleared_cookies)
+    cleared_cookies = {}
+    for header in response.headers.get_list("set-cookie"):
+        parsed_cookie = SimpleCookie()
+        parsed_cookie.load(header)
+        cleared_cookies.update(parsed_cookie)
+    for cookie_name in ("session_token", "local_session"):
+        assert cookie_name in cleared_cookies
+        assert cleared_cookies[cookie_name]["max-age"] == "0"
 
     session = client.get("/api/auth/session")
     assert session.status_code == 200
@@ -49,21 +65,21 @@ def test_logout_revokes_session_clears_cookies_and_is_idempotent(
 
     revoked_session = client.get(
         "/api/auth/session",
-        headers={"Authorization": f"Bearer {token}"},
+        headers=bearer_headers,
     )
     assert revoked_session.status_code == 200
     assert revoked_session.json()["authenticated"] is False
 
     protected = client.get(
         "/api/auth/me",
-        headers={"Authorization": f"Bearer {token}"},
+        headers=bearer_headers,
     )
     assert protected.status_code == 401
     assert protected.json()["code"] == "AUTHENTICATION_REQUIRED"
 
     repeated_logout = client.post(
         "/api/auth/logout",
-        headers={"Authorization": f"Bearer {token}"},
+        headers=bearer_headers,
     )
     assert repeated_logout.status_code == 200
     assert repeated_logout.json() == {"ok": True, "authenticated": False}
