@@ -267,6 +267,21 @@ def test_decompose_rejects_invalid_dependency_after_single_retry():
     assert any("unknown task" in warning for warning in result.warnings)
 
 
+def test_decompose_rejects_duplicate_task_dependencies_after_single_retry():
+    duplicate_dependencies = json.loads(_valid_response())
+    duplicate_dependencies["tasks"][1]["depends_on"] = ["T1", "T1"]
+    response = json.dumps(duplicate_dependencies)
+    provider = _Provider([response, response])
+
+    result = asyncio.run(decompose(provider, "Review auth.", "", RunMetrics()))
+
+    assert result.status == "FAILED"
+    assert result.tasks == []
+    assert result.repair_attempted is True
+    assert len(provider.calls) == 2
+    assert any("duplicate entries" in warning for warning in result.warnings)
+
+
 def test_decompose_rejects_dependency_cycles():
     cyclic = json.dumps(
         {
