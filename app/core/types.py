@@ -36,6 +36,22 @@ class Task:
     evidence_needs: list[str] = field(default_factory=list)
 
 @dataclass
+class Obligation:
+    """A distinct user requirement that the plan must preserve."""
+
+    obligation_id: str
+    description: str
+    required: bool = True
+
+@dataclass
+class Concern:
+    """A review concern recorded separately from a required obligation."""
+
+    concern_id: str
+    description: str
+    domain: str = "general"
+
+@dataclass
 class TaskResult:
     task_id: str
     domain: str
