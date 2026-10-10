@@ -34,6 +34,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   health: () => request<HealthResponse>("/health"),
+  currentSession: () =>
+    request<{
+      authenticated: boolean;
+      user: { user_id: string; email?: string | null; username?: string | null; role: string };
+    }>("/auth/session"),
   register: (body: {
     email: string;
     username?: string;

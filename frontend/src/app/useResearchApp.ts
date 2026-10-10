@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { api } from "../lib/api";
+import { api, ApiError } from "../lib/api";
 import type {
   HealthResponse,
   RunListItem,
@@ -11,6 +11,8 @@ import type {
 export type InspectorTab = "evidence" | "sources" | "metrics";
 
 export interface ResearchAppState {
+  currentUser: { user_id: string; email?: string | null; username?: string | null; role: string } | null;
+  isAuthenticated: boolean;
   health: HealthResponse | null;
   sources: SourceSummary[];
   history: RunListItem[];
@@ -29,6 +31,8 @@ export interface ResearchAppState {
   dismissError: () => void;
 }
 export function useResearchApp(): ResearchAppState {
+  const [currentUser, setCurrentUser] = useState<ResearchAppState["currentUser"]>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [sources, setSources] = useState<SourceSummary[]>([]);
   const [history, setHistory] = useState<RunListItem[]>([]);
@@ -54,22 +58,45 @@ export function useResearchApp(): ResearchAppState {
 
     async function boot() {
       setIsBooting(true);
-      const [healthResult, sourcesResult, historyResult] = await Promise.allSettled([
-        api.health(),
-        api.listSources(),
-        api.listRuns(),
-      ]);
+      const sessionResult = await Promise.allSettled([api.currentSession()]);
 
       if (cancelled) return;
 
-      if (healthResult.status === "fulfilled") setHealth(healthResult.value);
-      if (sourcesResult.status === "fulfilled") setSources(sourcesResult.value.sources ?? []);
-      if (historyResult.status === "fulfilled") setHistory(historyResult.value);
+      const session = sessionResult[0];
+      if (session.status === "fulfilled" && session.value.authenticated) {
+        setCurrentUser(session.value.user);
+        setIsAuthenticated(true);
+        const [healthResult, sourcesResult, historyResult] = await Promise.allSettled([
+          api.health(),
+          api.listSources(),
+          api.listRuns(),
+        ]);
 
-      const failed = [healthResult, sourcesResult, historyResult].find(
-        (result) => result.status === "rejected",
-      );
-      if (failed?.status === "rejected") setError(failed.reason?.message ?? "Backend unavailable");
+        if (cancelled) return;
+        if (healthResult.status === "fulfilled") setHealth(healthResult.value);
+        if (sourcesResult.status === "fulfilled") setSources(sourcesResult.value.sources ?? []);
+        if (historyResult.status === "fulfilled") setHistory(historyResult.value);
+
+        const failed = [healthResult, sourcesResult, historyResult].find(
+          (result) => result.status === "rejected",
+        );
+        if (failed?.status === "rejected") {
+          if (failed.reason instanceof ApiError && failed.reason.status === 401) {
+            expireSession();
+          }
+          setError(failed.reason?.message ?? "Backend unavailable");
+        }
+      } else if (session.status === "rejected" && !(session.reason instanceof ApiError && session.reason.status === 401)) {
+        setError(session.reason?.message ?? "Unable to restore the session");
+      } else {
+        setCurrentUser(null);
+        setIsAuthenticated(false);
+        setSources([]);
+        setHistory([]);
+        const healthResult = await Promise.allSettled([api.health()]);
+        if (cancelled) return;
+        if (healthResult[0].status === "fulfilled") setHealth(healthResult[0].value);
+      }
       setIsBooting(false);
     }
 
@@ -77,6 +104,15 @@ export function useResearchApp(): ResearchAppState {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  const expireSession = useCallback(() => {
+    setCurrentUser(null);
+    setIsAuthenticated(false);
+    setSources([]);
+    setHistory([]);
+    setActiveRun(null);
+    setError("Your session expired. Sign in again to continue.");
   }, []);
 
   const submitQuestion = useCallback(
@@ -89,13 +125,14 @@ export function useResearchApp(): ResearchAppState {
         setActiveTab("evidence");
         await Promise.all([refreshHistory(), refreshSources()]);
       } catch (cause) {
+        if (cause instanceof ApiError && cause.status === 401) expireSession();
         setError(cause instanceof Error ? cause.message : "Unable to run the research pipeline");
         throw cause;
       } finally {
         setIsRunning(false);
       }
     },
-    [refreshHistory, refreshSources],
+    [expireSession, refreshHistory, refreshSources],
   );
 
   const selectRun = useCallback(async (runId: string) => {
@@ -104,9 +141,10 @@ export function useResearchApp(): ResearchAppState {
       setActiveRun(await api.getRun(runId));
       setActiveTab("evidence");
     } catch (cause) {
+      if (cause instanceof ApiError && cause.status === 401) expireSession();
       setError(cause instanceof Error ? cause.message : "Unable to load this run");
     }
-  }, []);
+  }, [expireSession]);
 
   const importSource = useCallback(async (file: File) => {
     setIsImporting(true);
@@ -118,14 +156,17 @@ export function useResearchApp(): ResearchAppState {
       await refreshSources();
       return result;
     } catch (cause) {
+      if (cause instanceof ApiError && cause.status === 401) expireSession();
       setError(cause instanceof Error ? cause.message : "Unable to import this source");
       return null;
     } finally {
       setIsImporting(false);
     }
-  }, [refreshSources]);
+  }, [expireSession, refreshSources]);
 
   return {
+    currentUser,
+    isAuthenticated,
     health,
     sources,
     history,
