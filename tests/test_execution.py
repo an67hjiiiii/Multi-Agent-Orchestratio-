@@ -55,6 +55,9 @@ def test_execution_uses_completed_dependency_answers_for_routed_context():
         "task_completed",
     ]
     assert events[0]["task_id"] == "T1"
+    assert events[1]["result"]["task_id"] == "T1"
+    assert events[1]["result"]["status"] == "COMPLETE"
+    assert events[1]["result"]["evidence_ids"] == ["chunk-1"]
     assert events[2]["task_id"] == "T2"
     assert events[2]["depends_on"] == ["T1"]
 

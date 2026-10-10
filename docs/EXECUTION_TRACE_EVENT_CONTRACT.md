@@ -10,10 +10,12 @@ Each event is an append-only mapping with a `stage` name and a UTC ISO-8601
 `ts` timestamp. Event-specific fields are additive. Consumers should preserve
 unknown fields and use the recorded order when rendering a trace.
 
-Task events correlate through `task_id`. A task that begins execution records
-one `task_started` event, followed by either `task_completed` or
-`task_failed`. Tasks not reached because execution stops at a run budget have
-no task event.
+Task events correlate through `task_id`. For a normal return or a caught
+`Exception`, a task that begins execution records one `task_started` event,
+followed by either `task_completed` or `task_failed`. Process interruption or
+task cancellation can leave a start without a terminal task event; those cases
+are outside this contract. Tasks not reached because execution stops at a run
+budget have no task event.
 
 | Stage | Required fields | Meaning |
 | --- | --- | --- |
