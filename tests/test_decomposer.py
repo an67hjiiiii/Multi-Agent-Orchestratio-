@@ -228,6 +228,19 @@ def test_decompose_allows_one_structured_retry_and_counts_usage():
     assert "corrected JSON object only" in provider.calls[1]["user"]
 
 
+def test_decompose_rejects_trailing_text_after_task_plan():
+    malformed = f"{_valid_response()}\nAdditional explanation."
+    provider = _Provider([malformed, malformed])
+
+    result = asyncio.run(decompose(provider, "Review auth.", "", RunMetrics()))
+
+    assert result.status == "FAILED"
+    assert result.tasks == []
+    assert result.repair_attempted is True
+    assert len(provider.calls) == 2
+    assert "exactly one JSON object" in result.warnings[0]
+
+
 def test_decompose_rejects_invalid_dependency_after_single_retry():
     invalid = json.dumps(
         {

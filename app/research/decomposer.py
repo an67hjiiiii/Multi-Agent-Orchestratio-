@@ -902,14 +902,10 @@ def _extract_json(text: object) -> dict[str, Any]:
     cleaned = text.strip()
     try:
         parsed = json.loads(cleaned)
-    except json.JSONDecodeError:
-        start = cleaned.find("{")
-        if start < 0:
-            raise _DecompositionOutputError("planner response did not contain a JSON object")
-        try:
-            parsed, _ = json.JSONDecoder().raw_decode(cleaned[start:])
-        except json.JSONDecodeError as exc:
-            raise _DecompositionOutputError("planner response contained invalid JSON") from exc
+    except json.JSONDecodeError as exc:
+        raise _DecompositionOutputError(
+            "planner response must be exactly one JSON object"
+        ) from exc
 
     if not isinstance(parsed, dict):
         raise _DecompositionOutputError("planner response must be a JSON object")
