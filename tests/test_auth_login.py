@@ -13,6 +13,7 @@ def make_client(tmp_path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     monkeypatch.setenv("IMPLEMENTATION_PROFILE", "m0")
     monkeypatch.setenv("PROVIDER", "fake")
     monkeypatch.delenv("VECTOR_BACKEND", raising=False)
+    monkeypatch.setenv("RETRIEVAL_MODE", "LEXICAL")
     monkeypatch.delenv("LOCAL_AUTH_ADMIN_EMAIL", raising=False)
     monkeypatch.delenv("LOCAL_AUTH_ADMIN_PASSWORD", raising=False)
     return TestClient(
@@ -74,6 +75,7 @@ def test_login_allows_only_server_bootstrapped_admin_credentials(
     monkeypatch.setenv("IMPLEMENTATION_PROFILE", "m0")
     monkeypatch.setenv("PROVIDER", "fake")
     monkeypatch.delenv("VECTOR_BACKEND", raising=False)
+    monkeypatch.setenv("RETRIEVAL_MODE", "LEXICAL")
     monkeypatch.setenv("LOCAL_AUTH_ADMIN_EMAIL", "local-admin@example.test")
     monkeypatch.setenv("LOCAL_AUTH_ADMIN_PASSWORD", "AdminPassword123!")
     client = TestClient(
@@ -96,10 +98,11 @@ def test_login_allows_only_server_bootstrapped_admin_credentials(
 
 def test_login_returns_stable_generic_errors(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
     client = make_client(tmp_path, monkeypatch)
-    client.post(
+    registration = client.post(
         "/api/auth/register",
         json={"email": "login-errors@example.test", "password": "Password123!"},
     )
+    assert registration.status_code == 200
 
     wrong_password = client.post(
         "/api/auth/login",
