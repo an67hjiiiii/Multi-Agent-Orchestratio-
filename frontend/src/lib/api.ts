@@ -34,6 +34,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   health: () => request<HealthResponse>("/health"),
+  register: (body: {
+    email: string;
+    username?: string;
+    display_name?: string;
+    password: string;
+  }) => request<{ user: { user_id: string; email?: string | null; role: string } }>("/auth/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  }),
   listSources: () => request<SourcesResponse>("/sources"),
   getChunk: (chunkId: string) =>
     request<SourceChunk>(`/chunks/${encodeURIComponent(chunkId)}`),

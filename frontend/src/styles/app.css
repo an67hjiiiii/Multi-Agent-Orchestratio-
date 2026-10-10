@@ -204,3 +204,151 @@ button:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3p
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
 }
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(15 23 42 / 42%);
+}
+
+.auth-dialog {
+  position: relative;
+  width: min(100%, 28rem);
+  max-height: min(90vh, 48rem);
+  overflow: auto;
+  padding: 2rem;
+  border: 1px solid #dce3ea;
+  border-radius: 0.75rem;
+  background: #fff;
+  color: #152536;
+  box-shadow: 0 1.5rem 4rem rgb(15 23 42 / 20%);
+}
+
+.auth-dialog h1 {
+  margin: 0.25rem 0 0.5rem;
+  font-size: 1.5rem;
+}
+
+.dialog-description,
+.form-hint {
+  color: #5c6b7a;
+  font-size: 0.875rem;
+}
+
+.dialog-close {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  border: 0;
+  background: transparent;
+  color: #526173;
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+
+.register-form {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+}
+
+.register-form label {
+  margin-top: 0.5rem;
+  color: #26384b;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.register-form label span {
+  color: #718096;
+  font-weight: 400;
+}
+
+.register-form input {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid #cbd5df;
+  border-radius: 0.375rem;
+  background: #fff;
+  color: #152536;
+  font: inherit;
+}
+
+.register-form input:focus-visible,
+.register-form button:focus-visible,
+.dialog-close:focus-visible {
+  outline: 3px solid #86b7fe;
+  outline-offset: 2px;
+}
+
+.form-hint {
+  margin: 0;
+}
+
+.form-error {
+  margin: 0.5rem 0 0;
+  color: #9f2d2d;
+  font-size: 0.875rem;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.button-primary,
+.button-secondary {
+  min-height: 2.5rem;
+  padding: 0.5rem 0.875rem;
+  border-radius: 0.375rem;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.button-primary {
+  border: 1px solid #1f5f9f;
+  background: #1f5f9f;
+  color: white;
+}
+
+.button-secondary {
+  border: 1px solid #cbd5df;
+  background: white;
+  color: #26384b;
+}
+
+.button-primary:disabled,
+.button-secondary:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.registration-success {
+  margin-top: 1.25rem;
+  padding: 1rem;
+  border: 1px solid #9dc9ad;
+  border-radius: 0.375rem;
+  background: #f0f8f2;
+  color: #205b35;
+}
+
+@media (max-width: 480px) {
+  .auth-dialog {
+    padding: 1.5rem 1rem;
+  }
+
+  .form-actions {
+    flex-direction: column-reverse;
+  }
+
+  .form-actions button {
+    width: 100%;
+  }
+}
