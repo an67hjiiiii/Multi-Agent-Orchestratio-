@@ -48,7 +48,15 @@ def test_execution_uses_completed_dependency_answers_for_routed_context():
 
     assert [result.task_id for result in results] == ["T1", "T2"]
     assert contexts == ["", "grounded answer"]
-    assert [item["stage"] for item in events] == ["task_completed", "task_completed"]
+    assert [item["stage"] for item in events] == [
+        "task_started",
+        "task_completed",
+        "task_started",
+        "task_completed",
+    ]
+    assert events[0]["task_id"] == "T1"
+    assert events[2]["task_id"] == "T2"
+    assert events[2]["depends_on"] == ["T1"]
 
 
 def test_execution_preserves_budget_stop_after_current_worker_result():
@@ -69,7 +77,7 @@ def test_execution_preserves_budget_stop_after_current_worker_result():
     )
 
     assert [result.task_id for result in results] == ["T1"]
-    assert events == ["task_completed", "run_budget_exceeded"]
+    assert events == ["task_started", "task_completed", "run_budget_exceeded"]
 
 
 def test_execution_preserves_worker_failures_for_run_coordinator():
@@ -80,6 +88,8 @@ def test_execution_preserves_worker_failures_for_run_coordinator():
     async def resolve(_task: Task, _dependency_context: str) -> list[SourceChunk]:
         return _evidence()
 
+    events: list[dict] = []
+
     with pytest.raises(TimeoutError, match="provider timed out"):
         asyncio.run(
             execute_prepared_tasks(
@@ -87,7 +97,44 @@ def test_execution_preserves_worker_failures_for_run_coordinator():
                 [Task("T1", "First")],
                 resolve_task_evidence=resolve,
                 metrics=RunMetrics(),
-                event=lambda *_args, **_kwargs: None,
+                event=lambda stage, **payload: events.append(
+                    {"stage": stage, **payload}
+                ),
                 max_run_tokens=100,
             )
         )
+
+    assert [item["stage"] for item in events] == ["task_started", "task_failed"]
+    assert events[0]["task_id"] == events[1]["task_id"] == "T1"
+    assert events[1]["error_type"] == "TimeoutError"
+    assert "error" not in events[1]
+
+
+def test_execution_records_task_failure_when_evidence_resolution_raises():
+    events: list[dict] = []
+
+    async def fail_resolving_evidence(
+        _task: Task, _dependency_context: str
+    ) -> list[SourceChunk]:
+        raise LookupError("retrieval failed")
+
+    with pytest.raises(LookupError, match="retrieval failed"):
+        asyncio.run(
+            execute_prepared_tasks(
+                StubProvider(),
+                [Task("T1", "First")],
+                resolve_task_evidence=fail_resolving_evidence,
+                metrics=RunMetrics(),
+                event=lambda stage, **payload: events.append(
+                    {"stage": stage, **payload}
+                ),
+                max_run_tokens=100,
+            )
+        )
+
+    assert [item["stage"] for item in events] == ["task_started", "task_failed"]
+    assert events[1] == {
+        "stage": "task_failed",
+        "task_id": "T1",
+        "error_type": "LookupError",
+    }

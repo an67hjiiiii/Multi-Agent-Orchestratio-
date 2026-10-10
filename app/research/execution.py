@@ -31,17 +31,30 @@ async def execute_prepared_tasks(
     completed: dict[str, WorkerResult] = {}
     results: list[WorkerResult] = []
     for task in tasks:
-        dependency_context = " ".join(
-            completed[dependency_id].answer
-            for dependency_id in task.depends_on
-            if dependency_id in completed
+        event(
+            "task_started",
+            task_id=task.task_id,
+            depends_on=list(task.depends_on),
         )
-        evidence = await resolve_task_evidence(task, dependency_context)
-        generation_started = time.perf_counter()
-        result = await execute_task(provider, task, evidence, metrics)
-        metrics.generation_latency_ms += int(
-            (time.perf_counter() - generation_started) * 1000
-        )
+        try:
+            dependency_context = " ".join(
+                completed[dependency_id].answer
+                for dependency_id in task.depends_on
+                if dependency_id in completed
+            )
+            evidence = await resolve_task_evidence(task, dependency_context)
+            generation_started = time.perf_counter()
+            result = await execute_task(provider, task, evidence, metrics)
+            metrics.generation_latency_ms += int(
+                (time.perf_counter() - generation_started) * 1000
+            )
+        except Exception as exc:
+            event(
+                "task_failed",
+                task_id=task.task_id,
+                error_type=type(exc).__name__,
+            )
+            raise
         completed[task.task_id] = result
         results.append(result)
         event("task_completed", result=asdict(result))

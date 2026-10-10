@@ -122,4 +122,15 @@ def test_worker_timeout_is_persisted_as_terminal_failed_run(tmp_path, monkeypatc
     assert len(failures) == 1
     assert failures[0]["error_type"] == "TimeoutError"
     assert failures[0]["error"] == "worker provider timed out"
+    lifecycle_stages = {"task_started", "task_failed", "run_failed"}
+    assert [
+        event["stage"]
+        for event in result["events"]
+        if event["stage"] in lifecycle_stages
+    ] == ["task_started", "task_failed", "run_failed"]
+    failed_task = next(
+        event for event in result["events"] if event["stage"] == "task_failed"
+    )
+    assert failed_task["task_id"] == "T1"
+    assert failed_task["error_type"] == "TimeoutError"
     assert result["effective_config"]["flags"] == {"P": False, "N": False, "O": False}
