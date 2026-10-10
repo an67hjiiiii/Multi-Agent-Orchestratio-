@@ -6,6 +6,7 @@ import math
 import os
 import tempfile
 from collections.abc import Mapping
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -239,6 +240,30 @@ class SourceStore:
         source_id = chunks[0].source_id
         source_hash = hashlib.sha256(clean_text.encode("utf-8")).hexdigest()
         supplied_provenance = self._provenance_input(provenance)
+        owner_id = supplied_provenance.get("owner_user_id")
+        existing_source = self._sources.get(source_id)
+        if existing_source is not None:
+            existing_owner = existing_source.get("provenance", {}).get("owner_user_id")
+            if existing_owner != owner_id:
+                # Keep existing IDs intact; namespace only an actual cross-owner collision.
+                owner_suffix = hashlib.sha256(
+                    f"{source_id}\0{owner_id or ''}".encode("utf-8")
+                ).hexdigest()[:16]
+                source_id = f"{source_id}_{owner_suffix}"
+                scoped_source = self._sources.get(source_id)
+                if (
+                    scoped_source is not None
+                    and scoped_source.get("provenance", {}).get("owner_user_id") != owner_id
+                ):
+                    raise ValueError("source identity conflicts with another owner")
+                chunks = [
+                    replace(
+                        chunk,
+                        source_id=source_id,
+                        chunk_id=f"{source_id}_c{chunk.index:04d}",
+                    )
+                    for chunk in chunks
+                ]
         source_provenance = {
             **supplied_provenance,
             "source_id": source_id,

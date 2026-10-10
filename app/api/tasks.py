@@ -14,6 +14,7 @@ from app.api.common import (
     validate_decomposition_result,
 )
 from app.api.errors import ApiError
+from app.api.dependencies import get_current_user
 from app.api.schemas import DECOMPOSITION_RESPONSE_MODEL, DecompositionRequest
 from app.providers.ollama import OllamaProvider
 
@@ -24,6 +25,7 @@ router = APIRouter()
 @router.post("/tasks/decompose", response_model=DECOMPOSITION_RESPONSE_MODEL)
 async def decompose_tasks(
     body: DecompositionRequest,
+    _user: dict = Depends(get_current_user),
     pipeline: PLiteCallable = Depends(get_p_lite_pipeline),
 ) -> Any:
     assert_plite_profile()

@@ -75,9 +75,12 @@ class RunCoordinator:
         *,
         conversation_context: ConversationContext | str | None = None,
         conversation_id: str | None = None,
+        owner_id: str | None = None,
     ) -> dict[str, Any]:
         """Coordinate one request through the existing processing pipeline."""
 
+        if owner_id is not None and not owner_id.strip():
+            raise ValueError("owner_id must not be empty")
         condition = condition.upper()
         definition = CONDITION_DEFINITIONS.get(condition)
         if definition is None:
@@ -154,6 +157,8 @@ class RunCoordinator:
                 "domain_ranking_version": self._domain_ranking_version,
                 "retrieval": dict(retrieval_metadata),
             }
+            if owner_id is not None:
+                run["owner_id"] = owner_id
             typed_run = Run.from_mapping(run)
             self.run_store.save(typed_run)
             return typed_run.to_dict()
@@ -214,6 +219,7 @@ class RunCoordinator:
                 metrics,
                 event,
                 retrieval_metadata,
+                **({"owner_id": owner_id} if owner_id is not None else {}),
             )
             if emit_finished:
                 event("run_finished", status=status)

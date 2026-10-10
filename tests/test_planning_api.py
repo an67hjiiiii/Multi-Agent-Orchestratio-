@@ -18,6 +18,14 @@ def make_app(tmp_path: Path, monkeypatch, *, profile: str = "m1") -> FastAPI:
     )
 
 
+def authenticate(client: TestClient, email: str = "planning@example.test") -> None:
+    response = client.post(
+        "/api/auth/register",
+        json={"email": email, "name": email, "password": "Password123!"},
+    )
+    assert response.status_code == 200
+
+
 def test_decomposition_endpoint_returns_locked_result_from_callable_boundary(
     tmp_path: Path,
     monkeypatch,
@@ -48,6 +56,7 @@ def test_decomposition_endpoint_returns_locked_result_from_callable_boundary(
     application.dependency_overrides[get_p_lite_pipeline] = lambda: fake_pipeline
 
     with TestClient(application) as client:
+        authenticate(client)
         response = client.post(
             "/api/tasks/decompose",
             json={"request": "Review the API contract.", "provider": "fake"},
@@ -90,6 +99,7 @@ def test_decomposition_endpoint_preserves_existing_inspection_details(
     application.dependency_overrides[get_p_lite_pipeline] = lambda: fake_pipeline
 
     with TestClient(application) as client:
+        authenticate(client)
         response = client.post(
             "/api/tasks/decompose",
             json={"request": "Review the API contract."},
@@ -115,6 +125,7 @@ def test_decomposition_endpoint_preserves_error_contract_for_blank_request(
     application.dependency_overrides[get_p_lite_pipeline] = lambda: fake_pipeline
 
     with TestClient(application) as client:
+        authenticate(client)
         response = client.post("/api/tasks/decompose", json={"request": "  "})
 
     assert response.status_code == 400
@@ -140,6 +151,7 @@ def test_decomposition_endpoint_rejects_plite_in_m0_without_fallback(
     application.dependency_overrides[get_p_lite_pipeline] = lambda: fake_pipeline
 
     with TestClient(application) as client:
+        authenticate(client)
         response = client.post(
             "/api/tasks/decompose",
             json={"request": "Review the API contract."},
@@ -153,6 +165,50 @@ def test_decomposition_endpoint_rejects_plite_in_m0_without_fallback(
         "retryable": False,
     }
     assert calls == []
+
+
+def test_decomposition_endpoint_requires_authentication(tmp_path: Path, monkeypatch) -> None:
+    application = make_app(tmp_path, monkeypatch)
+    calls: list[str] = []
+
+    async def fake_pipeline(request: str, _provider: str | None = None):
+        calls.append(request)
+        return {
+            "request": request,
+            "tasks": [
+                {
+                    "task_id": "T1",
+                    "title": "Inspect the API contract",
+                    "objective": "Check the request and response boundary.",
+                    "expected_output": "A list of contract risks.",
+                    "domain": "api_architecture",
+                    "role_profile": "API reviewer",
+                    "depends_on": [],
+                }
+            ],
+            "planning_evidence_ids": ["plan-api-01"],
+            "status": "SUCCEEDED",
+            "warnings": [],
+        }
+
+    application.dependency_overrides[get_p_lite_pipeline] = lambda: fake_pipeline
+
+    with TestClient(application) as client:
+        anonymous = client.post(
+            "/api/tasks/decompose", json={"request": "Review the API contract."}
+        )
+        assert anonymous.status_code == 401
+        assert anonymous.json()["code"] == "AUTHENTICATION_REQUIRED"
+        assert calls == []
+
+        authenticate(client)
+        authenticated = client.post(
+            "/api/tasks/decompose", json={"request": "Review the API contract."}
+        )
+
+    assert authenticated.status_code == 200
+    assert authenticated.json()["request"] == "Review the API contract."
+    assert calls == ["Review the API contract."]
 
 
 def test_runtime_exposes_p_lite_pipeline_without_changing_m0(

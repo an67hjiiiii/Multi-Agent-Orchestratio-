@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.main import create_app
+from app.storage.source_store import SourceStore
 
 
 def register(client: TestClient, email: str) -> None:
@@ -39,3 +41,80 @@ def test_source_reads_are_scoped_to_the_importing_local_user(tmp_path: Path, mon
     assert other_user.get(f"/api/sources/{source_id}").status_code == 404
     assert other_user.get(f"/api/chunks/{chunk_id}").status_code == 404
     assert other_user.get("/api/sources").json()["sources"] == []
+
+
+@pytest.mark.parametrize("retrieval_mode", ["LEXICAL", "VECTOR", "HYBRID"])
+def test_kb_search_is_authenticated_and_owner_scoped(tmp_path: Path, monkeypatch, retrieval_mode: str) -> None:
+    monkeypatch.setenv("IMPLEMENTATION_PROFILE", "m0")
+    monkeypatch.setenv("PROVIDER", "fake")
+    monkeypatch.setenv("RETRIEVAL_MODE", retrieval_mode)
+    if retrieval_mode == "LEXICAL":
+        monkeypatch.delenv("VECTOR_BACKEND", raising=False)
+    else:
+        monkeypatch.setenv("VECTOR_BACKEND", "memory")
+    application = create_app(data_dir=tmp_path / "data", runs_dir=tmp_path / "runs")
+    owner = TestClient(application)
+    other_user = TestClient(application)
+    anonymous = TestClient(application)
+    register(owner, "search-owner@example.test")
+    register(other_user, "search-other@example.test")
+
+    first = owner.post(
+        "/api/sources/text",
+        json={"source_name": "owner.md", "text": "Zephyrquartz belongs only to the first owner."},
+    )
+    second = other_user.post(
+        "/api/sources/text",
+        json={"source_name": "other.md", "text": "The second owner has a different private note."},
+    )
+    assert first.status_code == second.status_code == 200
+    query = {"query": "Zephyrquartz", "top_k": 1}
+
+    assert anonymous.get("/api/kb/search", params=query).status_code == 401
+    owned = owner.get("/api/kb/search", params=query)
+    assert owned.status_code == 200
+    assert owned.json()["results"]
+    assert all(item["source_id"] == first.json()["source_id"] for item in owned.json()["results"])
+    foreign = other_user.get("/api/kb/search", params=query)
+    assert foreign.status_code == 200
+    assert all(item["source_id"] == second.json()["source_id"] for item in foreign.json()["results"])
+
+
+def test_identical_imports_keep_private_source_and_chunk_provenance(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("IMPLEMENTATION_PROFILE", "m0")
+    monkeypatch.setenv("PROVIDER", "fake")
+    application = create_app(data_dir=tmp_path / "data", runs_dir=tmp_path / "runs")
+    first_user = TestClient(application)
+    second_user = TestClient(application)
+    register(first_user, "duplicate-first@example.test")
+    register(second_user, "duplicate-second@example.test")
+    body = {"source_name": "same.md", "text": "The same private content can belong to different users."}
+
+    first = first_user.post("/api/sources/text", json=body)
+    first_repeat = first_user.post("/api/sources/text", json=body)
+    second = second_user.post("/api/sources/text", json=body)
+    second_repeat = second_user.post("/api/sources/text", json=body)
+    assert all(response.status_code == 200 for response in (first, first_repeat, second, second_repeat))
+    first_id = first.json()["source_id"]
+    second_id = second.json()["source_id"]
+    assert first_id != second_id
+    assert first_repeat.json()["source_id"] == first_id
+    assert second_repeat.json()["source_id"] == second_id
+    assert first_repeat.json()["chunks_added"] == second_repeat.json()["chunks_added"] == 0
+
+    first_source = first_user.get(f"/api/sources/{first_id}")
+    second_source = second_user.get(f"/api/sources/{second_id}")
+    assert first_source.status_code == second_source.status_code == 200
+    first_chunk = first_source.json()["chunks"][0]
+    second_chunk = second_source.json()["chunks"][0]
+    assert first_chunk["chunk_id"] != second_chunk["chunk_id"]
+    assert first_chunk["provenance"]["owner_user_id"] == first_source.json()["provenance"]["owner_user_id"]
+    assert second_chunk["provenance"]["owner_user_id"] == second_source.json()["provenance"]["owner_user_id"]
+    assert first_user.get(f"/api/sources/{second_id}").status_code == 404
+    assert second_user.get(f"/api/sources/{first_id}").status_code == 404
+    assert first_user.get(f"/api/chunks/{second_chunk['chunk_id']}").status_code == 404
+    assert second_user.get(f"/api/chunks/{first_chunk['chunk_id']}").status_code == 404
+
+    reopened = SourceStore(tmp_path / "data")
+    assert reopened.source(first_id)["provenance"]["owner_user_id"] == first_chunk["provenance"]["owner_user_id"]
+    assert reopened.source(second_id)["provenance"]["owner_user_id"] == second_chunk["provenance"]["owner_user_id"]

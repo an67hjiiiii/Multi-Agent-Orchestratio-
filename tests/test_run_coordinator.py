@@ -36,6 +36,7 @@ def test_run_coordinator_persists_the_existing_run_shape_and_context(tmp_path, m
     assert persisted == result
     assert Run.from_mapping(result).to_dict() == result
     assert result["conversation_id"] == "conversation_1"
+    assert "owner_id" not in result
     assert result["conversation_context"]["message_ids"] == ["message_1"]
     assert [event["stage"] for event in result["events"]][:2] == [
         "run_started",

@@ -244,12 +244,21 @@ class KnowledgeBase:
         min_score: float = 0.0,
         domain: str | None = None,
         task_domain: str | None = None,
+        owner_id: str | None = None,
     ) -> list[SourceChunk]:
         """Search canonical chunks using the configured local retrieval mode."""
 
+        chunks = self.source_store.chunks()
+        if owner_id is not None:
+            chunks = [
+                chunk for chunk in chunks
+                if chunk.provenance.get("owner_user_id") == owner_id
+            ]
+            if not chunks:
+                return []
         return retrieve_chunks(
             query,
-            self.source_store.chunks(),
+            chunks,
             retrieval_mode=self.retrieval_mode,
             vector_store=self.vector_store,
             embedder=self.embedder,
@@ -257,6 +266,7 @@ class KnowledgeBase:
             min_score=min_score,
             domain=domain,
             task_domain=task_domain,
+            owner_id=owner_id,
             availability_error=self.availability_error,
         )
 

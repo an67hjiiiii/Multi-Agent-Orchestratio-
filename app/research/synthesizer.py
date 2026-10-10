@@ -74,6 +74,7 @@ async def synthesize_completed_results(
             f"available_evidence={','.join(r.evidence_ids)}\n"
             f"missing={','.join(r.missing_information)}"
         )
+    available_ids = list(dict.fromkeys(available_ids))
     system = (
         "SYNTHESIZER. PROMPT VERSION: synthesis-v2. Answer the user's question first, "
         "then combine the supplied task findings into a concise natural response. "
@@ -82,7 +83,7 @@ async def synthesize_completed_results(
         "Return JSON only: {\"answer\":\"...\",\"citations\":[\"E1\"]}. "
         "Citations may contain only supplied E-keys."
     )
-    evidence_keys = "\n".join(f"E{index}={item}" for index, item in enumerate(dict.fromkeys(available_ids), start=1))
+    evidence_keys = "\n".join(f"E{index}={item}" for index, item in enumerate(available_ids, start=1))
     user = f"USER REQUEST:\n{query}\n\nAVAILABLE EVIDENCE KEYS:\n{evidence_keys}\n\nTASK RESULTS:\n" + "\n\n".join(compact)
     result = await provider.generate(system=system, user=user)
     metrics.add_usage(result.usage)

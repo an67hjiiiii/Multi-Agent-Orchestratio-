@@ -114,9 +114,13 @@ def planning_value_error(exc: ValueError) -> ApiError:
     )
 
 
-def run_or_404(run_id: str, runtime: ApiRuntime) -> dict[str, Any]:
+def run_or_404(
+    run_id: str, runtime: ApiRuntime, user: Mapping[str, Any]
+) -> dict[str, Any]:
+    # RunStore resolves and validates the identifier before ownership is checked.
     run = runtime.run_store.get(run_id)
-    if not isinstance(run, Mapping):
+    owner_id = str(user.get("user_id") or user.get("id") or "").strip()
+    if not isinstance(run, Mapping) or not owner_id or run.get("owner_id") != owner_id:
         raise ApiError(404, "NOT_FOUND", "run not found")
     return dict(run)
 

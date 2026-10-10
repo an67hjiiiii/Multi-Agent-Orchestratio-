@@ -17,13 +17,20 @@ router = APIRouter()
 
 
 @router.post("/chat")
-async def chat(body: ChatRequest, runtime: ApiRuntime = Depends(get_api_runtime)):
+async def chat(
+    body: ChatRequest,
+    user: dict[str, Any] = Depends(get_current_user),
+    runtime: ApiRuntime = Depends(get_api_runtime),
+):
     if not body.message.strip():
         raise ApiError(400, "MESSAGE_REQUIRED", "message is required")
     knowledge_service(runtime)
     try:
         return await runtime.run_coordinator.execute(
-            body.message.strip(), body.condition, body.provider
+            body.message.strip(),
+            body.condition,
+            body.provider,
+            owner_id=str(user.get("user_id") or user.get("id") or ""),
         )
     except ValueError as exc:
         raise pipeline_value_error(exc) from exc
@@ -82,6 +89,7 @@ async def send_conversation_message(
             body.provider,
             conversation_context=bounded_context,
             conversation_id=conversation_id,
+            owner_id=owner_id,
         )
     except ValueError as exc:
         raise pipeline_value_error(exc) from exc

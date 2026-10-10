@@ -76,6 +76,25 @@ def test_synthesizer_preserves_multiple_task_citations():
     assert "[chunk-2]" in answer
 
 
+def test_synthesizer_maps_keys_against_deduplicated_evidence_order():
+    provider = StubProvider({
+        "answer": "This is a sufficiently long combined answer.",
+        "citations": ["E3"],
+    })
+    results = [
+        TaskResult("T1", "domain", "COMPLETE", "one", evidence_ids=["c1"]),
+        TaskResult("T2", "domain", "COMPLETE", "two", evidence_ids=["c2"]),
+        TaskResult("T3", "domain", "COMPLETE", "three", evidence_ids=["c2"]),
+        TaskResult("T4", "domain", "COMPLETE", "four", evidence_ids=["c3"]),
+    ]
+
+    answer = asyncio.run(synthesize(provider, "Review all", results, RunMetrics()))
+
+    assert "E3=c3" in provider.user
+    assert "[c3]" in answer
+    assert "[c2]" not in answer
+
+
 def test_synthesis_drops_malformed_or_unselected_locator_from_final_answer():
     provider = StubProvider({"answer": "Combined", "citations": ["chunk-1:0000", "E2"]})
     results = [TaskResult("T1", "security", "COMPLETE", "auth", evidence_ids=["chunk-1"], citations=["chunk-1"])]

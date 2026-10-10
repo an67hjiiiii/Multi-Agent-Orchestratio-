@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from app.storage.sqlite_store import SYSTEM_TABLES, SQLiteMetadataStore
-from app.storage.vector_store import InMemoryVectorStore, VectorRecord
+from app.storage.vector_store import InMemoryVectorStore, QdrantVectorStore, VectorRecord
 
 
 def test_sqlite_creates_system_metadata_boundary_and_round_trips(tmp_path):
@@ -53,6 +53,28 @@ def test_memory_vector_store_is_deterministic_and_keeps_payloads():
     assert matches[0].payload == {"source_id": "s-a"}
     store.delete(["a"])
     assert store.count() == 1
+
+
+def test_qdrant_search_passes_owner_filter_before_ranking():
+    pytest.importorskip("qdrant_client")
+
+    class StubClient:
+        query_options = None
+
+        def get_or_create_collection(self, **kwargs):
+            return None
+
+        def query_points(self, **kwargs):
+            self.query_options = kwargs
+            return type("Result", (), {"points": []})()
+
+    client = StubClient()
+    store = QdrantVectorStore(vector_size=2, client=client)
+
+    assert store.search((1.0, 0.0), limit=2, owner_id="owner-1") == []
+    condition = client.query_options["query_filter"].must[0]
+    assert condition.key == "provenance.owner_user_id"
+    assert condition.match.value == "owner-1"
 
 
 def test_metadata_table_and_vector_dimensions_are_validated(tmp_path):

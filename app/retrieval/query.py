@@ -21,6 +21,7 @@ def retrieve_chunks(
     min_score: float = 0.0,
     domain: str | None = None,
     task_domain: str | None = None,
+    owner_id: str | None = None,
     availability_error: str | None = None,
 ) -> list[SourceChunk]:
     """Run the existing lexical, vector, or hybrid query policy.
@@ -44,9 +45,12 @@ def retrieve_chunks(
         detail = availability_error or "vector backend is unavailable"
         raise VectorBackendUnavailable(detail)
 
-    matches = vector_store.search(
-        embedder.embed(query),
-        limit=max(top_k, top_k * 2),
+    query_vector = embedder.embed(query)
+    limit = max(top_k, top_k * 2)
+    matches = (
+        vector_store.search(query_vector, limit=limit)
+        if owner_id is None
+        else vector_store.search(query_vector, limit=limit, owner_id=owner_id)
     )
     by_id = {chunk.chunk_id: chunk for chunk in chunks}
     vector_scores: dict[str, float] = {}

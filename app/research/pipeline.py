@@ -115,10 +115,17 @@ class ResearchPipeline:
         metrics: RunMetrics,
         event: Callable[..., None],
         retrieval_metadata: dict[str, Any],
+        *,
+        owner_id: str | None = None,
     ) -> tuple[str, str, list[Task], list[TaskResult], bool]:
         """Run existing research processing stages without owning Run persistence."""
 
         all_chunks = self.source_store.chunks()
+        if owner_id is not None:
+            all_chunks = [
+                chunk for chunk in all_chunks
+                if chunk.provenance.get("owner_user_id") == owner_id
+            ]
         try:
             if condition == "A":
                 r0 = time.perf_counter()
@@ -127,6 +134,7 @@ class ResearchPipeline:
                     all_chunks,
                     top_k=cfg.task_top_k,
                     min_score=cfg.retrieval_min_score,
+                    owner_id=owner_id,
                 )
                 metrics.retrieval_latency_ms += int((time.perf_counter() - r0) * 1000)
                 metrics.retrieved_chunks += len(candidates)
@@ -234,6 +242,7 @@ class ResearchPipeline:
                         min_score=cfg.retrieval_min_score,
                         task_domain=task.domain,
                         retriever=self._retrieve,
+                        owner_id=owner_id,
                     )
                     metrics.retrieval_latency_ms += int((time.perf_counter() - r0) * 1000)
                     metrics.retrieved_chunks += len(candidates)
@@ -314,7 +323,13 @@ class ResearchPipeline:
         min_score: float,
         domain: str | None = None,
         task_domain: str | None = None,
+        owner_id: str | None = None,
     ) -> list[SourceChunk]:
+        if owner_id is not None:
+            chunks = [
+                chunk for chunk in chunks
+                if chunk.provenance.get("owner_user_id") == owner_id
+            ]
         if self.retriever is None:
             result = _retrieve_lexically(
                 query,
@@ -333,6 +348,7 @@ class ResearchPipeline:
                 min_score=min_score,
                 domain=domain,
                 task_domain=task_domain,
+                owner_id=owner_id,
             )
             if inspect.isawaitable(result):
                 result = await result
@@ -340,6 +356,11 @@ class ResearchPipeline:
             not isinstance(chunk, SourceChunk) for chunk in result
         ):
             raise TypeError("retriever must return a list of SourceChunk values")
+        if owner_id is not None:
+            result = [
+                chunk for chunk in result
+                if chunk.provenance.get("owner_user_id") == owner_id
+            ]
         return result
 
     async def _retrieval_metadata(self) -> dict[str, Any]:
@@ -432,6 +453,7 @@ def _call_retriever(
     min_score: float,
     domain: str | None,
     task_domain: str | None,
+    owner_id: str | None = None,
 ) -> Any:
     """Call an injected retriever without changing the lexical fallback API.
 
@@ -456,6 +478,8 @@ def _call_retriever(
         "domain": domain,
         "task_domain": task_domain,
     }
+    if owner_id is not None:
+        values["owner_id"] = owner_id
     try:
         parameters = inspect.signature(method).parameters
     except (TypeError, ValueError):
@@ -491,14 +515,19 @@ async def _retrieve_task_candidates_async(
     min_score: float,
     task_domain: str | None = None,
     retriever: Any | None = None,
+    owner_id: str | None = None,
 ) -> tuple[list[SourceChunk], str | None]:
     """Apply the task/domain fallback policy to sync or async retrieval."""
 
     async def search(query: str) -> list[SourceChunk]:
+        scoped_chunks = (
+            [chunk for chunk in chunks if chunk.provenance.get("owner_user_id") == owner_id]
+            if owner_id is not None else chunks
+        )
         if retriever is None:
             result = _retrieve_lexically(
                 query,
-                chunks,
+                scoped_chunks,
                 top_k=top_k,
                 min_score=min_score,
                 task_domain=task_domain,
@@ -507,11 +536,12 @@ async def _retrieve_task_candidates_async(
             result = _call_retriever(
                 retriever,
                 query,
-                chunks,
+                scoped_chunks,
                 top_k=top_k,
                 min_score=min_score,
                 domain=None,
                 task_domain=task_domain,
+                owner_id=owner_id,
             )
             if inspect.isawaitable(result):
                 result = await result
@@ -519,6 +549,11 @@ async def _retrieve_task_candidates_async(
             not isinstance(chunk, SourceChunk) for chunk in result
         ):
             raise TypeError("retriever must return a list of SourceChunk values")
+        if owner_id is not None:
+            result = [
+                chunk for chunk in result
+                if chunk.provenance.get("owner_user_id") == owner_id
+            ]
         return result
 
     candidates = await search(task_query)

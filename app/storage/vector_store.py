@@ -22,7 +22,9 @@ class VectorMatch:
 class VectorStore(Protocol):
     def upsert(self, records: Iterable[VectorRecord]) -> None: ...
 
-    def search(self, vector: Iterable[float], limit: int = 10) -> list[VectorMatch]: ...
+    def search(
+        self, vector: Iterable[float], limit: int = 10, *, owner_id: str | None = None
+    ) -> list[VectorMatch]: ...
 
     def delete(self, ids: Iterable[str]) -> None: ...
 
@@ -43,7 +45,9 @@ class InMemoryVectorStore:
                 payload=dict(record.payload),
             )
 
-    def search(self, vector: Iterable[float], limit: int = 10) -> list[VectorMatch]:
+    def search(
+        self, vector: Iterable[float], limit: int = 10, *, owner_id: str | None = None
+    ) -> list[VectorMatch]:
         query = tuple(float(value) for value in vector)
         self._validate("query", query)
         if limit < 1:
@@ -51,6 +55,10 @@ class InMemoryVectorStore:
         scored = [
             VectorMatch(record.id, self._cosine(query, record.vector), dict(record.payload))
             for record in self._records.values()
+            if owner_id is None or (
+                isinstance(record.payload.get("provenance"), dict)
+                and record.payload["provenance"].get("owner_user_id") == owner_id
+            )
         ]
         return sorted(scored, key=lambda match: (-match.score, match.id))[:limit]
 
@@ -153,7 +161,9 @@ class QdrantVectorStore:
         if points:
             self.client.upsert(collection_name=self.collection, points=points, wait=True)
 
-    def search(self, vector: Iterable[float], limit: int = 10) -> list[VectorMatch]:
+    def search(
+        self, vector: Iterable[float], limit: int = 10, *, owner_id: str | None = None
+    ) -> list[VectorMatch]:
         query = [float(value) for value in vector]
         if len(query) != self.vector_size:
             raise ValueError(
@@ -161,15 +171,33 @@ class QdrantVectorStore:
             )
         if limit < 1:
             raise ValueError("limit must be positive")
-        if hasattr(self.client, "query_points"):
-            result = self.client.query_points(
-                collection_name=self.collection, query=query, limit=limit
+        query_filter = None
+        if owner_id is not None:
+            from qdrant_client import models  # type: ignore
+
+            query_filter = models.Filter(
+                must=[
+                    models.FieldCondition(
+                        key="provenance.owner_user_id",
+                        match=models.MatchValue(value=owner_id),
+                    )
+                ]
             )
+        if hasattr(self.client, "query_points"):
+            options: dict[str, Any] = {
+                "collection_name": self.collection, "query": query, "limit": limit
+            }
+            if query_filter is not None:
+                options["query_filter"] = query_filter
+            result = self.client.query_points(**options)
             points = getattr(result, "points", result)
         else:
-            points = self.client.search(
-                collection_name=self.collection, query_vector=query, limit=limit
-            )
+            options = {
+                "collection_name": self.collection, "query_vector": query, "limit": limit
+            }
+            if query_filter is not None:
+                options["query_filter"] = query_filter
+            points = self.client.search(**options)
         return [
             VectorMatch(
                 id=str(point.id), score=float(point.score), payload=dict(point.payload or {})
