@@ -77,6 +77,32 @@ def test_p_lite_bounds_planning_context_and_records_telemetry():
     assert result.planning.dropped_item_ids == ["P2", "P3"]
 
 
+def test_p_lite_context_and_reported_ids_share_the_same_item_cap():
+    retriever = RecordingRetriever(
+        {
+            "item_ids": ["P1", "P2"],
+            "scores": [0.9, 0.8],
+            "context": "[P1] First planning guidance.\n\n[P2] Second planning guidance.",
+        }
+    )
+    decomposer = ValidDecomposer()
+    pipeline = PLitePipeline(
+        planning_retriever=retriever,
+        decomposer=decomposer,
+        max_items=1,
+        max_context_tokens=50,
+    )
+
+    result = asyncio.run(pipeline.run("Review planning guidance", FakeProvider()))
+
+    assert result.planning_context == "[P1] First planning guidance."
+    assert decomposer.contexts == [result.planning_context]
+    assert result.planning.item_ids == ["P1"]
+    assert result.planning.selected_item_ids == ["P1"]
+    assert result.planning.dropped_item_ids == ["P2"]
+    assert result.planning.scores == [0.9]
+
+
 class RepairingDecomposer:
     def __init__(self):
         self.calls = 0

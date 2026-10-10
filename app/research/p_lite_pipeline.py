@@ -9,6 +9,7 @@ from __future__ import annotations
 import inspect
 import hashlib
 import math
+import re
 import time
 from dataclasses import asdict, dataclass, field, is_dataclass
 from types import SimpleNamespace
@@ -249,23 +250,45 @@ class PLitePipeline:
                 warnings,
             )
 
-        context, was_capped = _bound_text(supplied_context, self.max_context_tokens)
+        context = _text(supplied_context, "")
+        candidate_ids = list(
+            dict.fromkeys(_text(item_id, "") for item_id in supplied_ids)
+        )
+        candidate_ids = [item_id for item_id in candidate_ids if item_id]
+        context, item_ids, dropped_item_ids, itemized_context = (
+            _select_itemized_context(context, candidate_ids, self.max_items)
+        )
+        if len(candidate_ids) > self.max_items:
+            warnings.append(f"planning context capped at {self.max_items} items")
+        context, was_capped = _bound_text(context, self.max_context_tokens)
         if was_capped:
             warnings.append(
                 f"planning context bounded at {self.max_context_tokens} tokens"
             )
-        item_ids = list(dict.fromkeys(_text(item_id, "") for item_id in supplied_ids))
-        item_ids = [item_id for item_id in item_ids if item_id][: self.max_items]
+            if itemized_context:
+                visible_ids = [
+                    item_id for item_id in item_ids if f"[{item_id}]" in context
+                ]
+                dropped_item_ids.extend(
+                    item_id for item_id in item_ids if item_id not in visible_ids
+                )
+                item_ids = visible_ids
+                if not item_ids:
+                    context = ""
+        bounded_scores = _bounded_scores(supplied_scores, len(candidate_ids))
+        score_by_id = dict(zip(candidate_ids, bounded_scores or []))
+        scores = [score_by_id[item_id] for item_id in item_ids if item_id in score_by_id]
         if not context:
             warnings.append("planning context is empty")
         return (
             PlanningRetrievalResult(
                 request=request,
                 item_ids=item_ids,
-                scores=_bounded_scores(supplied_scores, len(item_ids)),
+                scores=scores or None,
                 context=context,
                 snapshot_id=_context_snapshot_id(context),
                 selected_item_ids=item_ids,
+                dropped_item_ids=list(dict.fromkeys(dropped_item_ids)),
                 fallback_reason=None if context else "NO_RELEVANT_PLANNING_EVIDENCE",
             ),
             warnings,
@@ -442,6 +465,33 @@ def _bound_text(value: str, max_context_tokens: int) -> tuple[str, bool]:
     if estimate_tokens(clean) <= max_context_tokens:
         return clean, False
     return _truncate(clean, max_context_tokens), True
+
+
+def _select_itemized_context(
+    context: str,
+    item_ids: list[str],
+    max_items: int,
+) -> tuple[str, list[str], list[str], bool]:
+    """Keep only labeled item blocks that the bounded result will report."""
+
+    locations = []
+    for item_id in item_ids:
+        match = re.search(rf"(?m)^\[{re.escape(item_id)}\]", context)
+        if match is not None:
+            locations.append((match.start(), item_id))
+    locations.sort()
+    if not locations:
+        return context, item_ids[:max_items], item_ids[max_items:], False
+
+    blocks: dict[str, str] = {}
+    for index, (start, item_id) in enumerate(locations):
+        end = locations[index + 1][0] if index + 1 < len(locations) else len(context)
+        blocks[item_id] = context[start:end].strip()
+
+    selected_ids = [item_id for item_id in item_ids if item_id in blocks][:max_items]
+    selected_context = "\n\n".join(blocks[item_id] for item_id in selected_ids)
+    dropped_ids = [item_id for item_id in item_ids if item_id not in selected_ids]
+    return selected_context, selected_ids, dropped_ids, True
 
 
 def _truncate(value: str, max_tokens: int) -> str:
