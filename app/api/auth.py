@@ -35,6 +35,22 @@ def get_auth_store(request: Request) -> AuthStore:
     return request.app.state.auth_store
 
 
+def get_session_token(request: Request) -> str | None:
+    authorization = request.headers.get("authorization", "").strip()
+    if authorization.lower().startswith("bearer "):
+        token = authorization[7:].strip()
+        if token:
+            return token
+    header_token = request.headers.get("x-session-token", "").strip()
+    if header_token:
+        return header_token
+    for cookie_name in ("session_token", "local_session"):
+        token = request.cookies.get(cookie_name, "").strip()
+        if token:
+            return token
+    return None
+
+
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 def register(body: RegisterRequest, request: Request) -> dict[str, object]:
     store = get_auth_store(request)
@@ -95,3 +111,11 @@ def login(
         "access_token": token,
         "token": token,
     }
+
+
+@router.post("/logout")
+def logout(request: Request, response: Response) -> dict[str, bool]:
+    get_auth_store(request).revoke(get_session_token(request))
+    response.delete_cookie("session_token", path="/")
+    response.delete_cookie("local_session", path="/")
+    return {"ok": True, "authenticated": False}
