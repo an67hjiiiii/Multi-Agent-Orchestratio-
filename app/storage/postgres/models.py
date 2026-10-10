@@ -8,6 +8,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    ForeignKeyConstraint,
     Index,
     Integer,
     String,
@@ -60,6 +61,15 @@ class UserRecord(Base):
         back_populates="owner",
         cascade="all, delete-orphan",
         passive_deletes=True,
+    )
+    conversations: Mapped[list[ConversationRecord]] = relationship(
+        back_populates="owner",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    runs: Mapped[list[RunRecord]] = relationship(
+        back_populates="owner",
+        foreign_keys="RunRecord.owner_user_id",
     )
 
 
@@ -142,3 +152,195 @@ class KnowledgeChunkRecord(Base):
     )
 
     source: Mapped[KnowledgeSourceRecord] = relationship(back_populates="chunks")
+
+
+class ConversationRecord(Base):
+    """Owner-scoped conversation header; messages remain ordered child rows."""
+
+    __tablename__ = "conversations"
+    __table_args__ = (
+        CheckConstraint(
+            "length(btrim(title)) > 0", name="ck_conversations_title_nonempty"
+        ),
+        UniqueConstraint(
+            "conversation_id",
+            "owner_user_id",
+            name="uq_conversations_id_owner",
+        ),
+        ForeignKeyConstraint(
+            ["owner_user_id"],
+            ["users.user_id"],
+            name="fk_conversations_owner_user",
+            ondelete="CASCADE",
+        ),
+        Index("ix_conversations_owner_updated", "owner_user_id", "updated_at"),
+    )
+
+    conversation_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    owner_user_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    schema_version: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default="conversation-v1",
+        server_default="conversation-v1",
+    )
+    title: Mapped[str] = mapped_column(
+        String(120),
+        nullable=False,
+        default="New conversation",
+        server_default="New conversation",
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    owner: Mapped[UserRecord] = relationship(back_populates="conversations")
+    messages: Mapped[list[ConversationMessageRecord]] = relationship(
+        back_populates="conversation",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="ConversationMessageRecord.sequence_number",
+    )
+    runs: Mapped[list[RunRecord]] = relationship(
+        back_populates="conversation",
+        foreign_keys="RunRecord.conversation_id",
+    )
+
+
+class RunRecord(Base):
+    """Structured persistence shape for one processing/research run."""
+
+    __tablename__ = "runs"
+    __table_args__ = (
+        CheckConstraint(
+            "conversation_id IS NULL OR owner_user_id IS NOT NULL",
+            name="ck_runs_conversation_requires_owner",
+        ),
+        UniqueConstraint(
+            "conversation_id", "run_id", name="uq_runs_conversation_id"
+        ),
+        ForeignKeyConstraint(
+            ["owner_user_id"],
+            ["users.user_id"],
+            name="fk_runs_owner_user",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["conversation_id", "owner_user_id"],
+            ["conversations.conversation_id", "conversations.owner_user_id"],
+            name="fk_runs_conversation_owner",
+            ondelete="RESTRICT",
+        ),
+        Index("ix_runs_owner_created_at", "owner_user_id", "created_at"),
+    )
+
+    run_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    owner_user_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    conversation_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    condition: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    implementation_profile: Mapped[str | None] = mapped_column(
+        String(128), nullable=True
+    )
+    provider: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    model: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    query: Mapped[str | None] = mapped_column(Text, nullable=True)
+    conversation_context: Mapped[Any | None] = mapped_column(JSON, nullable=True)
+    status: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    answer: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source_snapshot_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    config_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    tasks: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSON, nullable=False, default=list
+    )
+    task_results: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSON, nullable=False, default=list
+    )
+    metrics: Mapped[dict[str, Any]] = mapped_column(
+        JSON, nullable=False, default=dict
+    )
+    events: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSON, nullable=False, default=list
+    )
+    effective_config: Mapped[dict[str, Any]] = mapped_column(
+        JSON, nullable=False, default=dict
+    )
+    scoring_versions: Mapped[dict[str, Any]] = mapped_column(
+        JSON, nullable=False, default=dict
+    )
+    planning_retrieval_scoring_version: Mapped[str | None] = mapped_column(
+        String(128), nullable=True
+    )
+    retrieval_scoring_version: Mapped[str | None] = mapped_column(
+        String(128), nullable=True
+    )
+    domain_ranking_version: Mapped[str | None] = mapped_column(
+        String(128), nullable=True
+    )
+    retrieval: Mapped[dict[str, Any]] = mapped_column(
+        JSON, nullable=False, default=dict
+    )
+    extra_data: Mapped[dict[str, Any]] = mapped_column(
+        JSON, nullable=False, default=dict
+    )
+
+    owner: Mapped[UserRecord | None] = relationship(
+        back_populates="runs", foreign_keys=[owner_user_id]
+    )
+    conversation: Mapped[ConversationRecord | None] = relationship(
+        back_populates="runs", foreign_keys=[conversation_id]
+    )
+
+
+class ConversationMessageRecord(Base):
+    """Ordered user/assistant turn with an optional same-thread run link."""
+
+    __tablename__ = "conversation_messages"
+    __table_args__ = (
+        CheckConstraint(
+            "sequence_number >= 0", name="ck_conversation_messages_sequence"
+        ),
+        CheckConstraint(
+            "role IN ('USER', 'ASSISTANT')", name="ck_conversation_messages_role"
+        ),
+        CheckConstraint(
+            "length(btrim(content)) > 0", name="ck_conversation_messages_content"
+        ),
+        UniqueConstraint(
+            "conversation_id",
+            "sequence_number",
+            name="uq_conversation_messages_order",
+        ),
+        ForeignKeyConstraint(
+            ["conversation_id"],
+            ["conversations.conversation_id"],
+            name="fk_conversation_messages_conversation",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["conversation_id", "run_id"],
+            ["runs.conversation_id", "runs.run_id"],
+            name="fk_conversation_messages_run_same_conversation",
+            ondelete="RESTRICT",
+        ),
+    )
+
+    message_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    conversation_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    sequence_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    role: Mapped[str] = mapped_column(String(16), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    run_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+
+    conversation: Mapped[ConversationRecord] = relationship(back_populates="messages")
