@@ -1,0 +1,8 @@
+{
+  "A": {"description": "Vanilla RAG", "P": false, "N": false, "O": false},
+  "B": {"description": "LLM-decomposed Multi-Agent RAG", "P": false, "N": false, "O": false},
+  "C": {"description": "Proposed P+N+O", "P": true, "N": true, "O": true},
+  "C-P": {"description": "Ablation without Planning Retrieval", "P": false, "N": true, "O": true},
+  "C-N": {"description": "Ablation without Task Normalization", "P": true, "N": false, "O": true},
+  "C-O": {"description": "Ablation without Context Controller", "P": true, "N": true, "O": false}
+}

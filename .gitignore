@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+data/
+runs/*.json
+runs/*.jsonl
+.pytest_cache/
+.DS_Store
+.vscode/
+.idea/

@@ -1,0 +1,35 @@
+{
+  "manifest_schema": "m0-release-v1",
+  "created_at": "2026-09-05T10:57:15.469394+00:00",
+  "milestone": "M0",
+  "claim_status": "CANDIDATE_ONLY_UNTIL_LOCAL_GATE_PASSES",
+  "runtime_config": {
+    "implementation_profile": "m0",
+    "provider": "fake",
+    "local_model": "qwen3:4b",
+    "task_top_k": 6,
+    "planning_top_k": 3,
+    "max_context_tokens": 3000,
+    "max_output_tokens": 700,
+    "max_run_tokens": 12000,
+    "retry_limit": 1,
+    "retrieval_min_score": 0.18
+  },
+  "config_hash": "d11d6be5f99abc5b",
+  "python": "3.13.5 (main, Jul 15 2026, 20:25:40) [GCC 14.2.0]",
+  "platform": "Linux-6.18.35-x86_64-with-glibc2.41",
+  "git": {
+    "commit": null,
+    "dirty": null
+  },
+  "corpus_snapshot_id": "corpus_ecf5fd8b529c02d5",
+  "files": {
+    "requirements.txt": "fb1adf106dae5e1ec39ff5ae5ac33f924d1fd38587de115347fca483c8415f45",
+    "config/conditions.json": "c65be26acca2f3576bfcbf0fc4ac27ab6219a9691d258804d0e467a4b63a69aa",
+    "datasets/calibration/m0_cases.json": "c8184eb69656e12f6b7a6adf9a3f8ed6c96c4348b7251d2d73dda0d6e32302d9"
+  },
+  "notes": [
+    "M0 is not DONE until the Ollama/local-model calibration and restore gate are executed on the target laptop.",
+    "Fake-provider runs validate wiring only and cannot prove local-LLM completion."
+  ]
+}

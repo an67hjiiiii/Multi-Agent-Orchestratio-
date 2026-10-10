@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Local Multi-Agent RAG</title>
+  <link rel="stylesheet" href="/static/styles.css"/>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">Local RAG Lab</div>
+    <button id="newChat" class="new-chat">＋ Cuộc trò chuyện mới</button>
+    <div class="side-label">LỊCH SỬ RUN</div>
+    <div id="history" class="history"></div>
+    <div class="side-footer">
+      <div class="local-badge"><span></span> Local-only research build</div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div><b>Research Chat</b><small id="healthText">Đang kiểm tra...</small></div>
+      <div class="controls">
+        <label>Condition
+          <select id="condition">
+            <option selected>A</option>
+          </select>
+        </label>
+        <label>Provider
+          <select id="provider"><option value="fake">Fake (wiring)</option><option value="ollama">Local Ollama</option></select>
+        </label>
+      </div>
+    </header>
+
+    <section id="messages" class="messages">
+      <div class="welcome">
+        <h1>Local Multi-Agent RAG</h1>
+        <p>M0 technical MVP: Vanilla RAG A chạy local, citation/source viewer và trace.</p>
+      </div>
+    </section>
+
+    <div class="composer-wrap">
+      <div id="sourceState" class="source-state">Chưa nạp tài liệu.</div>
+      <div class="composer">
+        <input id="fileInput" type="file" hidden/>
+        <button id="attachBtn" title="Nạp file text">📎</button>
+        <textarea id="prompt" rows="1" placeholder="Nhập yêu cầu review/phân tích..."></textarea>
+        <button id="sendBtn" class="send">Gửi</button>
+      </div>
+    </div>
+  </main>
+
+  <aside class="inspector">
+    <div class="ins-head"><b>Processing Details</b><small id="runId">Chưa có run</small></div>
+    <div class="tabs">
+      <button class="tab active" data-tab="overview">Tổng quan</button>
+      <button class="tab" data-tab="tasks">Tasks</button>
+      <button class="tab" data-tab="evidence">Evidence</button>
+      <button class="tab" data-tab="metrics">Metrics</button>
+      <button class="tab" data-tab="sources">Sources</button>
+      <button class="tab" data-tab="raw">Raw</button>
+    </div>
+    <div id="overview" class="panel active"></div>
+    <div id="tasks" class="panel"></div>
+    <div id="evidence" class="panel"></div>
+    <div id="metrics" class="panel"></div>
+    <div id="sources" class="panel"><div id="sourceList"></div></div>
+    <div id="raw" class="panel"><pre id="rawJson">{}</pre></div>
+  </aside>
+</div>
+<dialog id="sourceModal" class="source-modal"><div class="source-modal-head"><b id="sourceModalTitle">Source</b><button id="closeSourceModal">✕</button></div><pre id="sourceModalBody"></pre></dialog>
+<script src="/static/app.js"></script>
+</body>
+</html>
