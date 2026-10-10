@@ -52,6 +52,15 @@ class Concern:
     domain: str = "general"
 
 @dataclass
+class TaskPlan:
+    """Structured plan that keeps requirements, concerns, and tasks distinct."""
+
+    request: str
+    obligations: list[Obligation] = field(default_factory=list)
+    concerns: list[Concern] = field(default_factory=list)
+    tasks: list[Task] = field(default_factory=list)
+
+@dataclass
 class TaskResult:
     task_id: str
     domain: str
