@@ -1,4 +1,4 @@
-"""Create the opt-in conversation and run persistence foundation.
+"""Create the conversation and run persistence foundation.
 
 Revision ID: 20261010_02
 Revises: 20261010_01

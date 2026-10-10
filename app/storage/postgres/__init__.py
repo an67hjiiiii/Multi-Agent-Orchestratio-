@@ -1,4 +1,4 @@
-"""Opt-in PostgreSQL schema foundation; product stores are not wired to it."""
+"""PostgreSQL persistence for authoritative product runtime state."""
 
 from app.storage.postgres.base import Base
 from app.storage.postgres.config import (
@@ -13,6 +13,7 @@ from app.storage.postgres.models import (
     KnowledgeChunkRecord,
     KnowledgeSourceRecord,
     RunRecord,
+    SessionRecord,
     UserRecord,
 )
 
@@ -24,6 +25,7 @@ __all__ = [
     "KnowledgeSourceRecord",
     "PostgresConfigurationError",
     "RunRecord",
+    "SessionRecord",
     "UserRecord",
     "create_postgres_engine",
     "create_session_factory",

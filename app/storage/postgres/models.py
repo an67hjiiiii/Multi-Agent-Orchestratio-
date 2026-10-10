@@ -71,6 +71,32 @@ class UserRecord(Base):
         back_populates="owner",
         foreign_keys="RunRecord.owner_user_id",
     )
+    sessions: Mapped[list[SessionRecord]] = relationship(
+        back_populates="user", cascade="all, delete-orphan", passive_deletes=True
+    )
+
+
+class SessionRecord(Base):
+    """Hashed, expiring authentication sessions persisted by PostgreSQL."""
+
+    __tablename__ = "sessions"
+    __table_args__ = (
+        Index("ix_sessions_user_expiry", "user_id", "expires_at"),
+        UniqueConstraint("token_hash", name="uq_sessions_token_hash"),
+    )
+
+    session_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    user: Mapped[UserRecord] = relationship(back_populates="sessions")
 
 
 class KnowledgeSourceRecord(Base):

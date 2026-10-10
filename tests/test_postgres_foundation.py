@@ -19,6 +19,7 @@ from app.storage.postgres.models import (
     KnowledgeChunkRecord,
     KnowledgeSourceRecord,
     RunRecord,
+    SessionRecord,
     UserRecord,
 )
 
@@ -43,6 +44,7 @@ def test_database_url_accepts_explicit_postgresql_psycopg() -> None:
 def test_foundation_models_match_identity_and_source_scope() -> None:
     assert set(Base.metadata.tables) == {
         "users",
+        "sessions",
         "knowledge_sources",
         "knowledge_chunks",
         "conversations",
@@ -50,6 +52,10 @@ def test_foundation_models_match_identity_and_source_scope() -> None:
         "runs",
     }
     assert UserRecord.__table__.c.password_hash.nullable is False
+    assert "uq_sessions_token_hash" in {
+        constraint.name for constraint in SessionRecord.__table__.constraints
+    }
+    assert SessionRecord.__table__.c.user_id.nullable is False
     assert KnowledgeSourceRecord.__table__.c.owner_user_id.nullable is False
 
     source_foreign_keys = [
@@ -103,6 +109,7 @@ def test_conversation_run_models_preserve_owner_order_and_run_links() -> None:
     assert "uq_conversation_messages_order" in {
         constraint.name for constraint in messages.constraints
     }
+
 
     message_run_fk = next(
         constraint
@@ -172,3 +179,21 @@ def test_conversation_run_orm_relationships_and_migration_are_registered() -> No
     assert "fk_runs_conversation_owner" in migration
     assert "fk_conversation_messages_run_same_conversation" in migration
     assert "uq_conversation_messages_order" in migration
+
+
+def test_session_model_and_migration_are_registered() -> None:
+    session_table = SessionRecord.__table__
+    assert session_table.c.token_hash.nullable is False
+    assert session_table.c.revoked_at.nullable is True
+    assert "ix_sessions_user_expiry" in {index.name for index in session_table.indexes}
+
+    migration_path = (
+        Path(__file__).parents[1]
+        / "migrations"
+        / "versions"
+        / "20261010_03_session_persistence.py"
+    )
+    migration = migration_path.read_text(encoding="utf-8")
+    assert 'revision = "20261010_03"' in migration
+    assert 'down_revision = "20261010_02"' in migration
+    assert '"sessions"' in migration

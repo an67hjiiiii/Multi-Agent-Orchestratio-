@@ -17,19 +17,41 @@ from app.providers.ollama import OllamaProvider
 from app.research.pipeline import ResearchPipeline
 from app.storage.run_store import RunStore
 from app.storage.source_store import SourceStore
+from app.storage.conversation_store import ConversationStore
+from app.storage.postgres import create_postgres_engine, create_session_factory
+from app.storage.postgres.config import PostgresConfigurationError
+from app.storage.postgres.runtime import (
+    PostgresAuthStore,
+    PostgresConversationStore,
+    PostgresRunStore,
+    PostgresSourceStore,
+)
 
 BASE = Path(__file__).resolve().parent.parent
 load_dotenv(BASE / ".env", override=False)
 DATA_DIR = os.getenv("APP_DATA_DIR", str(BASE / "data"))
 RUNS_DIR = os.getenv("RUNS_DIR", str(BASE / "runs"))
+STORAGE_BACKEND = os.getenv("APP_STORAGE_BACKEND", "postgres").strip().lower()
+
+
+def _configured_stores(storage_backend: str | None = None):
+    backend = (storage_backend or os.getenv("APP_STORAGE_BACKEND", "postgres")).strip().lower()
+    if backend == "file":
+        return AuthStore(DATA_DIR), SourceStore(DATA_DIR), RunStore(RUNS_DIR), None
+    if backend != "postgres":
+        raise PostgresConfigurationError("APP_STORAGE_BACKEND must be postgres or file")
+    engine = create_postgres_engine()
+    session_factory = create_session_factory(engine)
+    return PostgresAuthStore(session_factory), None, None, (engine, session_factory)
 
 app = FastAPI(title="Local Multi-Agent RAG", version="0.2.0-m0")
 app.mount("/static", StaticFiles(directory=BASE / "app" / "static"), name="static")
 app.include_router(auth_router)
-source_store = SourceStore(DATA_DIR)
-run_store = RunStore(RUNS_DIR)
-app.state.auth_store = AuthStore(DATA_DIR)
-pipeline = ResearchPipeline(source_store, run_store)
+auth_store, source_store, run_store, postgres_runtime = _configured_stores()
+app.state.storage_backend = STORAGE_BACKEND
+app.state.auth_store = auth_store
+app.state.session_factory = None if postgres_runtime is None else postgres_runtime[1]
+pipeline = None if STORAGE_BACKEND == "postgres" else ResearchPipeline(source_store, run_store)
 
 def current_user(request: Request) -> dict:
     try:
@@ -37,21 +59,35 @@ def current_user(request: Request) -> dict:
     except InvalidSessionError as exc:
         raise HTTPException(status_code=401, detail="Authentication is required") from exc
 
-def owner_source_store(user: dict) -> SourceStore:
+def owner_source_store(user: dict):
+    if STORAGE_BACKEND == "postgres":
+        return PostgresSourceStore(app.state.session_factory, str(user["user_id"]))
     root = Path(DATA_DIR) / "owners" / str(user["user_id"]) / "sources"
     return SourceStore(str(root))
 
-def owner_run_store(user: dict) -> RunStore:
+def owner_run_store(user: dict, conversation_id: str | None = None):
+    if STORAGE_BACKEND == "postgres":
+        return PostgresRunStore(
+            app.state.session_factory, str(user["user_id"]), conversation_id
+        )
     root = Path(RUNS_DIR) / "owners" / str(user["user_id"])
     return RunStore(str(root))
 
-def owner_pipeline(user: dict) -> ResearchPipeline:
-    return ResearchPipeline(owner_source_store(user), owner_run_store(user))
+def owner_pipeline(user: dict, conversation_id: str | None = None) -> ResearchPipeline:
+    return ResearchPipeline(owner_source_store(user), owner_run_store(user, conversation_id))
+
+
+def owner_conversation_store(user: dict):
+    if STORAGE_BACKEND == "postgres":
+        return PostgresConversationStore(app.state.session_factory, str(user["user_id"]))
+    root = Path(DATA_DIR) / "owners" / str(user["user_id"]) / "conversations"
+    return ConversationStore(root)
 
 class ChatRequest(BaseModel):
     message: str
     condition: str = "A"
     provider: str | None = None
+    conversation_id: str | None = None
 
 class SourceTextRequest(BaseModel):
     source_name: str
@@ -71,7 +107,8 @@ def health():
         "implementation_profile": cfg.implementation_profile,
         "allowed_conditions": cfg.allowed_conditions(),
         "default_provider": os.getenv("PROVIDER", "fake"),
-        "source_snapshot_id": source_store.snapshot_id(),
+        "source_snapshot_id": None if source_store is None else source_store.snapshot_id(),
+        "storage_backend": STORAGE_BACKEND,
         "config_hash": cfg.config_hash(),
     }
 
@@ -145,9 +182,26 @@ async def chat(body: ChatRequest, request: Request):
     if not body.message.strip():
         raise HTTPException(400, "message is required")
     try:
-        run = await owner_pipeline(current_user(request)).run(
+        user = current_user(request)
+        RuntimeConfig.from_env().assert_condition(body.condition.upper())
+        conversations = owner_conversation_store(user)
+        if body.conversation_id:
+            if conversations.get(body.conversation_id) is None:
+                raise HTTPException(404, "conversation not found")
+            conversation_id = body.conversation_id
+        else:
+            conversation_id = conversations.create(body.message.strip()[:120])["conversation_id"]
+        conversations.add_message(conversation_id, "USER", body.message.strip())
+        run = await owner_pipeline(user, conversation_id).run(
             body.message.strip(), body.condition, body.provider
         )
+        conversations.add_message(
+            conversation_id,
+            "ASSISTANT",
+            str(run.get("answer") or run.get("status") or "Run completed"),
+            run_id=run["run_id"],
+        )
+        run = {**run, "conversation_id": conversation_id}
         if run["status"] == "FAILED":
             return run
         return run
@@ -164,3 +218,16 @@ def get_run(run_id: str, request: Request):
     if not run:
         raise HTTPException(404, "run not found")
     return run
+
+
+@app.get("/api/conversations")
+def list_conversations(request: Request):
+    return owner_conversation_store(current_user(request)).list()
+
+
+@app.get("/api/conversations/{conversation_id}")
+def get_conversation(conversation_id: str, request: Request):
+    conversation = owner_conversation_store(current_user(request)).get(conversation_id)
+    if conversation is None:
+        raise HTTPException(404, "conversation not found")
+    return conversation

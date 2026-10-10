@@ -49,6 +49,12 @@ Set-ExecutionPolicy -Scope Process Bypass
 
 Then open `http://127.0.0.1:8000`.
 
+The product runtime uses PostgreSQL as its authoritative store. Configure
+`APP_STORAGE_BACKEND=postgres` and a PostgreSQL 16 `DATABASE_URL`, then apply
+the schema with `python -m alembic upgrade head` before starting the app. The
+JSON-backed stores are available only when `APP_STORAGE_BACKEND=file` is set
+explicitly for isolated test/demo use.
+
 This default path is suitable for wiring/demo. **Fake provider is not evidence that M0 is DONE.**
 
 ## Run M0 with local Ollama
