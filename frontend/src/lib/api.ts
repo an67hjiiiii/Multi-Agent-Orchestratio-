@@ -44,6 +44,16 @@ export const api = {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   }),
+  login: (body: { identifier: string; password: string }) =>
+    request<{
+      authenticated: boolean;
+      user: { user_id: string; email?: string | null; username?: string | null; role: string };
+      session: { session_id: string; user_id: string; expires_at: string };
+    }>("/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
   listSources: () => request<SourcesResponse>("/sources"),
   getChunk: (chunkId: string) =>
     request<SourceChunk>(`/chunks/${encodeURIComponent(chunkId)}`),

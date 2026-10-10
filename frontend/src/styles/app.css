@@ -352,3 +352,14 @@ button:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3p
     width: 100%;
   }
 }
+
+.text-button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #1f5f9f;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}

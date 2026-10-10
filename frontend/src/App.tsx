@@ -5,12 +5,13 @@ import { Inspector } from "./components/Inspector";
 import { Sidebar } from "./components/Sidebar";
 import { StatusBadge } from "./components/StatusBadge";
 import { RegisterForm } from "./components/RegisterForm";
+import { LoginForm } from "./components/LoginForm";
 
 export function App() {
   const research = useResearchApp();
   const [condition, setCondition] = useState("A");
   const [provider, setProvider] = useState("fake");
-  const [showRegister, setShowRegister] = useState(false);
+  const [authScreen, setAuthScreen] = useState<"register" | "login" | null>(null);
   const [registrationNotice, setRegistrationNotice] = useState<string | null>(null);
   const allowedConditions = useMemo(
     () => research.health?.allowed_conditions?.length ? research.health.allowed_conditions : ["A"],
@@ -38,7 +39,10 @@ export function App() {
             <span className="topbar-subtitle">Evidence-first answers</span>
           </div>
           <div className="topbar-controls">
-            <button type="button" className="button-secondary" onClick={() => setShowRegister(true)}>
+            <button type="button" className="button-secondary" onClick={() => setAuthScreen("login")}>
+              Sign in
+            </button>
+            <button type="button" className="button-secondary" onClick={() => setAuthScreen("register")}>
               Create account
             </button>
             <label className="select-control">
@@ -75,23 +79,35 @@ export function App() {
         />
       </div>
       <Inspector run={research.activeRun} sources={research.sources} activeTab={research.activeTab} onTabChange={research.setActiveTab} />
-      {showRegister && (
+      {authScreen && (
         <div className="dialog-backdrop" onMouseDown={(event) => {
-          if (event.target === event.currentTarget) setShowRegister(false);
+          if (event.target === event.currentTarget) setAuthScreen(null);
         }}>
-          <section className="auth-dialog" role="dialog" aria-modal="true" aria-labelledby="register-title">
-            <button type="button" className="dialog-close" aria-label="Close registration" onClick={() => setShowRegister(false)}>×</button>
+          <section className="auth-dialog" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+            <button type="button" className="dialog-close" aria-label="Close sign in" onClick={() => setAuthScreen(null)}>×</button>
             <p className="eyebrow">Local workspace</p>
-            <h1 id="register-title">Create your account</h1>
-            <p className="dialog-description">Your sources and runs will be kept in your private workspace.</p>
-            {registrationNotice ? (
-              <div className="registration-success" role="status">
-                Account created for {registrationNotice}. You can sign in next.
-              </div>
+            <h1 id="auth-title">{authScreen === "register" ? "Create your account" : "Sign in"}</h1>
+            <p className="dialog-description">Access your private sources and run history.</p>
+            {authScreen === "register" ? (
+              <>
+                {registrationNotice && (
+                  <div className="registration-success" role="status">
+                    Account created for {registrationNotice}. Sign in to continue.
+                  </div>
+                )}
+                <RegisterForm
+                  onCancel={() => setAuthScreen(null)}
+                  onRegistered={(registeredEmail) => {
+                    setRegistrationNotice(registeredEmail);
+                    setAuthScreen("login");
+                  }}
+                />
+              </>
             ) : (
-              <RegisterForm
-                onCancel={() => setShowRegister(false)}
-                onRegistered={(registeredEmail) => setRegistrationNotice(registeredEmail)}
+              <LoginForm
+                onCancel={() => setAuthScreen(null)}
+                onCreateAccount={() => setAuthScreen("register")}
+                onSignedIn={() => window.location.reload()}
               />
             )}
           </section>
