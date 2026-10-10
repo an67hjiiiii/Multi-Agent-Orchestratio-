@@ -43,6 +43,61 @@ def test_source_reads_are_scoped_to_the_importing_local_user(tmp_path: Path, mon
     assert other_user.get("/api/sources").json()["sources"] == []
 
 
+def test_file_upload_is_authenticated_owner_scoped_and_failure_does_not_persist(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("IMPLEMENTATION_PROFILE", "m0")
+    monkeypatch.setenv("PROVIDER", "fake")
+    monkeypatch.setenv("RETRIEVAL_MODE", "LEXICAL")
+    monkeypatch.delenv("VECTOR_BACKEND", raising=False)
+    application = create_app(data_dir=tmp_path / "data", runs_dir=tmp_path / "runs")
+    owner = TestClient(application)
+    other_user = TestClient(application)
+    anonymous = TestClient(application)
+
+    owner_registration = owner.post(
+        "/api/auth/register",
+        json={
+            "email": "upload-owner@example.test",
+            "name": "Upload owner",
+            "password": "Password123!",
+        },
+    )
+    assert owner_registration.status_code == 200
+    register(other_user, "upload-other@example.test")
+
+    anonymous_upload = anonymous.post(
+        "/api/sources/file",
+        files={"file": ("private.txt", b"Private uploaded evidence.", "text/plain")},
+    )
+    assert anonymous_upload.status_code == 401
+    assert owner.get("/api/sources").json()["sources"] == []
+
+    uploaded = owner.post(
+        "/api/sources/file",
+        files={"file": ("private.txt", b"Private uploaded evidence.", "text/plain")},
+    )
+    assert uploaded.status_code == 200
+    source_id = uploaded.json()["source_id"]
+    owner_user_id = owner_registration.json()["user"]["user_id"]
+    owner_source = owner.get(f"/api/sources/{source_id}")
+    assert owner_source.status_code == 200
+    assert owner_source.json()["provenance"]["owner_user_id"] == owner_user_id
+    chunk_id = owner_source.json()["chunks"][0]["chunk_id"]
+    assert owner.get(f"/api/chunks/{chunk_id}").status_code == 200
+    assert other_user.get(f"/api/sources/{source_id}").status_code == 404
+    assert other_user.get(f"/api/chunks/{chunk_id}").status_code == 404
+
+    rejected = owner.post(
+        "/api/sources/file",
+        files={"file": ("payload.exe", b"not a supported document", "application/octet-stream")},
+    )
+    assert rejected.status_code == 415
+    assert rejected.json()["code"] == "UNSUPPORTED_DOCUMENT_TYPE"
+    assert [item["source_id"] for item in owner.get("/api/sources").json()["sources"]] == [source_id]
+
+
 @pytest.mark.parametrize("retrieval_mode", ["LEXICAL", "VECTOR", "HYBRID"])
 def test_kb_search_is_authenticated_and_owner_scoped(tmp_path: Path, monkeypatch, retrieval_mode: str) -> None:
     monkeypatch.setenv("IMPLEMENTATION_PROFILE", "m0")
