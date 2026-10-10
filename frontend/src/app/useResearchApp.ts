@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, ApiError } from "../lib/api";
+import { bootstrapWorkspace } from "./sessionBootstrap.mjs";
 import type {
   HealthResponse,
   RunListItem,
@@ -58,27 +59,22 @@ export function useResearchApp(): ResearchAppState {
 
     async function boot() {
       setIsBooting(true);
-      const sessionResult = await Promise.allSettled([api.currentSession()]);
-
-      if (cancelled) return;
-
-      const session = sessionResult[0];
-      if (session.status === "fulfilled" && session.value.authenticated) {
-        setCurrentUser(session.value.user);
-        setIsAuthenticated(true);
-        const [healthResult, sourcesResult, historyResult] = await Promise.allSettled([
-          api.health(),
-          api.listSources(),
-          api.listRuns(),
-        ]);
-
+      try {
+        const result = await bootstrapWorkspace(api);
         if (cancelled) return;
-        if (healthResult.status === "fulfilled") setHealth(healthResult.value);
-        if (sourcesResult.status === "fulfilled") setSources(sourcesResult.value.sources ?? []);
-        if (historyResult.status === "fulfilled") setHistory(historyResult.value);
 
-        const failed = [healthResult, sourcesResult, historyResult].find(
-          (result) => result.status === "rejected",
+        setCurrentUser(result.user);
+        setIsAuthenticated(result.authenticated);
+        if (!result.authenticated) {
+          setSources([]);
+          setHistory([]);
+        }
+        if (result.health.status === "fulfilled") setHealth(result.health.value);
+        if (result.sources?.status === "fulfilled") setSources(result.sources.value.sources ?? []);
+        if (result.history?.status === "fulfilled") setHistory(result.history.value);
+
+        const failed = [result.health, result.sources, result.history].find(
+          (item) => item?.status === "rejected",
         );
         if (failed?.status === "rejected") {
           if (failed.reason instanceof ApiError && failed.reason.status === 401) {
@@ -86,18 +82,11 @@ export function useResearchApp(): ResearchAppState {
           }
           setError(failed.reason?.message ?? "Backend unavailable");
         }
-      } else if (session.status === "rejected" && !(session.reason instanceof ApiError && session.reason.status === 401)) {
-        setError(session.reason?.message ?? "Unable to restore the session");
-      } else {
-        setCurrentUser(null);
-        setIsAuthenticated(false);
-        setSources([]);
-        setHistory([]);
-        const healthResult = await Promise.allSettled([api.health()]);
-        if (cancelled) return;
-        if (healthResult[0].status === "fulfilled") setHealth(healthResult[0].value);
+      } catch (cause) {
+        if (!cancelled) setError(cause instanceof Error ? cause.message : "Unable to restore the session");
+      } finally {
+        if (!cancelled) setIsBooting(false);
       }
-      setIsBooting(false);
     }
 
     void boot();
