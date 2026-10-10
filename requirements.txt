@@ -7,3 +7,6 @@ python-multipart>=0.0.12,<1
 pytest>=8,<9
 
 psutil>=6,<8
+SQLAlchemy>=2.0,<3
+alembic>=1.14,<2
+psycopg[binary]>=3.2,<4
