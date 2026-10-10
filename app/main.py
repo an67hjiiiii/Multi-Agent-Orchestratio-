@@ -1,11 +1,14 @@
 from __future__ import annotations
 import os
+from io import BytesIO
 from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, UploadFile, File, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from pypdf import PdfReader
+from pypdf.errors import PdfReadError
 from app.api.auth import router as auth_router
 from app.api.auth import get_session_token
 from app.auth.store import AuthStore, InvalidSessionError
@@ -115,14 +118,27 @@ async def import_file(request: Request, file: UploadFile = File(...)):
     user = current_user(request)
     data = await file.read()
     if len(data) > 2_000_000:
-        raise HTTPException(413, "M0 only accepts UTF-8 text/code/markdown files up to 2 MB")
-    try:
-        text = data.decode("utf-8")
-    except UnicodeDecodeError:
-        raise HTTPException(415, "M0 accepts UTF-8 text/code/markdown files only")
+        raise HTTPException(413, "Files must be no larger than 2 MB")
+
+    source_name = file.filename or "upload.txt"
+    if source_name.lower().endswith(".pdf"):
+        try:
+            reader = PdfReader(BytesIO(data), strict=False)
+            if reader.is_encrypted:
+                raise HTTPException(415, "PDF_EXTRACTION_UNAVAILABLE")
+            text = "\n".join(page.extract_text() or "" for page in reader.pages).strip()
+        except (PdfReadError, EOFError, OSError, ValueError) as exc:
+            raise HTTPException(415, "PDF_EXTRACTION_UNAVAILABLE") from exc
+        if not text:
+            raise HTTPException(422, "PDF_NO_TEXT")
+    else:
+        try:
+            text = data.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise HTTPException(415, "UTF8_TEXT_REQUIRED") from exc
     if not text.strip():
         raise HTTPException(400, "file is empty")
-    return owner_source_store(user).import_text(file.filename or "upload.txt", text)
+    return owner_source_store(user).import_text(source_name, text)
 
 @app.post("/api/chat")
 async def chat(body: ChatRequest, request: Request):
