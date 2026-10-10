@@ -25,6 +25,10 @@ interface AuthScreenProps {
 
 export function AuthScreen({ onSubmit, error, restoreError, status, onRetryRestore, submitting }: AuthScreenProps) {
   const [mode, setMode] = useState<"login" | "register">("register");
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const submitLabel = submitting
+    ? mode === "register" ? "Creating account locally…" : "Signing in locally…"
+    : mode === "register" ? "Create local account" : "Sign in locally";
 
   return (
     <main className="auth-screen">
@@ -36,29 +40,37 @@ export function AuthScreen({ onSubmit, error, restoreError, status, onRetryResto
         {status === "EXPIRED" && <div className="notice notice-warning" role="status"><strong>Local session expired.</strong><span>Sign in again to restore access to this workspace.</span></div>}
         {status === "ERROR" && restoreError && <div className="notice notice-error auth-restore-error" role="alert"><span><strong>Session restore failed.</strong> {restoreError}</span>{onRetryRestore && <button className="button button-quiet" type="button" onClick={onRetryRestore}>Try again</button>}</div>}
         <div className="auth-mode-toggle" role="tablist" aria-label="Account access mode">
-          <button type="button" role="tab" aria-selected={mode === "register"} className={`auth-mode-button${mode === "register" ? " auth-mode-button-active" : ""}`} onClick={() => setMode("register")}>Register</button>
-          <button type="button" role="tab" aria-selected={mode === "login"} className={`auth-mode-button${mode === "login" ? " auth-mode-button-active" : ""}`} onClick={() => setMode("login")}>Login</button>
+          <button type="button" role="tab" aria-selected={mode === "register"} className={`auth-mode-button${mode === "register" ? " auth-mode-button-active" : ""}`} onClick={() => { setMode("register"); setValidationError(null); }} disabled={submitting}>Register</button>
+          <button type="button" role="tab" aria-selected={mode === "login"} className={`auth-mode-button${mode === "login" ? " auth-mode-button-active" : ""}`} onClick={() => { setMode("login"); setValidationError(null); }} disabled={submitting}>Login</button>
         </div>
         <form
           className="auth-form"
+          aria-busy={submitting}
           onSubmit={(event) => {
             event.preventDefault();
             const form = new FormData(event.currentTarget);
+            const name = String(form.get("name") || "").trim();
+            if (mode === "register" && !name) {
+              setValidationError("Enter your name to create an account.");
+              return;
+            }
+            setValidationError(null);
             void onSubmit({
               mode,
-              name: String(form.get("name") || "Local researcher").trim() || "Local researcher",
+              name,
               email: String(form.get("email") || "").trim(),
               password: String(form.get("password") || ""),
             });
           }}
         >
-          {mode === "register" && <><label htmlFor="auth-name">Your name</label><input id="auth-name" name="name" type="text" autoComplete="name" defaultValue="Local researcher" /></>}
+          {mode === "register" && <><label htmlFor="auth-name">Your name</label><input id="auth-name" name="name" type="text" autoComplete="name" required disabled={submitting} /></>}
           <label htmlFor="auth-email">Workspace email</label>
-          <input id="auth-email" name="email" type="email" autoComplete={mode === "register" ? "email" : "username"} placeholder="you@local" required />
+          <input id="auth-email" name="email" type="email" autoComplete={mode === "register" ? "email" : "username"} placeholder="you@local" maxLength={254} required disabled={submitting} />
           <label htmlFor="auth-password">Password</label>
-          <input id="auth-password" name="password" type="password" autoComplete={mode === "register" ? "new-password" : "current-password"} minLength={8} required />
-          {error && <div className="notice notice-error" role="alert">{error}</div>}
-          <button className="button button-primary auth-submit" type="submit" disabled={submitting}>{submitting ? "Connecting locally…" : mode === "register" ? "Create local account" : "Sign in locally"} <span aria-hidden="true">→</span></button>
+          <input id="auth-password" name="password" type="password" autoComplete={mode === "register" ? "new-password" : "current-password"} minLength={8} aria-describedby="auth-password-help" required disabled={submitting} />
+          <small id="auth-password-help" className="auth-field-help">Use at least 8 characters.</small>
+          {(validationError || error) && <div className="notice notice-error" role="alert">{validationError || error}</div>}
+          <button className="button button-primary auth-submit" type="submit" disabled={submitting}>{submitLabel} <span aria-hidden="true">→</span></button>
         </form>
         <p className="auth-boundary"><span aria-hidden="true">◉</span> Local-only account · credentials stay in the local auth store</p>
       </section>
