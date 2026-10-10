@@ -6,6 +6,8 @@ from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from app.api.auth import router as auth_router
+from app.auth.store import AuthStore
 from app.core.config import RuntimeConfig
 from app.providers.ollama import OllamaProvider
 from app.research.pipeline import ResearchPipeline
@@ -19,8 +21,10 @@ RUNS_DIR = os.getenv("RUNS_DIR", str(BASE / "runs"))
 
 app = FastAPI(title="Local Multi-Agent RAG", version="0.2.0-m0")
 app.mount("/static", StaticFiles(directory=BASE / "app" / "static"), name="static")
+app.include_router(auth_router)
 source_store = SourceStore(DATA_DIR)
 run_store = RunStore(RUNS_DIR)
+app.state.auth_store = AuthStore(DATA_DIR)
 pipeline = ResearchPipeline(source_store, run_store)
 
 class ChatRequest(BaseModel):
