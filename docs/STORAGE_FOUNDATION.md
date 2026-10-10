@@ -38,6 +38,14 @@ The default path and vector settings are recorded in
 initial Alembic schema for users, knowledge sources, and knowledge chunks.
 PostgreSQL configuration is read only from `DATABASE_URL`, which must use the
 `postgresql+psycopg` driver. There is no default URL and no SQLite fallback.
+Email and username uniqueness is enforced by PostgreSQL on
+`lower(btrim(value))`, matching the current auth store's trim-and-lowercase
+normalization; null identifiers are allowed, but blank identifiers are not.
+
+Each knowledge chunk stores non-empty `source_version`, `source_hash`,
+`embedding_version`, and `indexing_version` values. Its `provenance` must be a
+non-empty JSON object. These are database constraints as well as model fields,
+so the contract does not depend only on callers validating input.
 
 The migration is a schema foundation only. It does not copy data from the
 existing JSON or SQLite stores, and the current API/runtime continues using

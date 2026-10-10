@@ -14,6 +14,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -29,9 +30,27 @@ class UserRecord(Base):
             "email IS NOT NULL OR username IS NOT NULL",
             name="ck_users_login_identity",
         ),
+        CheckConstraint(
+            "email IS NULL OR btrim(email) <> ''",
+            name="ck_users_email_nonempty",
+        ),
+        CheckConstraint(
+            "username IS NULL OR btrim(username) <> ''",
+            name="ck_users_username_nonempty",
+        ),
         CheckConstraint("role IN ('USER', 'ADMIN')", name="ck_users_role"),
-        UniqueConstraint("email", name="uq_users_email"),
-        UniqueConstraint("username", name="uq_users_username"),
+        Index(
+            "uq_users_email_normalized",
+            text("lower(btrim(email))"),
+            unique=True,
+            postgresql_where=text("email IS NOT NULL"),
+        ),
+        Index(
+            "uq_users_username_normalized",
+            text("lower(btrim(username))"),
+            unique=True,
+            postgresql_where=text("username IS NOT NULL"),
+        ),
     )
 
     user_id: Mapped[str] = mapped_column(String(64), primary_key=True)
@@ -116,6 +135,27 @@ class KnowledgeChunkRecord(Base):
     __table_args__ = (
         CheckConstraint("chunk_index >= 0", name="ck_knowledge_chunks_index"),
         CheckConstraint(
+            "length(btrim(source_version)) > 0",
+            name="ck_knowledge_chunks_source_version_nonempty",
+        ),
+        CheckConstraint(
+            "length(btrim(source_hash)) > 0",
+            name="ck_knowledge_chunks_source_hash_nonempty",
+        ),
+        CheckConstraint(
+            "length(btrim(embedding_version)) > 0",
+            name="ck_knowledge_chunks_embedding_version_nonempty",
+        ),
+        CheckConstraint(
+            "length(btrim(indexing_version)) > 0",
+            name="ck_knowledge_chunks_indexing_version_nonempty",
+        ),
+        CheckConstraint(
+            "CASE WHEN json_typeof(provenance) = 'object' "
+            "THEN provenance::jsonb <> '{}'::jsonb ELSE FALSE END",
+            name="ck_knowledge_chunks_provenance_nonempty_object",
+        ),
+        CheckConstraint(
             "content IS NOT NULL OR content_ref IS NOT NULL",
             name="ck_knowledge_chunks_content_reference",
         ),
@@ -131,12 +171,15 @@ class KnowledgeChunkRecord(Base):
         nullable=False,
         index=True,
     )
+    source_version: Mapped[str] = mapped_column(String(128), nullable=False)
+    source_hash: Mapped[str] = mapped_column(String(128), nullable=False)
     chunk_index: Mapped[int] = mapped_column(Integer, nullable=False)
     location: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
     content_ref: Mapped[str | None] = mapped_column(String(1024), nullable=True)
-    provenance: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    provenance: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     indexing_version: Mapped[str] = mapped_column(String(128), nullable=False)
+    embedding_version: Mapped[str] = mapped_column(String(128), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

@@ -40,10 +40,30 @@ def upgrade() -> None:
             "email IS NOT NULL OR username IS NOT NULL",
             name="ck_users_login_identity",
         ),
+        sa.CheckConstraint(
+            "email IS NULL OR btrim(email) <> ''",
+            name="ck_users_email_nonempty",
+        ),
+        sa.CheckConstraint(
+            "username IS NULL OR btrim(username) <> ''",
+            name="ck_users_username_nonempty",
+        ),
         sa.CheckConstraint("role IN ('USER', 'ADMIN')", name="ck_users_role"),
         sa.PrimaryKeyConstraint("user_id"),
-        sa.UniqueConstraint("email", name="uq_users_email"),
-        sa.UniqueConstraint("username", name="uq_users_username"),
+    )
+    op.create_index(
+        "uq_users_email_normalized",
+        "users",
+        [sa.text("lower(btrim(email))")],
+        unique=True,
+        postgresql_where=sa.text("email IS NOT NULL"),
+    )
+    op.create_index(
+        "uq_users_username_normalized",
+        "users",
+        [sa.text("lower(btrim(username))")],
+        unique=True,
+        postgresql_where=sa.text("username IS NOT NULL"),
     )
     op.create_table(
         "knowledge_sources",
@@ -84,17 +104,41 @@ def upgrade() -> None:
         "knowledge_chunks",
         sa.Column("chunk_id", sa.String(length=160), nullable=False),
         sa.Column("source_id", sa.String(length=128), nullable=False),
+        sa.Column("source_version", sa.String(length=128), nullable=False),
+        sa.Column("source_hash", sa.String(length=128), nullable=False),
         sa.Column("chunk_index", sa.Integer(), nullable=False),
         sa.Column("location", sa.JSON(), nullable=True),
         sa.Column("content", sa.Text(), nullable=True),
         sa.Column("content_ref", sa.String(length=1024), nullable=True),
         sa.Column("provenance", sa.JSON(), nullable=False),
         sa.Column("indexing_version", sa.String(length=128), nullable=False),
+        sa.Column("embedding_version", sa.String(length=128), nullable=False),
         sa.Column(
             "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
         ),
         sa.CheckConstraint(
             "chunk_index >= 0", name="ck_knowledge_chunks_index"
+        ),
+        sa.CheckConstraint(
+            "length(btrim(source_version)) > 0",
+            name="ck_knowledge_chunks_source_version_nonempty",
+        ),
+        sa.CheckConstraint(
+            "length(btrim(source_hash)) > 0",
+            name="ck_knowledge_chunks_source_hash_nonempty",
+        ),
+        sa.CheckConstraint(
+            "length(btrim(embedding_version)) > 0",
+            name="ck_knowledge_chunks_embedding_version_nonempty",
+        ),
+        sa.CheckConstraint(
+            "length(btrim(indexing_version)) > 0",
+            name="ck_knowledge_chunks_indexing_version_nonempty",
+        ),
+        sa.CheckConstraint(
+            "CASE WHEN json_typeof(provenance) = 'object' "
+            "THEN provenance::jsonb <> '{}'::jsonb ELSE FALSE END",
+            name="ck_knowledge_chunks_provenance_nonempty_object",
         ),
         sa.CheckConstraint(
             "content IS NOT NULL OR content_ref IS NOT NULL",
@@ -123,4 +167,6 @@ def downgrade() -> None:
         "ix_knowledge_sources_owner_user_id", table_name="knowledge_sources"
     )
     op.drop_table("knowledge_sources")
+    op.drop_index("uq_users_username_normalized", table_name="users")
+    op.drop_index("uq_users_email_normalized", table_name="users")
     op.drop_table("users")
