@@ -29,6 +29,10 @@ def test_logout_revokes_only_the_calling_users_session(tmp_path, monkeypatch) ->
     )
 
     assert first_registration.status_code == second_registration.status_code == 200
+    first_token = first_registration.json()["access_token"]
+    second_token = second_registration.json()["access_token"]
+    first_bearer = {"Authorization": f"Bearer {first_token}"}
+    second_bearer = {"Authorization": f"Bearer {second_token}"}
     first_user_id = first_registration.json()["user"]["user_id"]
     second_user_id = second_registration.json()["user"]["user_id"]
     assert first_user_id != second_user_id
@@ -39,6 +43,8 @@ def test_logout_revokes_only_the_calling_users_session(tmp_path, monkeypatch) ->
     assert first_session["user"]["user_id"] == first_user_id
     assert second_session["authenticated"] is True
     assert second_session["user"]["user_id"] == second_user_id
+    assert first_user.get("/api/auth/me", headers=first_bearer).status_code == 200
+    assert second_user.get("/api/auth/me", headers=second_bearer).status_code == 200
 
     logout = first_user.post("/api/auth/logout")
 
@@ -48,6 +54,7 @@ def test_logout_revokes_only_the_calling_users_session(tmp_path, monkeypatch) ->
     assert first_session_after_logout["authenticated"] is False
     assert first_session_after_logout["user"] is None
     assert first_user.get("/api/auth/me").status_code == 401
+    assert first_user.get("/api/auth/me", headers=first_bearer).status_code == 401
 
     second_session_after_logout = second_user.get("/api/auth/session").json()
     assert second_session_after_logout["authenticated"] is True
@@ -55,3 +62,6 @@ def test_logout_revokes_only_the_calling_users_session(tmp_path, monkeypatch) ->
     second_current_user = second_user.get("/api/auth/me")
     assert second_current_user.status_code == 200
     assert second_current_user.json()["user"]["user_id"] == second_user_id
+    second_bearer_user = second_user.get("/api/auth/me", headers=second_bearer)
+    assert second_bearer_user.status_code == 200
+    assert second_bearer_user.json()["user"]["user_id"] == second_user_id
