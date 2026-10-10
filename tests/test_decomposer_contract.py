@@ -49,3 +49,16 @@ def test_decompose_maps_task_ids_and_dependencies_without_rewriting_them():
     assert [task.task_id for task in tasks] == ["T1", "T2"]
     assert tasks[1].depends_on == ["T1"]
     assert tasks[1].evidence_needs == ["authorization"]
+
+
+def test_decompose_provides_one_task_when_planner_returns_empty_list():
+    class EmptyPlanProvider:
+        async def generate(self, *, system: str, user: str) -> ProviderResult:
+            return ProviderResult(text='{"tasks": []}', usage=Usage())
+
+    query = "Explain the supported API behavior"
+    tasks = asyncio.run(decompose(EmptyPlanProvider(), query, "", RunMetrics()))
+
+    assert len(tasks) == 1
+    assert tasks[0].task_id == "T1"
+    assert tasks[0].goal == query
