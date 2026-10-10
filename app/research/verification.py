@@ -9,6 +9,8 @@ from app.core.citations import resolve_citations
 from app.core.types import RunMetrics, SourceChunk, Task
 from app.research.contracts import WorkerResult
 
+_WORKER_STATUSES = frozenset({"COMPLETE", "PARTIAL", "NO_EVIDENCE"})
+
 
 def _extract_json(text: str) -> dict:
     try:
@@ -38,9 +40,14 @@ def verify_worker_response(
     payload = _extract_json(response_text)
     valid, invalid = resolve_citations(payload.get("citations"), evidence)
     metrics.add_citations(valid, invalid)
-    status = str(payload.get("status") or "PARTIAL").upper()
     missing = [str(item) for item in payload.get("missing_information") or []]
     status_reason = ""
+    raw_status = payload.get("status")
+    status = raw_status.strip().upper() if isinstance(raw_status, str) else "PARTIAL"
+    if status not in _WORKER_STATUSES:
+        status = "PARTIAL"
+        missing.append("invalid worker status")
+        status_reason = "INVALID_WORKER_STATUS"
     if invalid:
         status = "PARTIAL"
         missing.append("invalid citation locator(s) removed")

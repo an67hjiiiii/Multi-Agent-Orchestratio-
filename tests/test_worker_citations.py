@@ -63,6 +63,23 @@ def test_worker_partial_without_missing_information_has_deterministic_reason():
     assert result.status_reason == "WORKER_PARTIAL_WITHOUT_REASON"
 
 
+def test_worker_rejects_status_outside_worker_contract():
+    provider = StubProvider(
+        {
+            "status": "FAILED",
+            "answer": "The worker cannot set the run terminal status.",
+            "citations": ["E1"],
+            "missing_information": [],
+        }
+    )
+
+    result = asyncio.run(execute_task(provider, _task(), _evidence(), RunMetrics()))
+
+    assert result.status == "PARTIAL"
+    assert result.status_reason == "INVALID_WORKER_STATUS"
+    assert result.missing_information == ["invalid worker status"]
+
+
 def test_synthesizer_preserves_multiple_task_citations():
     provider = StubProvider({"answer": "Combined answer", "citations": ["E1", "E2"]})
     results = [
