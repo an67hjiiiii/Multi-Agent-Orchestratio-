@@ -149,3 +149,52 @@ def test_execution_records_task_failure_when_evidence_resolution_raises():
         "task_id": "T1",
         "error_type": "LookupError",
     }
+
+
+def test_execution_completes_no_evidence_without_calling_worker_provider():
+    class UnexpectedProvider:
+        async def generate(self, *, system: str, user: str) -> ProviderResult:
+            raise AssertionError("worker provider should not run without evidence")
+
+    async def resolve(_task: Task, _dependency_context: str) -> list[SourceChunk]:
+        return []
+
+    metrics = RunMetrics()
+    events: list[dict] = []
+
+    results = asyncio.run(
+        execute_prepared_tasks(
+            UnexpectedProvider(),
+            [Task("T1", "Review API")],
+            resolve_task_evidence=resolve,
+            metrics=metrics,
+            event=lambda stage, **payload: events.append(
+                {"stage": stage, **payload}
+            ),
+            max_run_tokens=100,
+        )
+    )
+
+    assert len(results) == 1
+    assert results[0].task_id == "T1"
+    assert results[0].status == "NO_EVIDENCE"
+    assert results[0].evidence_ids == []
+    assert results[0].citations == []
+    assert metrics.llm_calls == 0
+    assert events == [
+        {"stage": "task_started", "task_id": "T1", "depends_on": []},
+        {
+            "stage": "task_completed",
+            "result": {
+                "task_id": "T1",
+                "domain": "api_architecture",
+                "status": "NO_EVIDENCE",
+                "answer": "Chưa tìm thấy evidence phù hợp cho task này.",
+                "evidence_ids": [],
+                "citations": [],
+                "invalid_citations": [],
+                "missing_information": ["relevant evidence"],
+                "status_reason": "",
+            },
+        },
+    ]
