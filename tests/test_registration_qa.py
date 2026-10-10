@@ -97,5 +97,5 @@ def test_public_admin_registration_is_downgraded_to_user(tmp_path, monkeypatch):
         },
     )
 
-    assert response.status_code == 400
-    assert response.json()["code"] == "INVALID_REGISTRATION"
+    assert response.status_code == 200
+    assert response.json()["user"]["role"] == "USER"
