@@ -32,6 +32,25 @@ The default path and vector settings are recorded in
 `VECTOR_BACKEND`, `QDRANT_PATH`, `QDRANT_COLLECTION`, `VECTOR_SIZE`,
 `EMBEDDING_PROVIDER`, and `LOCAL_EMBEDDING_MODEL`).
 
+## PostgreSQL schema foundation
+
+`app.storage.postgres` contains an opt-in SQLAlchemy 2 model base and the
+initial Alembic schema for users, knowledge sources, and knowledge chunks.
+PostgreSQL configuration is read only from `DATABASE_URL`, which must use the
+`postgresql+psycopg` driver. There is no default URL and no SQLite fallback.
+
+The migration is a schema foundation only. It does not copy data from the
+existing JSON or SQLite stores, and the current API/runtime continues using
+those stores as its last-known-good path. No application routes or services
+open a PostgreSQL connection yet.
+
+To apply the schema to an explicitly prepared local PostgreSQL database, set
+`DATABASE_URL` in the process environment and run `alembic upgrade head` from
+the repository root. Do not run this against a database containing unrelated
+or user data. The first revision creates only the three foundation entities;
+conversation, message, run, citation, trace, and settings tables remain for
+their later owning tasks.
+
 ## Vector boundary
 
 `VectorRecord` and `VectorMatch` define the backend-neutral contract.
