@@ -267,7 +267,9 @@ class PLitePipeline:
             )
             if itemized_context:
                 visible_ids = [
-                    item_id for item_id in item_ids if f"[{item_id}]" in context
+                    item_id
+                    for item_id in item_ids
+                    if _has_item_heading(context, item_id)
                 ]
                 dropped_item_ids.extend(
                     item_id for item_id in item_ids if item_id not in visible_ids
@@ -476,7 +478,7 @@ def _select_itemized_context(
 
     locations = []
     for item_id in item_ids:
-        match = re.search(rf"(?m)^\[{re.escape(item_id)}\]", context)
+        match = _item_heading_match(context, item_id)
         if match is not None:
             locations.append((match.start(), item_id))
     locations.sort()
@@ -492,6 +494,14 @@ def _select_itemized_context(
     selected_context = "\n\n".join(blocks[item_id] for item_id in selected_ids)
     dropped_ids = [item_id for item_id in item_ids if item_id not in selected_ids]
     return selected_context, selected_ids, dropped_ids, True
+
+
+def _has_item_heading(context: str, item_id: str) -> bool:
+    return _item_heading_match(context, item_id) is not None
+
+
+def _item_heading_match(context: str, item_id: str) -> re.Match[str] | None:
+    return re.search(rf"(?m)^\[{re.escape(item_id)}\]", context)
 
 
 def _truncate(value: str, max_tokens: int) -> str:

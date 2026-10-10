@@ -103,6 +103,29 @@ def test_p_lite_context_and_reported_ids_share_the_same_item_cap():
     assert result.planning.scores == [0.9]
 
 
+def test_p_lite_token_cap_drops_ids_mentioned_before_their_item_heading():
+    retriever = RecordingRetriever(
+        {
+            "item_ids": ["P1", "P2"],
+            "scores": [0.9, 0.8],
+            "context": "[P1] [P2] prose\n\n[P2] Later planning evidence.",
+        }
+    )
+    pipeline = PLitePipeline(
+        planning_retriever=retriever,
+        decomposer=ValidDecomposer(),
+        max_items=2,
+        max_context_tokens=5,
+    )
+
+    result = asyncio.run(pipeline.run("Review planning guidance", FakeProvider()))
+
+    assert result.planning_context == "[P1] [P2] prose"
+    assert result.planning.item_ids == ["P1"]
+    assert result.planning.dropped_item_ids == ["P2"]
+    assert result.planning.scores == [0.9]
+
+
 class RepairingDecomposer:
     def __init__(self):
         self.calls = 0
