@@ -73,3 +73,19 @@ def test_provider_timeout_persists_terminal_failed_run(tmp_path: Path, monkeypat
     assert result["events"][-1]["stage"] == "run_failed"
     assert result["events"][-1]["error_type"] == "TimeoutError"
     assert runs.get(result["run_id"]) == result
+
+
+def test_pipeline_persists_ordered_run_lifecycle_trace(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("IMPLEMENTATION_PROFILE", "m0")
+    sources = SourceStore(str(tmp_path / "data"))
+    sources.import_text("api.md", "The API validates requests.")
+    runs = RunStore(str(tmp_path / "runs"))
+    result = asyncio.run(
+        ResearchPipeline(sources, runs).run("Summarize the API", "A", "fake")
+    )
+
+    stages = [event["stage"] for event in result["events"]]
+    assert stages[0] == "run_started"
+    assert "vanilla_retrieval" in stages
+    assert stages[-1] == "run_finished"
+    assert runs.get(result["run_id"])["events"] == result["events"]
