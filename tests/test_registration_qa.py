@@ -85,7 +85,7 @@ def test_registration_rejects_missing_required_fields(
     assert response.json()["retryable"] is False
 
 
-def test_public_registration_rejects_admin_role(tmp_path, monkeypatch):
+def test_public_admin_registration_is_downgraded_to_user(tmp_path, monkeypatch):
     client = make_registration_client(tmp_path, monkeypatch)
 
     response = client.post(
