@@ -47,17 +47,31 @@ Each knowledge chunk stores non-empty `source_version`, `source_hash`,
 non-empty JSON object. These are database constraints as well as model fields,
 so the contract does not depend only on callers validating input.
 
+The additive conversation/run schema defines owner-scoped `conversations`,
+ordered `conversation_messages`, and structured `runs`. Message ordering uses a
+per-conversation sequence number. A message's optional `run_id` must refer to a
+run from that same conversation. Runs attached to a conversation must carry
+the same owner as the conversation; standalone runs may have an owner without
+a conversation. Ownerless standalone records remain representable for
+compatibility, and owner-scoped reads must continue to fail closed for them.
+The run contract's `owner_id` maps to PostgreSQL's `owner_user_id`. Nested run
+data such as tasks, results, events, metrics, effective configuration,
+retrieval metadata, and additive fields has JSON columns so it remains
+representable alongside indexed identity and status fields.
+
 The migration is a schema foundation only. It does not copy data from the
 existing JSON or SQLite stores, and the current API/runtime continues using
 those stores as its last-known-good path. No application routes or services
-open a PostgreSQL connection yet.
+open a PostgreSQL connection yet. The conversation/run migration is additive;
+it does not replace or migrate the file-backed conversation or run stores.
 
 To apply the schema to an explicitly prepared local PostgreSQL database, set
 `DATABASE_URL` in the process environment and run `alembic upgrade head` from
 the repository root. Do not run this against a database containing unrelated
-or user data. The first revision creates only the three foundation entities;
-conversation, message, run, citation, trace, and settings tables remain for
-their later owning tasks.
+or user data. Revision `20261010_01` creates users and knowledge-source
+entities; revision `20261010_02` adds conversations, ordered messages, and
+runs. Citation, trace, and settings tables remain for their later owning
+tasks.
 
 ## Vector boundary
 
@@ -76,7 +90,9 @@ returns an explicit no-text state for scanned-image documents.
 
 ## Scope and verification
 
-Focused tests are in `tests/test_storage_foundation.py`. They cover schema
-creation, JSON round trips, transaction rollback, vector ordering/payload
-preservation, and input validation. Existing source/run-store and pipeline
-tests remain unchanged.
+Focused tests are in `tests/test_storage_foundation.py` and
+`tests/test_postgres_foundation.py`. They cover SQLite round trips and rollback,
+vector ordering/payload preservation, PostgreSQL model constraints and
+relationships, explicit database URL configuration, and migration contracts.
+These checks do not execute a migration against a live database. Existing
+source/run-store and pipeline paths remain unchanged.
