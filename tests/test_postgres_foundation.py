@@ -220,6 +220,15 @@ def test_conversation_run_models_preserve_owner_order_and_run_links() -> None:
         "conversations.conversation_id",
         "conversations.owner_user_id",
     ]
+    assert run_owner_fk.ondelete == "RESTRICT"
+    run_user_fk = next(
+        constraint
+        for constraint in runs.constraints
+        if isinstance(constraint, ForeignKeyConstraint)
+        and constraint.name == "fk_runs_owner_user"
+    )
+    assert [fk.target_fullname for fk in run_user_fk.elements] == ["users.user_id"]
+    assert run_user_fk.ondelete == "RESTRICT"
     assert runs.c.owner_user_id.nullable is True
     assert runs.c.tasks.nullable is False
     assert runs.c.events.nullable is False
@@ -242,6 +251,8 @@ def test_conversation_run_orm_relationships_and_migration_are_registered() -> No
     ]
     assert ConversationRecord.runs.property.back_populates == "conversation"
     assert RunRecord.conversation.property.back_populates == "runs"
+    assert UserRecord.runs.property.passive_deletes == "all"
+    assert ConversationRecord.runs.property.passive_deletes == "all"
 
     migration_path = (
         Path(__file__).parents[1]
