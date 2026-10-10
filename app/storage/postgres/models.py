@@ -88,7 +88,7 @@ class UserRecord(Base):
     )
     runs: Mapped[list[RunRecord]] = relationship(
         back_populates="owner",
-        foreign_keys="RunRecord.owner_user_id",
+        foreign_keys="[RunRecord.owner_user_id]",
     )
 
 
@@ -252,7 +252,7 @@ class ConversationRecord(Base):
     )
     runs: Mapped[list[RunRecord]] = relationship(
         back_populates="conversation",
-        foreign_keys="RunRecord.conversation_id",
+        foreign_keys="[RunRecord.conversation_id]",
     )
 
 
