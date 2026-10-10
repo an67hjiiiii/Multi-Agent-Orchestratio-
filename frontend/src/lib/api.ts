@@ -54,6 +54,10 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }),
+  logout: () =>
+    request<{ ok: boolean; authenticated: boolean }>("/auth/logout", {
+      method: "POST",
+    }),
   listSources: () => request<SourcesResponse>("/sources"),
   getChunk: (chunkId: string) =>
     request<SourceChunk>(`/chunks/${encodeURIComponent(chunkId)}`),

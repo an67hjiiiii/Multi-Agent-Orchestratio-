@@ -6,6 +6,7 @@ import { Sidebar } from "./components/Sidebar";
 import { StatusBadge } from "./components/StatusBadge";
 import { RegisterForm } from "./components/RegisterForm";
 import { LoginForm } from "./components/LoginForm";
+import { api, ApiError } from "./lib/api";
 
 export function App() {
   const research = useResearchApp();
@@ -13,6 +14,7 @@ export function App() {
   const [provider, setProvider] = useState("fake");
   const [authScreen, setAuthScreen] = useState<"register" | "login" | null>(null);
   const [registrationNotice, setRegistrationNotice] = useState<string | null>(null);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
   const allowedConditions = useMemo(
     () => research.health?.allowed_conditions?.length ? research.health.allowed_conditions : ["A"],
     [research.health],
@@ -20,6 +22,16 @@ export function App() {
 
   async function submitQuestion(message: string) {
     await research.submitQuestion(message, condition, provider);
+  }
+
+  async function signOut() {
+    setLogoutError(null);
+    try {
+      await api.logout();
+      window.location.reload();
+    } catch (cause) {
+      setLogoutError(cause instanceof ApiError ? cause.message : "Could not sign out. Try again.");
+    }
   }
 
   return (
@@ -45,6 +57,9 @@ export function App() {
             <button type="button" className="button-secondary" onClick={() => setAuthScreen("register")}>
               Create account
             </button>
+            <button type="button" className="button-secondary" onClick={() => void signOut()}>
+              Sign out
+            </button>
             <label className="select-control">
               <span>Condition</span>
               <select value={condition} onChange={(event) => setCondition(event.target.value)} aria-label="Run condition">
@@ -68,6 +83,7 @@ export function App() {
             <button type="button" onClick={research.dismissError} aria-label="Dismiss notification">×</button>
           </div>
         )}
+        {logoutError && <div className="global-alert" role="alert">{logoutError}</div>}
 
         <ChatPanel
           run={research.activeRun}
