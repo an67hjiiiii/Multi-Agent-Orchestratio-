@@ -7,6 +7,7 @@ from app.auth.store import (
     AuthStore,
     DuplicateUserError,
     InvalidCredentialsError,
+    InvalidSessionError,
 )
 
 
@@ -119,3 +120,15 @@ def logout(request: Request, response: Response) -> dict[str, bool]:
     response.delete_cookie("session_token", path="/")
     response.delete_cookie("local_session", path="/")
     return {"ok": True, "authenticated": False}
+
+
+@router.get("/session")
+def current_session(request: Request) -> dict[str, object]:
+    try:
+        user = get_auth_store(request).resolve(get_session_token(request))
+    except InvalidSessionError as exc:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication is required",
+        ) from exc
+    return {"authenticated": True, "user": user}
