@@ -2,12 +2,13 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from app.api.auth import router as auth_router
-from app.auth.store import AuthStore
+from app.api.auth import get_session_token
+from app.auth.store import AuthStore, InvalidSessionError
 from app.core.config import RuntimeConfig
 from app.providers.ollama import OllamaProvider
 from app.research.pipeline import ResearchPipeline
@@ -26,6 +27,23 @@ source_store = SourceStore(DATA_DIR)
 run_store = RunStore(RUNS_DIR)
 app.state.auth_store = AuthStore(DATA_DIR)
 pipeline = ResearchPipeline(source_store, run_store)
+
+def current_user(request: Request) -> dict:
+    try:
+        return request.app.state.auth_store.resolve(get_session_token(request))
+    except InvalidSessionError as exc:
+        raise HTTPException(status_code=401, detail="Authentication is required") from exc
+
+def owner_source_store(user: dict) -> SourceStore:
+    root = Path(DATA_DIR) / "owners" / str(user["user_id"]) / "sources"
+    return SourceStore(str(root))
+
+def owner_run_store(user: dict) -> RunStore:
+    root = Path(RUNS_DIR) / "owners" / str(user["user_id"])
+    return RunStore(str(root))
+
+def owner_pipeline(user: dict) -> ResearchPipeline:
+    return ResearchPipeline(owner_source_store(user), owner_run_store(user))
 
 class ChatRequest(BaseModel):
     message: str
@@ -67,31 +85,34 @@ async def local_model_health():
         return {"ok": False, "error": str(exc), "configured_model": os.getenv("LOCAL_LLM_MODEL", "qwen3:4b")}
 
 @app.get("/api/sources")
-def list_sources():
-    return {"snapshot_id": source_store.snapshot_id(), "sources": source_store.list_sources()}
+def list_sources(request: Request):
+    user = current_user(request)
+    store = owner_source_store(user)
+    return {"snapshot_id": store.snapshot_id(), "sources": store.list_sources()}
 
 @app.get("/api/sources/{source_id}")
-def get_source(source_id: str):
-    item = source_store.source(source_id)
+def get_source(source_id: str, request: Request):
+    item = owner_source_store(current_user(request)).source(source_id)
     if not item:
         raise HTTPException(404, "source not found")
     return item
 
 @app.get("/api/chunks/{chunk_id}")
-def get_chunk(chunk_id: str):
-    item = source_store.chunk(chunk_id)
+def get_chunk(chunk_id: str, request: Request):
+    item = owner_source_store(current_user(request)).chunk(chunk_id)
     if not item:
         raise HTTPException(404, "chunk not found")
     return item
 
 @app.post("/api/sources/text")
-def import_text(body: SourceTextRequest):
+def import_text(body: SourceTextRequest, request: Request):
     if not body.text.strip():
         raise HTTPException(400, "text is empty")
-    return source_store.import_text(body.source_name, body.text)
+    return owner_source_store(current_user(request)).import_text(body.source_name, body.text)
 
 @app.post("/api/sources/file")
-async def import_file(file: UploadFile = File(...)):
+async def import_file(request: Request, file: UploadFile = File(...)):
+    user = current_user(request)
     data = await file.read()
     if len(data) > 2_000_000:
         raise HTTPException(413, "M0 only accepts UTF-8 text/code/markdown files up to 2 MB")
@@ -101,14 +122,16 @@ async def import_file(file: UploadFile = File(...)):
         raise HTTPException(415, "M0 accepts UTF-8 text/code/markdown files only")
     if not text.strip():
         raise HTTPException(400, "file is empty")
-    return source_store.import_text(file.filename or "upload.txt", text)
+    return owner_source_store(user).import_text(file.filename or "upload.txt", text)
 
 @app.post("/api/chat")
-async def chat(body: ChatRequest):
+async def chat(body: ChatRequest, request: Request):
     if not body.message.strip():
         raise HTTPException(400, "message is required")
     try:
-        run = await pipeline.run(body.message.strip(), body.condition, body.provider)
+        run = await owner_pipeline(current_user(request)).run(
+            body.message.strip(), body.condition, body.provider
+        )
         if run["status"] == "FAILED":
             return run
         return run
@@ -116,12 +139,12 @@ async def chat(body: ChatRequest):
         raise HTTPException(400, str(exc))
 
 @app.get("/api/runs")
-def list_runs():
-    return run_store.list()
+def list_runs(request: Request):
+    return owner_run_store(current_user(request)).list()
 
 @app.get("/api/runs/{run_id}")
-def get_run(run_id: str):
-    run = run_store.get(run_id)
+def get_run(run_id: str, request: Request):
+    run = owner_run_store(current_user(request)).get(run_id)
     if not run:
         raise HTTPException(404, "run not found")
     return run
