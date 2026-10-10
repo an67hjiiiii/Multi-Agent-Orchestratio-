@@ -18,6 +18,7 @@ export function App() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [authRestoreError, setAuthRestoreError] = useState<string | null>(null);
   const [authSubmitting, setAuthSubmitting] = useState(false);
+  const [authDefaultMode, setAuthDefaultMode] = useState<"login" | "register">("register");
   const [page, setPage] = useState<ProductPage>("home");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [provider, setProvider] = useState<string | null>(null);
@@ -103,6 +104,7 @@ export function App() {
 
   async function signOut() {
     setAuthError(null);
+    setAuthDefaultMode("login");
     try {
       await authApi.logout();
     } catch (cause) {
@@ -141,7 +143,7 @@ export function App() {
 
   if (authStatus === "RESTORING") return <main className="auth-screen"><section className="auth-card" role="status" aria-live="polite"><p className="eyebrow">MERIDIAN · LOCAL EVIDENCE DESK</p><h1>Restoring your local session…</h1><p className="auth-copy">Checking the local session without contacting a hosted service.</p></section></main>;
 
-  if (!session) return <AuthScreen onSubmit={authenticate} error={authError} restoreError={authRestoreError} status={authStatus === "ERROR" ? "ERROR" : authStatus} onRetryRestore={() => void restoreSession()} submitting={authSubmitting} />;
+  if (!session) return <AuthScreen defaultMode={authDefaultMode} onSubmit={authenticate} error={authError} restoreError={authRestoreError} status={authStatus === "ERROR" ? "ERROR" : authStatus} onRetryRestore={() => void restoreSession()} submitting={authSubmitting} />;
 
   return (
     <div className="product-shell">

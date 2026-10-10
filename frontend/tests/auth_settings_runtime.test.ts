@@ -45,6 +45,21 @@ describe("local auth restore and runtime settings", () => {
     expect(markup).not.toContain("ADMIN");
   });
 
+  it("returns to the login tab when the signed-out screen requests login mode", () => {
+    const markup = renderToStaticMarkup(
+      createElement(AuthScreen, {
+        defaultMode: "login",
+        onSubmit: async () => undefined,
+        error: null,
+        submitting: false,
+      }),
+    );
+
+    expect(markup).toContain('aria-selected="true" class="auth-mode-button auth-mode-button-active">Login</button>');
+    expect(markup).not.toContain('id="auth-name"');
+    expect(markup).toContain('type="password"');
+  });
+
   it("renders returned settings and local-model diagnostics without a provider fallback", () => {
     const markup = renderToStaticMarkup(
       createElement(SettingsView, {

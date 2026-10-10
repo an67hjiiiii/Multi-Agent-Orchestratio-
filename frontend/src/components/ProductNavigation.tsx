@@ -15,6 +15,7 @@ export interface DemoSession {
 }
 
 interface AuthScreenProps {
+  defaultMode?: "login" | "register";
   onSubmit: (input: { mode: "login" | "register"; name: string; email: string; password: string }) => Promise<void>;
   error: string | null;
   restoreError?: string | null;
@@ -23,8 +24,8 @@ interface AuthScreenProps {
   submitting: boolean;
 }
 
-export function AuthScreen({ onSubmit, error, restoreError, status, onRetryRestore, submitting }: AuthScreenProps) {
-  const [mode, setMode] = useState<"login" | "register">("register");
+export function AuthScreen({ defaultMode = "register", onSubmit, error, restoreError, status, onRetryRestore, submitting }: AuthScreenProps) {
+  const [mode, setMode] = useState<"login" | "register">(defaultMode);
   const [validationError, setValidationError] = useState<string | null>(null);
   const submitLabel = submitting
     ? mode === "register" ? "Creating account locally…" : "Signing in locally…"
