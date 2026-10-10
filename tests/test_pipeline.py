@@ -47,3 +47,29 @@ def test_m0_a_has_valid_citation_and_no_evidence_state(tmp_path: Path, monkeypat
     missing=asyncio.run(pipe.run('What is the production deployment region?','A','fake'))
     assert missing['status']=='NO_EVIDENCE'
     assert not missing['task_results'][0]['citations']
+
+
+def test_provider_timeout_persists_terminal_failed_run(tmp_path: Path, monkeypatch):
+    from app.research import pipeline as pipeline_module
+
+    class TimeoutProvider:
+        name = "timeout-test"
+        model = "timeout-test"
+
+        async def generate(self, *, system: str, user: str):
+            raise TimeoutError("simulated provider timeout")
+
+    monkeypatch.setenv("IMPLEMENTATION_PROFILE", "m0")
+    sources = SourceStore(str(tmp_path / "data"))
+    sources.import_text("api.md", "The API validates requests.")
+    runs = RunStore(str(tmp_path / "runs"))
+    monkeypatch.setattr(pipeline_module, "get_provider", lambda *_args: TimeoutProvider())
+
+    result = asyncio.run(
+        ResearchPipeline(sources, runs).run("Summarize the API", "A", "timeout-test")
+    )
+
+    assert result["status"] == "FAILED"
+    assert result["events"][-1]["stage"] == "run_failed"
+    assert result["events"][-1]["error_type"] == "TimeoutError"
+    assert runs.get(result["run_id"]) == result
