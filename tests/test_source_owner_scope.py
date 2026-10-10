@@ -65,19 +65,39 @@ def test_kb_search_is_authenticated_and_owner_scoped(tmp_path: Path, monkeypatch
     )
     second = other_user.post(
         "/api/sources/text",
-        json={"source_name": "other.md", "text": "The second owner has a different private note."},
+        json={
+            "source_name": "other.md",
+            "text": "Zephyrquartz belongs only to the second owner.",
+        },
     )
     assert first.status_code == second.status_code == 200
-    query = {"query": "Zephyrquartz", "top_k": 1}
+    query = {"query": "Zephyrquartz", "top_k": 10}
 
     assert anonymous.get("/api/kb/search", params=query).status_code == 401
     owned = owner.get("/api/kb/search", params=query)
     assert owned.status_code == 200
-    assert owned.json()["results"]
-    assert all(item["source_id"] == first.json()["source_id"] for item in owned.json()["results"])
+    owner_results = owned.json()["results"]
+    assert owner_results
+    assert all(item["source_id"] == first.json()["source_id"] for item in owner_results)
     foreign = other_user.get("/api/kb/search", params=query)
     assert foreign.status_code == 200
-    assert all(item["source_id"] == second.json()["source_id"] for item in foreign.json()["results"])
+    other_results = foreign.json()["results"]
+    assert other_results
+    assert all(item["source_id"] == second.json()["source_id"] for item in other_results)
+
+    for results, source in (
+        (owner_results, first.json()),
+        (other_results, second.json()),
+    ):
+        for item in results:
+            assert item["chunk_id"]
+            assert item["source_id"] == source["source_id"]
+            assert item["provenance"]["source_id"] == item["source_id"]
+            assert item["provenance"]["chunk_id"] == item["chunk_id"]
+            assert (
+                item["provenance"]["owner_user_id"]
+                == source["provenance"]["owner_user_id"]
+            )
 
 
 def test_identical_imports_keep_private_source_and_chunk_provenance(tmp_path: Path, monkeypatch) -> None:
