@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import asyncio
 
+import httpx
+
 from app.core.api_runtime import ApiRuntime
 from app.core.types import SourceChunk, Task
+from app.providers.ollama import OllamaProvider
 from app.research.conversation_context import ConversationContext
 from app.research.execution import execute_prepared_tasks
 from app.run.coordinator import RunCoordinator
@@ -134,3 +137,107 @@ def test_worker_timeout_is_persisted_as_terminal_failed_run(tmp_path, monkeypatc
     assert failed_task["task_id"] == "T1"
     assert failed_task["error_type"] == "TimeoutError"
     assert result["effective_config"]["flags"] == {"P": False, "N": False, "O": False}
+
+
+def test_ollama_request_timeout_is_persisted_as_terminal_failed_run(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("IMPLEMENTATION_PROFILE", "m1")
+    monkeypatch.setenv("PROVIDER", "ollama")
+
+    requests = []
+    client_timeouts = []
+    real_async_client = httpx.AsyncClient
+
+    def timeout_request(request):
+        requests.append(request)
+        raise httpx.ReadTimeout("Ollama request timed out", request=request)
+
+    def make_async_client(*, timeout):
+        client_timeouts.append(timeout)
+        return real_async_client(
+            transport=httpx.MockTransport(timeout_request),
+            timeout=timeout,
+        )
+
+    monkeypatch.setattr("app.providers.ollama.httpx.AsyncClient", make_async_client)
+    provider = OllamaProvider(
+        model="qwen3:4b",
+        base_url="http://127.0.0.1:11434",
+        timeout=12.5,
+    )
+
+    async def process(
+        _query,
+        _condition,
+        resolved_provider,
+        _config,
+        _flags,
+        _conversation_context,
+        metrics,
+        event,
+        _retrieval_metadata,
+        **_kwargs,
+    ):
+        task = Task("T1", "Review API request validation", domain="api_architecture")
+
+        async def resolve_task_evidence(_task, _dependency_context):
+            return [SourceChunk("chunk-1", "source-1", "api.md", "API evidence.", 0)]
+
+        await execute_prepared_tasks(
+            resolved_provider,
+            [task],
+            resolve_task_evidence=resolve_task_evidence,
+            metrics=metrics,
+            event=event,
+            max_run_tokens=100,
+        )
+        return "COMPLETE", "", [task], [], True
+
+    async def retrieval_metadata():
+        return {"retrieval_backend": "memory"}
+
+    coordinator = RunCoordinator(
+        SourceStore(str(tmp_path / "data")),
+        RunStore(str(tmp_path / "runs")),
+        process=process,
+        retrieval_metadata=retrieval_metadata,
+        provider_resolver=lambda _name: provider,
+        scoring_versions={},
+        planning_retrieval_scoring_version="test",
+        retrieval_scoring_version="test",
+        domain_ranking_version="test",
+        retrieval_metadata_defaults={"retrieval_backend": "memory"},
+    )
+
+    result = asyncio.run(
+        coordinator.execute(
+            "Review API request validation",
+            "B",
+            "ollama",
+        )
+    )
+
+    persisted = coordinator.run_store.get(result["run_id"])
+    failed_run = next(
+        event for event in result["events"] if event["stage"] == "run_failed"
+    )
+    failed_task = next(
+        event for event in result["events"] if event["stage"] == "task_failed"
+    )
+
+    assert client_timeouts == [12.5]
+    assert len(requests) == 1
+    assert str(requests[0].url) == "http://127.0.0.1:11434/api/chat"
+    assert result["status"] == "FAILED"
+    assert persisted == result
+    assert failed_run["error_type"] == "ReadTimeout"
+    assert failed_run["error"] == "Ollama request timed out"
+    assert failed_task["task_id"] == "T1"
+    assert failed_task["error_type"] == "ReadTimeout"
+    lifecycle_stages = {"task_started", "task_failed", "run_failed"}
+    assert [
+        event["stage"]
+        for event in result["events"]
+        if event["stage"] in lifecycle_stages
+    ] == ["task_started", "task_failed", "run_failed"]
