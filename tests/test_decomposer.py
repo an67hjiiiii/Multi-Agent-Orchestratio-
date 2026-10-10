@@ -6,6 +6,8 @@ from app.research.decomposer import (
     PLANNER_TEMPERATURE,
     TASK_PLAN_JSON_SCHEMA,
     DecompositionResult,
+    _derive_explicit_concerns,
+    _validate_explicit_concerns,
     TaskItem,
     decompose,
 )
@@ -537,6 +539,78 @@ def test_decompose_repairs_missing_explicit_obligations_once():
     assert "Already covered obligation IDs: O3, O4" in repair_prompt
     assert "O1 | canonical_kind=security | source_anchor=authentication" in repair_prompt
     assert "O5 | canonical_kind=database | source_anchor=transaction-boundary" in repair_prompt
+
+
+def test_explicit_concern_validation_reports_missing_and_misrouted_concerns():
+    concerns = _derive_explicit_concerns(
+        "The design must include authentication, transaction boundaries, "
+        "and API error responses."
+    )
+    tasks = [
+        TaskItem(
+            task_id="T1",
+            title="Review authentication",
+            objective="Review authentication requirements.",
+            expected_output="Authentication findings.",
+            domain="security",
+            role_profile="Security Analyst",
+            depends_on=[],
+            covers_obligations=[],
+        ),
+        TaskItem(
+            task_id="T2",
+            title="Review transaction boundaries",
+            objective="Review transaction boundaries.",
+            expected_output="Transaction findings.",
+            domain="security",
+            role_profile="Security Analyst",
+            depends_on=[],
+            covers_obligations=[],
+        ),
+    ]
+
+    missing_ids, misrouted_ids = _validate_explicit_concerns(tasks, concerns)
+
+    assert missing_ids == ["C3"]
+    assert misrouted_ids == ["C2"]
+
+
+def test_decompose_surfaces_explicit_concern_diagnostics_after_bounded_repair():
+    response = json.dumps(
+        {
+            "tasks": [
+                {
+                    "task_id": "T1",
+                    "title": "Review authentication and transaction boundaries",
+                    "objective": "Review authentication and transaction boundaries.",
+                    "expected_output": "Security findings.",
+                    "domain": "security",
+                    "role_profile": "Security Analyst",
+                    "depends_on": [],
+                    "covers_obligations": ["O1"],
+                }
+            ]
+        }
+    )
+    provider = _Provider([response, response])
+
+    result = asyncio.run(
+        decompose(
+            provider,
+            "The design must include authentication, transaction boundaries, "
+            "and API error responses.",
+            "",
+            RunMetrics(),
+        )
+    )
+
+    assert result.status == "FAILED"
+    assert result.repair_attempted is True
+    assert "missing explicit concerns: C3" in result.coverage_validation_reason
+    assert "misrouted explicit concerns: C2" in result.coverage_validation_reason
+    repair_prompt = provider.calls[1]["user"]
+    assert "C3 | canonical_domain=api_architecture | source_anchor=API error responses" in repair_prompt
+    assert "C2 | canonical_domain=database | source_anchor=transaction boundaries" in repair_prompt
 
 
 def test_decompose_allows_one_task_to_cover_related_obligations():
