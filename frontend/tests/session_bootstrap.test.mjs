@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import { bootstrapWorkspace } from "../src/app/sessionBootstrap.mjs";
 
@@ -88,4 +90,12 @@ test("expired session skips private requests and still loads public health", asy
 
   assert.deepEqual(calls, ["session", "health"]);
   assert.equal(result.authenticated, false);
+});
+
+test("Vite HTML shell loads the React application entry", async () => {
+  const indexPath = fileURLToPath(new URL("../index.html", import.meta.url));
+  const html = await readFile(indexPath, "utf8");
+
+  assert.match(html, /<div id="root"><\/div>/);
+  assert.match(html, /<script type="module" src="\/src\/main\.tsx"><\/script>/);
 });
