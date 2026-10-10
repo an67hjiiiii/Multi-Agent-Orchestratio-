@@ -103,6 +103,7 @@ def test_login_returns_stable_generic_errors(tmp_path, monkeypatch: pytest.Monke
         json={"email": "login-errors@example.test", "password": "Password123!"},
     )
     assert registration.status_code == 200
+    assert client.post("/api/auth/logout").status_code == 200
 
     wrong_password = client.post(
         "/api/auth/login",
@@ -122,3 +123,12 @@ def test_login_returns_stable_generic_errors(tmp_path, monkeypatch: pytest.Monke
     assert wrong_password.json()["message"] == unknown_user.json()["message"]
     assert missing_identifier.status_code == 400
     assert missing_identifier.json()["code"] == "IDENTIFIER_REQUIRED"
+    assert "set-cookie" not in wrong_password.headers
+    assert "set-cookie" not in unknown_user.headers
+    assert "set-cookie" not in missing_identifier.headers
+
+    session = client.get("/api/auth/session")
+    assert session.status_code == 200
+    assert session.json()["authenticated"] is False
+    assert session.json()["user"] is None
+    assert client.get("/api/auth/me").status_code == 401
