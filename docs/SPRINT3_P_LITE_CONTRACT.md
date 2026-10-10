@@ -36,6 +36,13 @@ does not approve M0 or create a release tag.
 - `domain: str`
 - `role_profile: str`
 - `depends_on: list[str]`
+- `covers_obligations: list[str]`
+
+`RequiredObligation`
+
+- `obligation_id: str`
+- `canonical_kind: CanonicalTaskDomain | None`
+- `source_anchor: str`
 
 `DecompositionResult`
 
@@ -44,6 +51,11 @@ does not approve M0 or create a release tag.
 - `planning_evidence_ids: list[str]`
 - `status: str`
 - `warnings: list[str]`
+- `required_obligations: list[RequiredObligation]`
+- `covered_obligations: list[str]`
+- `missing_obligations: list[str]`
+- `repair_attempted: bool`
+- `coverage_validation_reason: str | None`
 
 The decomposer receives only the bounded planning context. It calls the
 existing local adapter with `think=false` where supported, accepts structured

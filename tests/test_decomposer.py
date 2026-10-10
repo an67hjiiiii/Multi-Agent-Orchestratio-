@@ -52,6 +52,7 @@ def _valid_response():
                     "domain": "security",
                     "role_profile": "Security Analyst",
                     "depends_on": [],
+                    "covers_obligations": [],
                 },
                 {
                     "task_id": "T2",
@@ -61,6 +62,7 @@ def _valid_response():
                     "domain": "api_architecture",
                     "role_profile": "API/Architecture Analyst",
                     "depends_on": ["T1"],
+                    "covers_obligations": [],
                 },
             ]
         }
@@ -115,6 +117,7 @@ def test_decompose_prompt_preserves_distinct_dependent_obligations():
                     "domain": "database",
                     "role_profile": "Database Analyst",
                     "depends_on": ["T1"],
+                    "covers_obligations": [],
                 },
             ]
         }
@@ -155,6 +158,35 @@ def test_decompose_uses_exact_task_plan_schema_and_zero_temperature_when_support
     assert provider.calls[0]["temperature"] == PLANNER_TEMPERATURE == 0.0
 
 
+def test_decompose_requires_both_list_fields_to_be_present_and_arrays():
+    for field_name in ("depends_on", "covers_obligations"):
+        missing = json.loads(_valid_response())
+        del missing["tasks"][0][field_name]
+        malformed = json.dumps(missing)
+        provider = _Provider([malformed, malformed])
+
+        result = asyncio.run(decompose(provider, "Review auth.", "", RunMetrics()))
+
+        assert result.status == "FAILED"
+        assert result.tasks == []
+        assert result.repair_attempted is True
+        assert len(provider.calls) == 2
+        assert any(field_name in warning for warning in result.warnings)
+
+        wrong_type = json.loads(_valid_response())
+        wrong_type["tasks"][0][field_name] = "not-a-list"
+        malformed_type = json.dumps(wrong_type)
+        provider = _Provider([malformed_type, malformed_type])
+
+        result = asyncio.run(decompose(provider, "Review auth.", "", RunMetrics()))
+
+        assert result.status == "FAILED"
+        assert result.tasks == []
+        assert result.repair_attempted is True
+        assert len(provider.calls) == 2
+        assert any(field_name in warning for warning in result.warnings)
+
+
 def test_decompose_retries_a_collapsed_explicitly_ordered_plan():
     collapsed = json.dumps(
         {
@@ -167,6 +199,7 @@ def test_decompose_retries_a_collapsed_explicitly_ordered_plan():
                     "domain": "database",
                     "role_profile": "reviewer",
                     "depends_on": [],
+                    "covers_obligations": [],
                 }
             ]
         }
@@ -192,6 +225,7 @@ def test_decompose_retries_a_collapsed_explicitly_ordered_plan():
                     "domain": "database",
                     "role_profile": "Database Analyst",
                     "depends_on": ["T1"],
+                    "covers_obligations": [],
                 },
             ]
         }
@@ -253,6 +287,7 @@ def test_decompose_rejects_invalid_dependency_after_single_retry():
                     "domain": "security",
                     "role_profile": "Security Analyst",
                     "depends_on": ["missing"],
+                    "covers_obligations": [],
                 }
             ]
         }
@@ -294,6 +329,7 @@ def test_decompose_rejects_dependency_cycles():
                     "domain": "security",
                     "role_profile": "Security Analyst",
                     "depends_on": ["T2"],
+                    "covers_obligations": [],
                 },
                 {
                     "task_id": "T2",
@@ -303,6 +339,7 @@ def test_decompose_rejects_dependency_cycles():
                     "domain": "database",
                     "role_profile": "Database Analyst",
                     "depends_on": ["T1"],
+                    "covers_obligations": [],
                 },
             ]
         }
@@ -367,6 +404,7 @@ def test_decompose_allows_security_obligations_in_api_context():
             "domain": "security",
             "role_profile": "Security Analyst",
             "depends_on": [],
+            "covers_obligations": [],
         },
         {
             "task_id": "T2",
@@ -376,6 +414,7 @@ def test_decompose_allows_security_obligations_in_api_context():
             "domain": "security",
             "role_profile": "Security Analyst",
             "depends_on": [],
+            "covers_obligations": [],
         },
     ]
     provider = _Provider([json.dumps(response)])
@@ -703,6 +742,7 @@ def test_decompose_repairs_category_expansion_and_preserves_named_domains():
                     "domain": "database",
                     "role_profile": "Database Analyst",
                     "depends_on": [],
+                    "covers_obligations": [],
                 },
                 {
                     "task_id": "T2",
@@ -712,6 +752,7 @@ def test_decompose_repairs_category_expansion_and_preserves_named_domains():
                     "domain": "database",
                     "role_profile": "Database Analyst",
                     "depends_on": [],
+                    "covers_obligations": [],
                 },
                 {
                     "task_id": "T3",
@@ -721,6 +762,7 @@ def test_decompose_repairs_category_expansion_and_preserves_named_domains():
                     "domain": "database",
                     "role_profile": "Database Analyst",
                     "depends_on": [],
+                    "covers_obligations": [],
                 },
                 {
                     "task_id": "T4",
@@ -730,6 +772,7 @@ def test_decompose_repairs_category_expansion_and_preserves_named_domains():
                     "domain": "database",
                     "role_profile": "Database Analyst",
                     "depends_on": [],
+                    "covers_obligations": [],
                 },
             ]
         }
@@ -745,6 +788,7 @@ def test_decompose_repairs_category_expansion_and_preserves_named_domains():
                     "domain": "security",
                     "role_profile": "Security Analyst",
                     "depends_on": [],
+                    "covers_obligations": [],
                 },
                 {
                     "task_id": "T2",
@@ -754,6 +798,7 @@ def test_decompose_repairs_category_expansion_and_preserves_named_domains():
                     "domain": "database",
                     "role_profile": "Database Analyst",
                     "depends_on": [],
+                    "covers_obligations": [],
                 },
             ]
         }
@@ -789,6 +834,7 @@ def test_decompose_accepts_single_canonical_domain_with_paraphrased_anchor():
                     "domain": "security",
                     "role_profile": "Security Analyst",
                     "depends_on": [],
+                    "covers_obligations": [],
                 },
                 {
                     "task_id": "T2",
@@ -798,6 +844,7 @@ def test_decompose_accepts_single_canonical_domain_with_paraphrased_anchor():
                     "domain": "database",
                     "role_profile": "Database Analyst",
                     "depends_on": [],
+                    "covers_obligations": [],
                 },
             ]
         }

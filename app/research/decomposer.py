@@ -942,7 +942,11 @@ def _parse_tasks(parsed: dict[str, Any]) -> list[TaskItem]:
             field_name: _required_text(raw, field_name, index)
             for field_name in _REQUIRED_TASK_FIELDS
         }
-        raw_dependencies = raw.get("depends_on", [])
+        if "depends_on" not in raw:
+            raise _DecompositionOutputError(
+                f"task {index} must include depends_on as a list"
+            )
+        raw_dependencies = raw["depends_on"]
         if not isinstance(raw_dependencies, list):
             raise _DecompositionOutputError(f"task {index} depends_on must be a list")
 
@@ -954,7 +958,11 @@ def _parse_tasks(parsed: dict[str, Any]) -> list[TaskItem]:
                 )
             dependencies.append(dependency.strip())
 
-        raw_coverage = raw.get("covers_obligations", [])
+        if "covers_obligations" not in raw:
+            raise _DecompositionOutputError(
+                f"task {index} must include covers_obligations as a list"
+            )
+        raw_coverage = raw["covers_obligations"]
         if not isinstance(raw_coverage, list):
             raise _DecompositionOutputError(
                 f"task {index} covers_obligations must be a list"
