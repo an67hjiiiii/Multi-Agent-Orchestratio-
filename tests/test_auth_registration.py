@@ -54,6 +54,36 @@ def test_public_registration_forces_user_role_and_hashes_password(
     assert base_payload["password"] not in json.dumps(stored_auth)
 
 
+def test_duplicate_registration_is_rejected_without_creating_a_session(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = make_client(tmp_path, monkeypatch)
+    payload = {
+        "email": "duplicate@example.test",
+        "name": "Duplicate",
+        "password": "Password123!",
+    }
+
+    registered = client.post("/api/auth/register", json=payload)
+    assert registered.status_code == 200
+    assert client.post("/api/auth/logout").status_code == 200
+
+    duplicate = client.post("/api/auth/register", json=payload)
+
+    assert duplicate.status_code == 409
+    assert duplicate.json()["code"] == "ACCOUNT_EXISTS"
+    assert "set-cookie" not in duplicate.headers
+    session = client.get("/api/auth/session")
+    assert session.status_code == 200
+    assert session.json()["authenticated"] is False
+    assert session.json()["user"] is None
+    assert client.get("/api/auth/me").status_code == 401
+
+    stored_auth = json.loads((tmp_path / "data" / "auth.json").read_text(encoding="utf-8"))
+    assert len(stored_auth["users"]) == 1
+
+
 @pytest.mark.parametrize(
     ("payload", "expected_status"),
     [
