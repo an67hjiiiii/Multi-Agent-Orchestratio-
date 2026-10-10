@@ -8,7 +8,11 @@ from dataclasses import asdict
 from typing import Any
 
 from app.core.types import RunMetrics, SourceChunk, Task
-from app.research.contracts import WorkerResult
+from app.research.contracts import (
+    WorkerLifecycleState,
+    WorkerResult,
+    transition_worker_lifecycle,
+)
 from app.research.worker import execute_task
 
 
@@ -30,7 +34,26 @@ async def execute_prepared_tasks(
 
     completed: dict[str, WorkerResult] = {}
     results: list[WorkerResult] = []
+    lifecycle_states = {
+        task.task_id: WorkerLifecycleState.PENDING for task in tasks
+    }
     for task in tasks:
+        event(
+            "task_state_changed",
+            task_id=task.task_id,
+            previous_state=None,
+            state=WorkerLifecycleState.PENDING.value,
+        )
+    for task in tasks:
+        lifecycle_states[task.task_id] = transition_worker_lifecycle(
+            lifecycle_states[task.task_id], WorkerLifecycleState.RUNNING
+        )
+        event(
+            "task_state_changed",
+            task_id=task.task_id,
+            previous_state=WorkerLifecycleState.PENDING.value,
+            state=WorkerLifecycleState.RUNNING.value,
+        )
         event(
             "task_started",
             task_id=task.task_id,
@@ -49,6 +72,15 @@ async def execute_prepared_tasks(
                 (time.perf_counter() - generation_started) * 1000
             )
         except Exception as exc:
+            lifecycle_states[task.task_id] = transition_worker_lifecycle(
+                lifecycle_states[task.task_id], WorkerLifecycleState.FAILED
+            )
+            event(
+                "task_state_changed",
+                task_id=task.task_id,
+                previous_state=WorkerLifecycleState.RUNNING.value,
+                state=WorkerLifecycleState.FAILED.value,
+            )
             event(
                 "task_failed",
                 task_id=task.task_id,
@@ -57,6 +89,15 @@ async def execute_prepared_tasks(
             raise
         completed[task.task_id] = result
         results.append(result)
+        lifecycle_states[task.task_id] = transition_worker_lifecycle(
+            lifecycle_states[task.task_id], WorkerLifecycleState.FINISHED
+        )
+        event(
+            "task_state_changed",
+            task_id=task.task_id,
+            previous_state=WorkerLifecycleState.RUNNING.value,
+            state=WorkerLifecycleState.FINISHED.value,
+        )
         event("task_completed", result=asdict(result))
         if metrics.input_tokens + metrics.output_tokens > max_run_tokens:
             event(

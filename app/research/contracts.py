@@ -8,6 +8,7 @@ the execution boundary.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
+from enum import Enum
 from typing import Any, Mapping
 
 from app.core.types import Status, Task, TaskResult
@@ -17,6 +18,38 @@ from app.research.task_schema import DecompositionResult, TaskItem
 # TaskResult is the established worker wire shape. This name documents its
 # owner without changing construction, isinstance checks, or JSON output.
 WorkerResult = TaskResult
+
+
+class WorkerLifecycleState(str, Enum):
+    """Execution lifecycle, deliberately separate from a worker answer status."""
+
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    FINISHED = "FINISHED"
+    FAILED = "FAILED"
+
+
+_WORKER_LIFECYCLE_TRANSITIONS = {
+    WorkerLifecycleState.PENDING: {WorkerLifecycleState.RUNNING},
+    WorkerLifecycleState.RUNNING: {
+        WorkerLifecycleState.FINISHED,
+        WorkerLifecycleState.FAILED,
+    },
+    WorkerLifecycleState.FINISHED: set(),
+    WorkerLifecycleState.FAILED: set(),
+}
+
+
+def transition_worker_lifecycle(
+    current: WorkerLifecycleState, target: WorkerLifecycleState
+) -> WorkerLifecycleState:
+    """Validate one legal Worker lifecycle transition."""
+
+    if target not in _WORKER_LIFECYCLE_TRANSITIONS[current]:
+        raise ValueError(
+            f"invalid Worker lifecycle transition: {current.value} -> {target.value}"
+        )
+    return target
 
 
 def _values(item: TaskItem | Mapping[str, Any] | Task) -> dict[str, Any]:

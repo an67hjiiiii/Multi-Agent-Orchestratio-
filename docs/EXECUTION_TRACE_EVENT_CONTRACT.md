@@ -10,15 +10,19 @@ Each event is an append-only mapping with a `stage` name and a UTC ISO-8601
 `ts` timestamp. Event-specific fields are additive. Consumers should preserve
 unknown fields and use the recorded order when rendering a trace.
 
-Task events correlate through `task_id`. For a normal return or a caught
-`Exception`, a task that begins execution records one `task_started` event,
-followed by either `task_completed` or `task_failed`. Process interruption or
-task cancellation can leave a start without a terminal task event; those cases
-are outside this contract. Tasks not reached because execution stops at a run
-budget have no task event.
+Worker execution lifecycle is separate from `WorkerResult.status`: `FINISHED`
+means a result was returned, including `PARTIAL` or `NO_EVIDENCE`; `FAILED`
+means execution raised before returning a result.
+
+Task events correlate through `task_id`. Every scheduled task is recorded as
+`PENDING` before execution begins. A task that begins execution records one
+`task_started` event, followed by either `task_completed` or `task_failed`.
+Process interruption or task cancellation can leave a task `RUNNING` without a
+terminal task event; those cases are outside this contract.
 
 | Stage | Required fields | Meaning |
 | --- | --- | --- |
+| `task_state_changed` | `task_id`, `previous_state`, `state` | Records the validated lifecycle transition. Every scheduled task starts `PENDING`; an entered task moves to `RUNNING`, then to `FINISHED` or `FAILED`. Tasks not reached after a budget stop remain `PENDING`. |
 | `task_started` | `task_id`, `depends_on` | Emitted before resolving the task's evidence and calling its worker. `depends_on` contains the declared task IDs; dependency answers are not copied into the event. |
 | `task_completed` | `result` | Emitted after a `WorkerResult` is produced. The existing result mapping carries the correlating `task_id`, task status, answer, and evidence/citation fields. The stage means a result was returned; its nested status remains authoritative and is not inferred from the event name. |
 | `task_failed` | `task_id`, `error_type` | Emitted when dependency-context preparation, evidence resolution, or worker execution raises. It identifies the task and exception class without copying exception text into this task event. The exception continues to the coordinator, which records `run_failed` and persists the run as `FAILED`. |

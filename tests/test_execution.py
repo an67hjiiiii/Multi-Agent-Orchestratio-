@@ -3,6 +3,10 @@ import asyncio
 import pytest
 
 from app.core.types import ProviderResult, RunMetrics, SourceChunk, Task, Usage
+from app.research.contracts import (
+    WorkerLifecycleState,
+    transition_worker_lifecycle,
+)
 from app.research.execution import execute_prepared_tasks
 
 
@@ -19,6 +23,27 @@ class StubProvider:
 
 def _evidence() -> list[SourceChunk]:
     return [SourceChunk("chunk-1", "source-1", "api.md", "API evidence.", 0)]
+
+
+def test_worker_lifecycle_accepts_only_pending_running_terminal_transitions():
+    assert transition_worker_lifecycle(
+        WorkerLifecycleState.PENDING, WorkerLifecycleState.RUNNING
+    ) is WorkerLifecycleState.RUNNING
+    assert transition_worker_lifecycle(
+        WorkerLifecycleState.RUNNING, WorkerLifecycleState.FINISHED
+    ) is WorkerLifecycleState.FINISHED
+    assert transition_worker_lifecycle(
+        WorkerLifecycleState.RUNNING, WorkerLifecycleState.FAILED
+    ) is WorkerLifecycleState.FAILED
+
+    with pytest.raises(ValueError, match="PENDING -> FINISHED"):
+        transition_worker_lifecycle(
+            WorkerLifecycleState.PENDING, WorkerLifecycleState.FINISHED
+        )
+    with pytest.raises(ValueError, match="FAILED -> RUNNING"):
+        transition_worker_lifecycle(
+            WorkerLifecycleState.FAILED, WorkerLifecycleState.RUNNING
+        )
 
 
 def test_execution_uses_completed_dependency_answers_for_routed_context():
@@ -49,13 +74,24 @@ def test_execution_uses_completed_dependency_answers_for_routed_context():
     assert [result.task_id for result in results] == ["T1", "T2"]
     assert contexts == ["", "grounded answer"]
     assert [item["stage"] for item in events] == [
+        "task_state_changed",
+        "task_state_changed",
+        "task_state_changed",
         "task_started",
+        "task_state_changed",
         "task_completed",
+        "task_state_changed",
         "task_started",
+        "task_state_changed",
         "task_completed",
     ]
-    assert events[0]["task_id"] == "T1"
-    assert events[1]["result"] == {
+    assert [
+        item["state"] for item in events if item["stage"] == "task_state_changed"
+    ] == ["PENDING", "PENDING", "RUNNING", "FINISHED", "RUNNING", "FINISHED"]
+    first_result = next(
+        item["result"] for item in events if item["stage"] == "task_completed"
+    )
+    assert first_result == {
         "task_id": "T1",
         "domain": "api_architecture",
         "status": "COMPLETE",
@@ -66,12 +102,15 @@ def test_execution_uses_completed_dependency_answers_for_routed_context():
         "missing_information": [],
         "status_reason": "",
     }
-    assert events[2]["task_id"] == "T2"
-    assert events[2]["depends_on"] == ["T1"]
+    second_start = [
+        item for item in events if item["stage"] == "task_started"
+    ][1]
+    assert second_start["task_id"] == "T2"
+    assert second_start["depends_on"] == ["T1"]
 
 
 def test_execution_preserves_budget_stop_after_current_worker_result():
-    events: list[str] = []
+    events: list[dict] = []
 
     async def resolve(_task: Task, _dependency_context: str) -> list[SourceChunk]:
         return _evidence()
@@ -82,13 +121,22 @@ def test_execution_preserves_budget_stop_after_current_worker_result():
             [Task("T1", "First"), Task("T2", "Second")],
             resolve_task_evidence=resolve,
             metrics=RunMetrics(),
-            event=lambda stage, **_payload: events.append(stage),
+            event=lambda stage, **payload: events.append(
+                {"stage": stage, **payload}
+            ),
             max_run_tokens=1,
         )
     )
 
     assert [result.task_id for result in results] == ["T1"]
-    assert events == ["task_started", "task_completed", "run_budget_exceeded"]
+    states = [item for item in events if item["stage"] == "task_state_changed"]
+    assert [(item["task_id"], item["state"]) for item in states] == [
+        ("T1", "PENDING"),
+        ("T2", "PENDING"),
+        ("T1", "RUNNING"),
+        ("T1", "FINISHED"),
+    ]
+    assert events[-1]["stage"] == "run_budget_exceeded"
 
 
 def test_execution_preserves_worker_failures_for_run_coordinator():
@@ -115,10 +163,19 @@ def test_execution_preserves_worker_failures_for_run_coordinator():
             )
         )
 
-    assert [item["stage"] for item in events] == ["task_started", "task_failed"]
-    assert events[0]["task_id"] == events[1]["task_id"] == "T1"
-    assert events[1]["error_type"] == "TimeoutError"
-    assert "error" not in events[1]
+    assert [item["stage"] for item in events] == [
+        "task_state_changed",
+        "task_state_changed",
+        "task_started",
+        "task_state_changed",
+        "task_failed",
+    ]
+    assert [
+        item["state"] for item in events if item["stage"] == "task_state_changed"
+    ] == ["PENDING", "RUNNING", "FAILED"]
+    assert events[0]["task_id"] == events[-1]["task_id"] == "T1"
+    assert events[-1]["error_type"] == "TimeoutError"
+    assert "error" not in events[-1]
 
 
 def test_execution_records_task_failure_when_evidence_resolution_raises():
@@ -143,8 +200,17 @@ def test_execution_records_task_failure_when_evidence_resolution_raises():
             )
         )
 
-    assert [item["stage"] for item in events] == ["task_started", "task_failed"]
-    assert events[1] == {
+    assert [item["stage"] for item in events] == [
+        "task_state_changed",
+        "task_state_changed",
+        "task_started",
+        "task_state_changed",
+        "task_failed",
+    ]
+    assert [
+        item["state"] for item in events if item["stage"] == "task_state_changed"
+    ] == ["PENDING", "RUNNING", "FAILED"]
+    assert events[-1] == {
         "stage": "task_failed",
         "task_id": "T1",
         "error_type": "LookupError",
@@ -181,8 +247,29 @@ def test_execution_completes_no_evidence_without_calling_worker_provider():
     assert results[0].evidence_ids == []
     assert results[0].citations == []
     assert metrics.llm_calls == 0
+    assert [
+        item["state"] for item in events if item["stage"] == "task_state_changed"
+    ] == ["PENDING", "RUNNING", "FINISHED"]
     assert events == [
+        {
+            "stage": "task_state_changed",
+            "task_id": "T1",
+            "previous_state": None,
+            "state": "PENDING",
+        },
+        {
+            "stage": "task_state_changed",
+            "task_id": "T1",
+            "previous_state": "PENDING",
+            "state": "RUNNING",
+        },
         {"stage": "task_started", "task_id": "T1", "depends_on": []},
+        {
+            "stage": "task_state_changed",
+            "task_id": "T1",
+            "previous_state": "RUNNING",
+            "state": "FINISHED",
+        },
         {
             "stage": "task_completed",
             "result": {
