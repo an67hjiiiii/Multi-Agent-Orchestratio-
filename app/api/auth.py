@@ -81,7 +81,9 @@ def register(
             username=body.username,
             display_name=body.display_name or body.name,
             password=body.password,
-            role=body.role,
+            # Public signup never grants a privileged role. ADMIN accounts
+            # are provisioned through the server-controlled environment path.
+            role="USER",
         )
         token, session = store.create_session(str(user["user_id"]))
     except DuplicateUserError as exc:

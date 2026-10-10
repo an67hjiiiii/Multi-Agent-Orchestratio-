@@ -60,9 +60,9 @@ class AuthRegisterRequest(BaseModel):
     """Local account registration input.
 
     ``username`` is optional so existing email-first callers can register,
-    while ``email`` is optional for a local username-only workspace.  The
-    backend assigns ADMIN only for an explicit first-account bootstrap;
-    later self-registration is always USER.
+    while ``email`` is optional for a local username-only workspace. ``role``
+    remains accepted for request compatibility, but the public endpoint always
+    creates USER accounts; ADMIN is provisioned by the server environment.
     """
 
     email: str | None = None
