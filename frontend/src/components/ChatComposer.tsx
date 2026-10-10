@@ -28,7 +28,7 @@ export function ChatComposer({ isRunning, isImporting, onSubmit, onImport }: Cha
           ref={fileRef}
           className="visually-hidden"
           type="file"
-          accept=".txt,.md,.markdown,.py,.js,.ts,.tsx,.json,.yaml,.yml,.csv"
+          accept=".txt,.md,.markdown,.pdf,.py,.js,.ts,.tsx,.json,.yaml,.yml,.csv"
           onChange={(event) => {
             const file = event.target.files?.[0];
             if (file) void onImport(file);
@@ -38,8 +38,8 @@ export function ChatComposer({ isRunning, isImporting, onSubmit, onImport }: Cha
         <button
           className="composer-icon-button"
           type="button"
-          aria-label="Add a text source"
-          title="Add a text source"
+          aria-label="Add a text source or text-only PDF"
+          title="Add a text source or text-only PDF"
           disabled={isImporting}
           onClick={() => fileRef.current?.click()}
         >
