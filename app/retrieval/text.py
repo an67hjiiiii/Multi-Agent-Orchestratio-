@@ -2,6 +2,8 @@ from __future__ import annotations
 import hashlib
 import re
 import unicodedata
+from collections.abc import Mapping
+from typing import Any
 from app.core.types import SourceChunk
 
 STOP = {"the","a","an","and","or","to","of","in","on","for","with","is","are","be","this","that","và","là","của","cho","trong","với","một","các","những","được","hãy","theo"}
@@ -65,9 +67,16 @@ def chunk_text(text: str, max_chars: int = 1200) -> list[str]:
     return chunks
 
 
-def make_chunks(source_name: str, text: str, max_chars: int = 1200) -> list[SourceChunk]:
+def make_chunks(
+    source_name: str,
+    text: str,
+    max_chars: int = 1200,
+    *,
+    provenance: Mapping[str, Any] | None = None,
+) -> list[SourceChunk]:
     clean = normalize_text(text)
     source_id = "src_" + hashlib.sha256((source_name + "\0" + clean).encode()).hexdigest()[:16]
+    base_provenance = dict(provenance or {})
     result: list[SourceChunk] = []
     for i, chunk in enumerate(chunk_text(clean, max_chars=max_chars)):
         result.append(SourceChunk(
@@ -76,6 +85,7 @@ def make_chunks(source_name: str, text: str, max_chars: int = 1200) -> list[Sour
             source_name=source_name,
             text=chunk,
             index=i,
+            provenance={**base_provenance, "chunk_index": i},
         ))
     return result
 

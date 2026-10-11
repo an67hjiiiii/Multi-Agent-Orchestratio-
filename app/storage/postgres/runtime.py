@@ -309,6 +309,14 @@ class PostgresSourceStore:
             "indexing_version": "s2-lifecycle-v1",
             **(dict(provenance) if isinstance(provenance, dict) else {}),
         }
+        source_provenance = {
+            **metadata,
+            "source_id": source_id,
+            "source_name": str(source_name).strip(),
+            "source_hash": hashlib.sha256(clean_text.encode("utf-8")).hexdigest(),
+            "source_version": source_id,
+        }
+        metadata = source_provenance
         now = _now()
         with self.session_factory.begin() as db:
             source = db.get(KnowledgeSourceRecord, source_id)
@@ -332,7 +340,9 @@ class PostgresSourceStore:
                 source.updated_at = now
 
         try:
-            chunks = make_chunks(str(source_name).strip(), clean_text)
+            chunks = make_chunks(
+                str(source_name).strip(), clean_text, provenance=source_provenance
+            )
             if not chunks:
                 raise ValueError("text must not be empty")
             owned_chunks = [
@@ -342,6 +352,10 @@ class PostgresSourceStore:
                     source_name=chunk.source_name,
                     text=chunk.text,
                     index=chunk.index,
+                    provenance={
+                        **chunk.provenance,
+                        "chunk_id": f"{source_id}_c{chunk.index:04d}",
+                    },
                 )
                 for chunk in chunks
             ]
@@ -364,7 +378,7 @@ class PostgresSourceStore:
                         source_id=source_id,
                         chunk_index=chunk.index,
                         content=chunk.text,
-                        provenance={"source_name": str(source_name).strip(), "source_id": source_id},
+                        provenance=dict(chunk.provenance),
                         indexing_version="s2-lifecycle-v1",
                     )
                     for chunk in added
@@ -380,6 +394,9 @@ class PostgresSourceStore:
             "source_name": source_name,
             "chunks_added": len(added),
             "total_chunks_for_source": len(owned_chunks),
+            "source_hash": source_provenance["source_hash"],
+            "source_version": source_id,
+            "provenance": dict(source_provenance),
             "snapshot_id": self.snapshot_id(),
         }
 
@@ -459,6 +476,7 @@ class PostgresSourceStore:
             ).order_by(KnowledgeChunkRecord.chunk_index)).all()
             return {"source_id": source_id, "source_name": source.source_name,
                     "status": source.status,
+                    "provenance": dict(source.display_metadata or {}),
                     "metadata": dict(source.display_metadata or {}),
                     "chunks": [self._chunk(row).__dict__ for row in chunks]}
 
@@ -497,6 +515,7 @@ class PostgresSourceStore:
             source_name=row.source.source_name,
             text=row.content or "",
             index=row.chunk_index,
+            provenance=dict(row.provenance or {}),
         )
 
 

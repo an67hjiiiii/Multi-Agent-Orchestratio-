@@ -10,7 +10,11 @@ from app.api.auth import router as auth_router
 from app.api.auth import get_session_token
 from app.auth.store import AuthStore, InvalidSessionError
 from app.core.config import RuntimeConfig
-from app.ingestion.documents import DocumentTypeError, extract_document
+from app.ingestion.documents import (
+    DOCUMENT_INGESTION_VERSION,
+    DocumentTypeError,
+    extract_document,
+)
 from app.providers.ollama import OllamaProvider
 from app.research.pipeline import ResearchPipeline
 from app.storage.run_store import RunStore
@@ -146,7 +150,16 @@ def get_chunk(chunk_id: str, request: Request):
 def import_text(body: SourceTextRequest, request: Request):
     if not body.text.strip():
         raise HTTPException(400, "text is empty")
-    return owner_source_store(current_user(request)).import_text(body.source_name, body.text)
+    return owner_source_store(current_user(request)).import_text(
+        body.source_name,
+        body.text,
+        provenance={
+            "ingestion_version": DOCUMENT_INGESTION_VERSION,
+            "source_type": "text/plain",
+            "source_format": "text",
+            "origin": "text_api",
+        },
+    )
 
 @app.post("/api/sources/file")
 async def import_file(request: Request, file: UploadFile = File(...)):
@@ -178,7 +191,11 @@ async def import_file(request: Request, file: UploadFile = File(...)):
         if "must not be empty" in str(exc):
             raise HTTPException(400, "file is empty") from exc
         raise HTTPException(415, "DOCUMENT_EXTRACTION_FAILED") from exc
-    return owner_source_store(user).import_text(document.source_name, document.text)
+    return owner_source_store(user).import_text(
+        document.source_name,
+        document.text,
+        provenance=document.provenance,
+    )
 
 @app.post("/api/chat")
 async def chat(body: ChatRequest, request: Request):
