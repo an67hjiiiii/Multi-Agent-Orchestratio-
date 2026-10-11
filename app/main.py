@@ -1,18 +1,16 @@
 from __future__ import annotations
 import os
-from io import BytesIO
 from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, UploadFile, File, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from pypdf import PdfReader
-from pypdf.errors import PdfReadError
 from app.api.auth import router as auth_router
 from app.api.auth import get_session_token
 from app.auth.store import AuthStore, InvalidSessionError
 from app.core.config import RuntimeConfig
+from app.ingestion.documents import DocumentTypeError, extract_document
 from app.providers.ollama import OllamaProvider
 from app.research.pipeline import ResearchPipeline
 from app.storage.run_store import RunStore
@@ -158,24 +156,29 @@ async def import_file(request: Request, file: UploadFile = File(...)):
         raise HTTPException(413, "Files must be no larger than 2 MB")
 
     source_name = file.filename or "upload.txt"
-    if source_name.lower().endswith(".pdf"):
-        try:
-            reader = PdfReader(BytesIO(data), strict=False)
-            if reader.is_encrypted:
-                raise HTTPException(415, "PDF_EXTRACTION_UNAVAILABLE")
-            text = "\n".join(page.extract_text() or "" for page in reader.pages).strip()
-        except (PdfReadError, EOFError, OSError, ValueError) as exc:
-            raise HTTPException(415, "PDF_EXTRACTION_UNAVAILABLE") from exc
-        if not text:
-            raise HTTPException(422, "PDF_NO_TEXT")
-    else:
-        try:
-            text = data.decode("utf-8")
-        except UnicodeDecodeError as exc:
-            raise HTTPException(415, "UTF8_TEXT_REQUIRED") from exc
-    if not text.strip():
-        raise HTTPException(400, "file is empty")
-    return owner_source_store(user).import_text(source_name, text)
+    try:
+        document = extract_document(
+            data,
+            source_name,
+            origin="upload",
+            content_type=file.content_type,
+        )
+    except DocumentTypeError as exc:
+        detail = (
+            "PDF_NO_TEXT"
+            if "no extractable text" in str(exc)
+            else "PDF_EXTRACTION_UNAVAILABLE"
+        )
+        if not source_name.lower().endswith(".pdf"):
+            detail = "UNSUPPORTED_DOCUMENT_TYPE"
+        raise HTTPException(415 if detail != "PDF_NO_TEXT" else 422, detail) from exc
+    except UnicodeError as exc:
+        raise HTTPException(415, "UTF8_TEXT_REQUIRED") from exc
+    except ValueError as exc:
+        if "must not be empty" in str(exc):
+            raise HTTPException(400, "file is empty") from exc
+        raise HTTPException(415, "DOCUMENT_EXTRACTION_FAILED") from exc
+    return owner_source_store(user).import_text(document.source_name, document.text)
 
 @app.post("/api/chat")
 async def chat(body: ChatRequest, request: Request):
