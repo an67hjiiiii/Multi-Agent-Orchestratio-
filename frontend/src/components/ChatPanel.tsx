@@ -3,6 +3,7 @@ import { ChatComposer } from "./ChatComposer";
 
 interface ChatPanelProps {
   run: RunRecord | null;
+  pendingQuestion?: string | null;
   isRunning: boolean;
   isImporting: boolean;
   sourceNotice: string | null;
@@ -11,6 +12,7 @@ interface ChatPanelProps {
 }
 export function ChatPanel({
   run,
+  pendingQuestion = null,
   isRunning,
   isImporting,
   sourceNotice,
@@ -35,7 +37,7 @@ export function ChatPanel({
       </div>
 
       <div className="conversation" aria-live="polite">
-        {!run ? (
+        {!run && !pendingQuestion && !isRunning ? (
           <div className="welcome-state">
             <div className="welcome-kicker">LOCAL MULTI-AGENT RAG</div>
             <h2>Start with a focused research question.</h2>
@@ -52,14 +54,16 @@ export function ChatPanel({
           <article className="conversation-thread">
             <div className="user-message">
               <span className="message-label">You</span>
-              <p>{run.query || "Research question"}</p>
+              <p>{pendingQuestion ?? run?.query ?? "Research question"}</p>
             </div>
-            <div className="answer-block">
+            <div className="answer-block" aria-busy={isRunning}>
               <div className="answer-heading">
                 <span className="answer-avatar" aria-hidden="true">LR</span>
                 <span className="message-label">Research answer</span>
               </div>
-              <p className="answer-copy">{run.answer || "No answer was returned for this run."}</p>
+              <p className="answer-copy">
+                {isRunning ? "Retrieving local evidence and validating citations…" : run?.answer || "No answer was returned for this run."}
+              </p>
               {citations.length > 0 && (
                 <div className="answer-citations">
                   <span className="citation-label">Cited evidence</span>
