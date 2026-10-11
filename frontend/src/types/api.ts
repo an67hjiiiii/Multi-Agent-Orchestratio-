@@ -14,6 +14,11 @@ export interface SourceSummary {
   source_id: string;
   source_name: string;
   chunk_count: number;
+  /** Optional lifecycle state returned by richer source backends. */
+  status?: string;
+  index_status?: string;
+  source_type?: string;
+  source_format?: string;
 }
 
 export interface SourcesResponse {
@@ -28,6 +33,13 @@ export interface SourceChunk {
   text: string;
   index: number;
   score?: number;
+}
+
+export interface SourceDetail {
+  source_id: string;
+  source_name: string;
+  chunks: SourceChunk[];
+  status?: string;
 }
 
 export interface Task {

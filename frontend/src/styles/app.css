@@ -165,6 +165,7 @@ button:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3p
 .status-failed .status-dot, .status-offline .status-dot { background: #c75a5a; }
 .status-failed { background: var(--danger-soft); color: var(--danger); }
 .status-partial, .status-no-evidence, .status-connecting { background: var(--warning-soft); color: var(--warning); }
+.status-empty { background: #eef1f2; color: var(--ink-soft); }
 
 @media (max-width: 1180px) {
   :root { --sidebar-width: 220px; --inspector-width: 300px; }

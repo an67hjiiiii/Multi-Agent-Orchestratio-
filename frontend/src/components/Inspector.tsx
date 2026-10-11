@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { InspectorTab } from "../app/useResearchApp";
-import type { RunRecord, SourceChunk, SourceSummary } from "../types/api";
+import type { RunRecord, SourceChunk, SourceDetail, SourceSummary } from "../types/api";
 import { api } from "../lib/api";
 import { StatusBadge } from "./StatusBadge";
 
@@ -50,18 +50,30 @@ function EvidencePanel({ run }: { run: RunRecord | null }) {
   );
 }
 
+function sourceStatus(source: SourceSummary | SourceDetail): string {
+  const explicit = "status" in source ? source.status : undefined;
+  const indexed = "index_status" in source ? source.index_status : undefined;
+  const reported = explicit ?? indexed;
+  if (reported?.trim()) return reported;
+  const chunkCount = "chunks" in source ? source.chunks.length : source.chunk_count;
+  return chunkCount > 0 ? "READY" : "EMPTY";
+}
+
 function SourcesPanel({ sources }: { sources: SourceSummary[] }) {
+  const [selectedSource, setSelectedSource] = useState<SourceDetail | null>(null);
   const [selectedChunk, setSelectedChunk] = useState<SourceChunk | null>(null);
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [sourceError, setSourceError] = useState<string | null>(null);
 
   async function inspectSource(source: SourceSummary) {
     setLoadingId(source.source_id);
+    setSourceError(null);
+    setSelectedChunk(null);
     try {
-      // TODO(M0): source detail is not exposed as a stable UI contract yet; inspect the first chunk when available.
-      const detail = await api.getChunk(`${source.source_id}_c0000`);
-      setSelectedChunk(detail);
-    } catch {
-      setSelectedChunk(null);
+      setSelectedSource(await api.getSource(source.source_id));
+    } catch (cause) {
+      setSelectedSource(null);
+      setSourceError(cause instanceof Error ? cause.message : "Unable to load this source");
     } finally {
       setLoadingId(null);
     }
@@ -76,13 +88,68 @@ function SourcesPanel({ sources }: { sources: SourceSummary[] }) {
           <div className="source-card-heading">
             <span className="source-file-icon" aria-hidden="true">TXT</span>
             <span className="source-name">{source.source_name}</span>
+            <StatusBadge compact status={sourceStatus(source)} />
           </div>
-          <div className="source-card-meta">{source.chunk_count} chunks · {source.source_id}</div>
-          <button className="text-button" type="button" onClick={() => void inspectSource(source)} disabled={loadingId === source.source_id}>
-            {loadingId === source.source_id ? "Loading…" : "Inspect first chunk"}
+          <div className="source-card-meta">
+            {source.chunk_count} {source.chunk_count === 1 ? "chunk" : "chunks"} · {source.source_id}
+          </div>
+          <button className="text-button" type="button" onClick={() => void inspectSource(source)} disabled={loadingId !== null}>
+            {loadingId === source.source_id
+              ? "Loading…"
+              : selectedSource?.source_id === source.source_id
+                ? "Refresh chunks"
+                : "Inspect chunks"}
           </button>
         </div>
       ))}
+
+      {sourceError && (
+        <div className="inspector-empty" role="alert">
+          <strong>Unable to load source</strong>
+          <span>{sourceError}</span>
+        </div>
+      )}
+
+      {selectedSource && (
+        <div className="source-card">
+          <div className="source-card-heading">
+            <span className="source-name" title={selectedSource.source_name}>{selectedSource.source_name}</span>
+            <StatusBadge compact status={sourceStatus(selectedSource)} />
+            <button
+              type="button"
+              className="close-preview"
+              aria-label="Close source details"
+              onClick={() => {
+                setSelectedSource(null);
+                setSelectedChunk(null);
+              }}
+            >
+              ×
+            </button>
+          </div>
+          <div className="source-card-meta">
+            {selectedSource.chunks.length} {selectedSource.chunks.length === 1 ? "chunk" : "chunks"} · {selectedSource.source_id}
+          </div>
+          {selectedSource.chunks.length === 0 ? (
+            <span className="source-card-meta">This source has no stored chunks.</span>
+          ) : (
+            selectedSource.chunks.map((chunk) => (
+              <div className="evidence-row" key={chunk.chunk_id}>
+                <span>Chunk {chunk.index + 1}</span>
+                <button
+                  type="button"
+                  className="text-button"
+                  title={`Inspect ${chunk.chunk_id}`}
+                  onClick={() => setSelectedChunk(chunk)}
+                >
+                  {chunk.chunk_id}
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
       {selectedChunk && (
         <div className="chunk-preview">
           <div className="chunk-preview-heading">

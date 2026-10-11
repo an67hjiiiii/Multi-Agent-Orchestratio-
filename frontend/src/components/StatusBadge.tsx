@@ -6,6 +6,7 @@ interface StatusBadgeProps {
 }
 
 const labels: Record<string, string> = {
+  EMPTY: "Empty",
   COMPLETE: "Complete",
   PARTIAL: "Partial",
   NO_EVIDENCE: "No evidence",

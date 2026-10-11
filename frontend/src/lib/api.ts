@@ -3,6 +3,7 @@ import type {
   RunListItem,
   RunRecord,
   SourceChunk,
+  SourceDetail,
   SourceImportResult,
   SourcesResponse,
 } from "../types/api";
@@ -64,6 +65,8 @@ export const api = {
       method: "POST",
     }),
   listSources: () => request<SourcesResponse>("/sources"),
+  getSource: (sourceId: string) =>
+    request<SourceDetail>(`/sources/${encodeURIComponent(sourceId)}`),
   getChunk: (chunkId: string) =>
     request<SourceChunk>(`/chunks/${encodeURIComponent(chunkId)}`),
   listRuns: () => request<RunListItem[]>("/runs"),
