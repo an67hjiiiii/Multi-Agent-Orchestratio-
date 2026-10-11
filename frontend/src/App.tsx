@@ -84,6 +84,8 @@ export function App() {
             <ChatPanel
               run={research.activeRun}
               pendingQuestion={research.pendingQuestion}
+              condition={condition}
+              provider={provider}
               isRunning={research.isRunning}
               isImporting={research.isImporting}
               sourceNotice={research.sourceNotice}
