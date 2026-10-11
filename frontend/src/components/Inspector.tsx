@@ -22,30 +22,157 @@ function formatValue(value: unknown) {
   return String(value);
 }
 
+function unique(values: string[]) {
+  return [...new Set(values.filter(Boolean))];
+}
+
+export function getEvidenceEvents(run: RunRecord | null) {
+  return (run?.events ?? []).filter(
+    (event) => Boolean(event.selected?.length || event.dropped?.length),
+  );
+}
+
+export function getEvidenceIds(run: RunRecord | null) {
+  return unique([
+    ...(run?.events ?? []).flatMap((event) => event.selected ?? []),
+    ...(run?.events ?? []).flatMap((event) => event.result?.evidence_ids ?? []),
+    ...(run?.task_results ?? []).flatMap((result) => result.evidence_ids ?? []),
+  ]);
+}
+
+export function getRunCitations(run: RunRecord | null) {
+  return {
+    valid: unique([
+      ...(run?.events ?? []).flatMap((event) => event.result?.citations ?? []),
+      ...(run?.task_results ?? []).flatMap((result) => result.citations ?? []),
+    ]),
+    invalid: unique([
+      ...(run?.events ?? []).flatMap((event) => event.result?.invalid_citations ?? []),
+      ...(run?.task_results ?? []).flatMap((result) => result.invalid_citations ?? []),
+    ]),
+  };
+}
+
+function ChunkPreview({ chunk, onClose }: { chunk: SourceChunk; onClose: () => void }) {
+  const score = chunk.score === undefined ? "" : ` · score ${chunk.score.toFixed(3)}`;
+  return (
+    <div className="chunk-preview" aria-live="polite">
+      <div className="chunk-preview-heading">
+        <span title={chunk.chunk_id}>{chunk.chunk_id}</span>
+        <button type="button" className="close-preview" aria-label="Close source preview" onClick={onClose}>×</button>
+      </div>
+      <div className="source-card-meta">{chunk.source_name} · chunk {chunk.index + 1}{score}</div>
+      <pre aria-label={`Text from ${chunk.chunk_id}`}>{chunk.text}</pre>
+    </div>
+  );
+}
+
+function InspectableIds({
+  ids,
+  loadingId,
+  onInspect,
+  emptyLabel = "None recorded",
+}: {
+  ids: string[];
+  loadingId: string | null;
+  onInspect: (id: string) => void;
+  emptyLabel?: string;
+}) {
+  if (ids.length === 0) return <span className="source-card-meta">{emptyLabel}</span>;
+  return (
+    <div>
+      {ids.map((id) => (
+        <button
+          type="button"
+          className="evidence-id text-button"
+          key={id}
+          disabled={loadingId !== null && loadingId !== id}
+          aria-label={`Inspect evidence ${id}`}
+          onClick={() => onInspect(id)}
+        >
+          {loadingId === id ? "Loading…" : id}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function EvidencePanel({ run }: { run: RunRecord | null }) {
-  const events = (run?.events ?? []).filter((event) => event.selected || event.dropped);
+  const [selectedChunk, setSelectedChunk] = useState<SourceChunk | null>(null);
+  const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [chunkError, setChunkError] = useState<string | null>(null);
+  const events = getEvidenceEvents(run);
+  const results = run?.task_results ?? [];
+  const citations = getRunCitations(run);
+
+  async function inspectChunk(chunkId: string) {
+    setLoadingId(chunkId);
+    setChunkError(null);
+    try {
+      setSelectedChunk(await ownerScopedRetrieval.getChunk(chunkId));
+    } catch (cause) {
+      setSelectedChunk(null);
+      setChunkError(cause instanceof Error ? cause.message : "Unable to load this evidence");
+    } finally {
+      setLoadingId(null);
+    }
+  }
+
   if (!run) return <EmptyPanel title="No run selected" copy="Evidence will appear after your first run." />;
-  if (events.length === 0) return <EmptyPanel title="No evidence trace" copy="This run did not return retrieval events." />;
+  if (events.length === 0 && results.length === 0) return <EmptyPanel title="No evidence trace" copy="This run did not return retrieval events." />;
 
   return (
     <div className="inspector-list">
-      {events.map((event, index) => (
-        <div className="evidence-card" key={`${event.stage}-${event.task_id ?? index}`}>
-          <div className="evidence-card-heading">
-            <span>{event.task_id ?? "Run retrieval"}</span>
-            <span className="evidence-stage">{event.stage}</span>
-          </div>
-          <div className="evidence-row">
-            <span>Selected</span>
-            <strong>{event.selected?.length ?? 0}</strong>
-          </div>
-          {event.selected?.map((chunk) => <code className="evidence-id" key={chunk}>{chunk}</code>)}
-          <div className="evidence-row evidence-row-muted">
-            <span>Dropped</span>
-            <strong>{event.dropped?.length ?? 0}</strong>
-          </div>
+      {events.length === 0 ? (
+        <EmptyPanel title="No retrieval trace" copy="This run returned task results without retrieval events." />
+      ) : (
+        events.map((event, index) => {
+          const selected = unique(event.selected ?? []);
+          const dropped = unique((event.dropped ?? []).map((item) => item.chunk_id ?? ""));
+          return (
+            <div className="evidence-card" key={`${event.stage}-${event.task_id ?? index}`}>
+              <div className="evidence-card-heading">
+                <span>{event.task_id ?? "Run retrieval"}</span>
+                <span className="evidence-stage">{event.stage}</span>
+              </div>
+              <div className="evidence-row"><span>Selected evidence</span><strong>{selected.length}</strong></div>
+              <InspectableIds ids={selected} loadingId={loadingId} onInspect={(id) => void inspectChunk(id)} />
+              <div className="evidence-row evidence-row-muted"><span>Dropped evidence</span><strong>{event.dropped?.length ?? 0}</strong></div>
+              {dropped.length > 0 && <InspectableIds ids={dropped} loadingId={loadingId} onInspect={(id) => void inspectChunk(id)} emptyLabel="No chunk locator" />}
+              {event.dropped?.map((item, droppedIndex) => (
+                <div className="source-card-meta" key={`${item.chunk_id ?? "dropped"}-${droppedIndex}`}>
+                  {item.reason ?? "Dropped by context budget"}{item.estimated_tokens === undefined ? "" : ` · ${item.estimated_tokens} tokens`}
+                </div>
+              ))}
+            </div>
+          );
+        })
+      )}
+
+      {results.length > 0 && (
+        <div className="evidence-card">
+          <div className="evidence-card-heading"><span>Citation audit</span><span className="evidence-stage">{citations.valid.length} valid · {citations.invalid.length} invalid</span></div>
+          {results.map((result, index) => {
+            const evidenceIds = unique(result.evidence_ids ?? []);
+            const valid = unique(result.citations ?? []);
+            const invalid = unique(result.invalid_citations ?? []);
+            return (
+              <div className="source-card" key={`${result.task_id}-${index}`}>
+                <div className="source-card-heading"><span className="source-name">{result.task_id}{result.domain ? ` · ${result.domain}` : ""}</span><StatusBadge compact status={result.status} /></div>
+                <div className="evidence-row"><span>Evidence IDs</span><strong>{evidenceIds.length}</strong></div>
+                <InspectableIds ids={evidenceIds} loadingId={loadingId} onInspect={(id) => void inspectChunk(id)} />
+                <div className="evidence-row"><span>Valid citations</span><strong>{valid.length}</strong></div>
+                <InspectableIds ids={valid} loadingId={loadingId} onInspect={(id) => void inspectChunk(id)} />
+                {invalid.length > 0 && <><div className="evidence-row evidence-row-muted"><span>Invalid citations</span><strong>{invalid.length}</strong></div><div>{invalid.map((id) => <code className="evidence-id" key={id}>{id}</code>)}</div></>}
+                {(result.missing_information ?? []).length > 0 && <div className="source-card-meta">Missing: {result.missing_information?.join("; ")}</div>}
+              </div>
+            );
+          })}
         </div>
-      ))}
+      )}
+
+      {chunkError && <div className="inspector-empty" role="alert"><strong>Unable to inspect evidence</strong><span>{chunkError}</span></div>}
+      {selectedChunk && <ChunkPreview chunk={selectedChunk} onClose={() => setSelectedChunk(null)} />}
     </div>
   );
 }
