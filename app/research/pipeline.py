@@ -9,6 +9,7 @@ from app.core.telemetry import process_rss_mb, gpu_memory_mb
 from app.core.types import Task, TaskResult, RunMetrics
 from app.providers.factory import get_provider
 from app.research.context_controller import ContextController
+from app.research.conversation_context import ConversationContext
 from app.research.decomposer import decompose
 from app.research.normalizer import normalize_tasks
 from app.research.planning_retrieval import PlanningRetriever
@@ -34,10 +35,16 @@ class ResearchPipeline:
         provider_name: str | None = None,
         *,
         source_ids: list[str] | None = None,
+        conversation_context: ConversationContext | str | None = None,
+        conversation_id: str | None = None,
     ) -> dict:
         condition = condition.upper()
         if condition not in CONDITIONS:
             raise ValueError(f"Unknown condition {condition}")
+        if isinstance(conversation_context, str):
+            conversation_context = ConversationContext(text=conversation_context)
+        elif not isinstance(conversation_context, ConversationContext):
+            conversation_context = ConversationContext()
         if source_ids is not None:
             source_ids = [str(source_id) for source_id in source_ids]
             validator = getattr(self.source_store, "validate_source_selection", None)
@@ -71,6 +78,8 @@ class ResearchPipeline:
                 "max_run_tokens": cfg.max_run_tokens,
                 "retry_limit": cfg.retry_limit,
                 "retrieval_min_score": cfg.retrieval_min_score,
+                "conversation_id": conversation_id,
+                "conversation_context": conversation_context.to_trace(),
             }
             run = {
                 "run_id": run_id,
@@ -80,6 +89,8 @@ class ResearchPipeline:
                 "provider": provider.name,
                 "model": provider.model,
                 "query": query,
+                "conversation_id": conversation_id,
+                "conversation_context": conversation_context.to_trace(),
                 "status": status,
                 "answer": answer,
                 "source_snapshot_id": source_snapshot,
@@ -103,11 +114,17 @@ class ResearchPipeline:
             config_hash=cfg.config_hash(),
             flags=flags,
         )
+        event("conversation_context", **conversation_context.to_trace())
         all_chunks = self.source_store.chunks(source_ids)
         try:
             if condition == "A":
                 r0 = time.perf_counter()
-                candidates = retrieve(query, all_chunks, top_k=cfg.task_top_k, min_score=cfg.retrieval_min_score)
+                candidates = retrieve(
+                    _retrieval_query_with_conversation_context(query, conversation_context),
+                    all_chunks,
+                    top_k=cfg.task_top_k,
+                    min_score=cfg.retrieval_min_score,
+                )
                 metrics.retrieval_latency_ms += int((time.perf_counter() - r0) * 1000)
                 metrics.retrieved_chunks += len(candidates)
                 selected, budget_dropped = apply_token_budget(candidates, cfg.max_context_tokens)
@@ -134,7 +151,12 @@ class ResearchPipeline:
                     planning_context = "\n\n".join(f"[{c.chunk_id}] {c.text}" for c in planning_hits)
                     event("planning_retrieval", selected=[c.chunk_id for c in planning_hits])
                 g0 = time.perf_counter()
-                tasks = await decompose(provider, query, planning_context, metrics)
+                tasks = await decompose(
+                    provider,
+                    _retrieval_query_with_conversation_context(query, conversation_context),
+                    planning_context,
+                    metrics,
+                )
                 metrics.generation_latency_ms += int((time.perf_counter() - g0) * 1000)
                 event("decomposition", tasks=[asdict(t) for t in tasks])
                 if flags["N"]:
@@ -200,3 +222,18 @@ class ResearchPipeline:
         if condition == "C":
             return {"P": True, "N": True, "O": True}
         return {"P": condition != "C-P", "N": condition != "C-N", "O": condition != "C-O"}
+
+
+def _retrieval_query_with_conversation_context(
+    query: str, conversation_context: ConversationContext
+) -> str:
+    """Use bounded history only for query disambiguation, never as evidence."""
+
+    if not conversation_context.text:
+        return query
+    return (
+        "CURRENT USER REQUEST:\n"
+        f"{query}\n\n"
+        "RECENT CONVERSATION CONTEXT (reference only; not source evidence):\n"
+        f"{conversation_context.text}"
+    )

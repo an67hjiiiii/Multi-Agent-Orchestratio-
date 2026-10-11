@@ -17,6 +17,7 @@ from app.ingestion.documents import (
 )
 from app.providers.ollama import OllamaProvider
 from app.research.pipeline import ResearchPipeline
+from app.research.conversation_context import build_conversation_context
 from app.storage.run_store import RunStore
 from app.storage.source_store import SourceStore
 from app.storage.conversation_store import ConversationStore
@@ -212,6 +213,7 @@ async def chat(body: ChatRequest, request: Request):
             conversation_id = body.conversation_id
         else:
             conversation_id = conversations.create(body.message.strip()[:120])["conversation_id"]
+        conversation_context = build_conversation_context(conversations.get(conversation_id))
         selected_source_ids = None if body.source_ids is None else [str(source_id) for source_id in body.source_ids]
         validator = getattr(owner_source_store(user), "validate_source_selection", None)
         if callable(validator) and selected_source_ids is not None:
@@ -222,6 +224,8 @@ async def chat(body: ChatRequest, request: Request):
             body.condition,
             body.provider,
             source_ids=selected_source_ids,
+            conversation_context=conversation_context,
+            conversation_id=conversation_id,
         )
         conversations.add_message(
             conversation_id,
