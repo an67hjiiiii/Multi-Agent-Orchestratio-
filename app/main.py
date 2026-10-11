@@ -90,6 +90,7 @@ class ChatRequest(BaseModel):
     condition: str = "A"
     provider: str | None = None
     conversation_id: str | None = None
+    source_ids: list[str] | None = None
 
 class SourceTextRequest(BaseModel):
     source_name: str
@@ -211,9 +212,16 @@ async def chat(body: ChatRequest, request: Request):
             conversation_id = body.conversation_id
         else:
             conversation_id = conversations.create(body.message.strip()[:120])["conversation_id"]
+        selected_source_ids = None if body.source_ids is None else [str(source_id) for source_id in body.source_ids]
+        validator = getattr(owner_source_store(user), "validate_source_selection", None)
+        if callable(validator) and selected_source_ids is not None:
+            validator(selected_source_ids)
         conversations.add_message(conversation_id, "USER", body.message.strip())
         run = await owner_pipeline(user, conversation_id).run(
-            body.message.strip(), body.condition, body.provider
+            body.message.strip(),
+            body.condition,
+            body.provider,
+            source_ids=selected_source_ids,
         )
         conversations.add_message(
             conversation_id,
@@ -225,6 +233,8 @@ async def chat(body: ChatRequest, request: Request):
         if run["status"] == "FAILED":
             return run
         return run
+    except LookupError as exc:
+        raise HTTPException(404, "source not found") from exc
     except ValueError as exc:
         raise HTTPException(400, str(exc))
 

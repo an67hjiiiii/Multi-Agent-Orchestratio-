@@ -27,10 +27,22 @@ class ResearchPipeline:
         self.run_store = run_store
         self.planning = PlanningRetriever()
 
-    async def run(self, query: str, condition: str = "A", provider_name: str | None = None) -> dict:
+    async def run(
+        self,
+        query: str,
+        condition: str = "A",
+        provider_name: str | None = None,
+        *,
+        source_ids: list[str] | None = None,
+    ) -> dict:
         condition = condition.upper()
         if condition not in CONDITIONS:
             raise ValueError(f"Unknown condition {condition}")
+        if source_ids is not None:
+            source_ids = [str(source_id) for source_id in source_ids]
+            validator = getattr(self.source_store, "validate_source_selection", None)
+            if callable(validator):
+                validator(source_ids)
         cfg = RuntimeConfig.from_env()
         cfg.assert_condition(condition)
         provider = get_provider(provider_name)
@@ -91,7 +103,7 @@ class ResearchPipeline:
             config_hash=cfg.config_hash(),
             flags=flags,
         )
-        all_chunks = self.source_store.chunks()
+        all_chunks = self.source_store.chunks(source_ids)
         try:
             if condition == "A":
                 r0 = time.perf_counter()

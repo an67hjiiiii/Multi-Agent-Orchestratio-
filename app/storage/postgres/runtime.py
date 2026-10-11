@@ -438,18 +438,40 @@ class PostgresSourceStore:
                 "metadata": dict(source.display_metadata or {}),
             }
 
-    def chunks(self) -> list[SourceChunk]:
+    def chunks(self, source_ids: list[str] | None = None) -> list[SourceChunk]:
         with self.session_factory() as db:
+            filters = [
+                KnowledgeSourceRecord.owner_user_id == self.owner_user_id,
+                KnowledgeSourceRecord.status == "READY",
+            ]
+            if source_ids is not None:
+                filters.append(KnowledgeChunkRecord.source_id.in_(source_ids))
             rows = db.scalars(
                 select(KnowledgeChunkRecord)
                 .join(KnowledgeSourceRecord)
-                .where(
-                    KnowledgeSourceRecord.owner_user_id == self.owner_user_id,
-                    KnowledgeSourceRecord.status == "READY",
-                )
+                .where(*filters)
                 .order_by(KnowledgeChunkRecord.source_id, KnowledgeChunkRecord.chunk_index)
             ).all()
             return [self._chunk(row) for row in rows]
+
+    def validate_source_selection(self, source_ids: list[str]) -> None:
+        """Reject missing, non-ready, or foreign source IDs before retrieval."""
+
+        requested = {str(source_id) for source_id in source_ids if str(source_id)}
+        if not requested:
+            return
+        with self.session_factory() as db:
+            available = set(
+                db.scalars(
+                    select(KnowledgeSourceRecord.source_id).where(
+                        KnowledgeSourceRecord.owner_user_id == self.owner_user_id,
+                        KnowledgeSourceRecord.status == "READY",
+                        KnowledgeSourceRecord.source_id.in_(requested),
+                    )
+                ).all()
+            )
+        if available != requested:
+            raise LookupError("source not found")
 
     def list_sources(self) -> list[dict[str, Any]]:
         with self.session_factory() as db:
