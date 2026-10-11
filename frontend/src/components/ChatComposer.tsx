@@ -14,16 +14,27 @@ export function ChatComposer({ isRunning, isImporting, onSubmit, onImport }: Cha
     const trimmed = message.trim();
     if (!trimmed || isRunning) return;
     setMessage("");
-    await onSubmit(trimmed);
+    try {
+      await onSubmit(trimmed);
+    } catch {
+      // The app-level alert owns the failed run state; keep the composer settled.
+    }
   }
 
   return (
     <div className="composer-region">
-      <div className="composer-hint">
+      <div className="composer-hint" id="composer-help">
         <span>Ask against your local research corpus</span>
         <span className="composer-shortcut">Enter to run · Shift + Enter for a new line</span>
       </div>
-      <div className="composer">
+      <form
+        className="composer"
+        aria-busy={isRunning}
+        onSubmit={(event) => {
+          event.preventDefault();
+          void submit();
+        }}
+      >
         <input
           ref={fileRef}
           className="visually-hidden"
@@ -47,9 +58,11 @@ export function ChatComposer({ isRunning, isImporting, onSubmit, onImport }: Cha
         </button>
         <textarea
           aria-label="Research question"
+          aria-describedby="composer-help"
           value={message}
           rows={1}
           placeholder="Ask a question about the current corpus…"
+          disabled={isRunning}
           onChange={(event) => setMessage(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Enter" && !event.shiftKey) {
@@ -58,11 +71,11 @@ export function ChatComposer({ isRunning, isImporting, onSubmit, onImport }: Cha
             }
           }}
         />
-        <button className="send-button" type="button" disabled={isRunning || !message.trim()} onClick={() => void submit()}>
+        <button className="send-button" type="submit" disabled={isRunning || !message.trim()}>
           {isRunning ? "Running…" : "Run"}
           <span aria-hidden="true">↗</span>
         </button>
-      </div>
+      </form>
     </div>
   );
 }
