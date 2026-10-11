@@ -29,7 +29,7 @@ from app.auth.store import (
     _token_hash,
 )
 from app.core.types import SourceChunk
-from app.retrieval.text import make_chunks
+from app.retrieval.text import make_chunks, normalize_text
 from app.storage.postgres.models import (
     ConversationMessageRecord,
     ConversationRecord,
@@ -286,56 +286,95 @@ class PostgresSourceStore:
         self.session_factory = session_factory
         self.owner_user_id = owner_user_id
 
-    def import_text(self, source_name: str, text: str) -> dict[str, Any]:
-        chunks = make_chunks(source_name, text)
-        if not chunks:
-            return {"source_id": None, "source_name": source_name, "chunks_added": 0,
-                    "total_chunks_for_source": 0, "snapshot_id": self.snapshot_id()}
-        original_source_id = chunks[0].source_id
+    def import_text(
+        self,
+        source_name: str,
+        text: str,
+        *,
+        provenance: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        clean_text = normalize_text(text)
+        if not str(source_name or "").strip():
+            raise ValueError("source_name must not be empty")
+        if not clean_text:
+            raise ValueError("text must not be empty")
+        original_source_id = "src_" + hashlib.sha256(
+            (str(source_name).strip() + "\0" + clean_text).encode("utf-8")
+        ).hexdigest()[:16]
         source_id = "src_" + hashlib.sha256(
             f"{self.owner_user_id}\0{original_source_id}".encode("utf-8")
         ).hexdigest()[:16]
-        owned_chunks = [
-            SourceChunk(
-                chunk_id=f"{source_id}_c{chunk.index:04d}",
-                source_id=source_id,
-                source_name=chunk.source_name,
-                text=chunk.text,
-                index=chunk.index,
-            )
-            for chunk in chunks
-        ]
+        metadata = {
+            "storage": "postgresql",
+            "indexing_version": "s2-lifecycle-v1",
+            **(dict(provenance) if isinstance(provenance, dict) else {}),
+        }
         now = _now()
         with self.session_factory.begin() as db:
             source = db.get(KnowledgeSourceRecord, source_id)
             if source is None:
-                source = KnowledgeSourceRecord(
-                    source_id=source_id,
-                    owner_user_id=self.owner_user_id,
-                    source_name=source_name,
-                    status="READY",
-                    display_metadata={"storage": "postgresql", "indexing_version": "s1-v1"},
-                    created_at=now,
-                    updated_at=now,
+                db.add(
+                    KnowledgeSourceRecord(
+                        source_id=source_id,
+                        owner_user_id=self.owner_user_id,
+                        source_name=str(source_name).strip(),
+                        status="PROCESSING",
+                        display_metadata=metadata,
+                        created_at=now,
+                        updated_at=now,
+                    )
                 )
-                db.add(source)
             elif source.owner_user_id != self.owner_user_id:
                 raise PermissionError("source belongs to another owner")
-            existing = set(db.scalars(select(KnowledgeChunkRecord.chunk_id).where(
-                KnowledgeChunkRecord.source_id == source_id
-            )).all())
-            added = [chunk for chunk in owned_chunks if chunk.chunk_id not in existing]
-            db.add_all([
-                KnowledgeChunkRecord(
-                    chunk_id=chunk.chunk_id,
+            else:
+                source.status = "PROCESSING"
+                source.display_metadata = metadata
+                source.updated_at = now
+
+        try:
+            chunks = make_chunks(str(source_name).strip(), clean_text)
+            if not chunks:
+                raise ValueError("text must not be empty")
+            owned_chunks = [
+                SourceChunk(
+                    chunk_id=f"{source_id}_c{chunk.index:04d}",
                     source_id=source_id,
-                    chunk_index=chunk.index,
-                    content=chunk.text,
-                    provenance={"source_name": source_name, "source_id": source_id},
-                    indexing_version="s1-v1",
+                    source_name=chunk.source_name,
+                    text=chunk.text,
+                    index=chunk.index,
                 )
-                for chunk in added
-            ])
+                for chunk in chunks
+            ]
+        except Exception as exc:
+            self.mark_failed(source_id, exc)
+            raise
+
+        try:
+            with self.session_factory.begin() as db:
+                source = db.get(KnowledgeSourceRecord, source_id)
+                if source is None or source.owner_user_id != self.owner_user_id:
+                    raise PermissionError("source belongs to another owner")
+                existing = set(db.scalars(select(KnowledgeChunkRecord.chunk_id).where(
+                    KnowledgeChunkRecord.source_id == source_id
+                )).all())
+                added = [chunk for chunk in owned_chunks if chunk.chunk_id not in existing]
+                db.add_all([
+                    KnowledgeChunkRecord(
+                        chunk_id=chunk.chunk_id,
+                        source_id=source_id,
+                        chunk_index=chunk.index,
+                        content=chunk.text,
+                        provenance={"source_name": str(source_name).strip(), "source_id": source_id},
+                        indexing_version="s2-lifecycle-v1",
+                    )
+                    for chunk in added
+                ])
+                source.status = "READY"
+                source.display_metadata = {**metadata, "status": "READY"}
+                source.updated_at = _now()
+        except Exception as exc:
+            self.mark_failed(source_id, exc)
+            raise
         return {
             "source_id": source_id,
             "source_name": source_name,
@@ -344,12 +383,53 @@ class PostgresSourceStore:
             "snapshot_id": self.snapshot_id(),
         }
 
+    def mark_failed(self, source_id: str, error: Exception | str) -> None:
+        """Persist a terminal FAILED state without exposing source contents."""
+
+        with self.session_factory.begin() as db:
+            source = db.scalar(
+                select(KnowledgeSourceRecord).where(
+                    KnowledgeSourceRecord.source_id == source_id,
+                    KnowledgeSourceRecord.owner_user_id == self.owner_user_id,
+                )
+            )
+            if source is None:
+                return
+            source.status = "FAILED"
+            source.display_metadata = {
+                **(source.display_metadata or {}),
+                "status": "FAILED",
+                "error_type": type(error).__name__ if isinstance(error, Exception) else "IngestionError",
+                "error": str(error),
+            }
+            source.updated_at = _now()
+
+    def source_status(self, source_id: str) -> dict[str, Any] | None:
+        with self.session_factory() as db:
+            source = db.scalar(
+                select(KnowledgeSourceRecord).where(
+                    KnowledgeSourceRecord.source_id == source_id,
+                    KnowledgeSourceRecord.owner_user_id == self.owner_user_id,
+                )
+            )
+            if source is None:
+                return None
+            return {
+                "source_id": source.source_id,
+                "source_name": source.source_name,
+                "status": source.status,
+                "metadata": dict(source.display_metadata or {}),
+            }
+
     def chunks(self) -> list[SourceChunk]:
         with self.session_factory() as db:
             rows = db.scalars(
                 select(KnowledgeChunkRecord)
                 .join(KnowledgeSourceRecord)
-                .where(KnowledgeSourceRecord.owner_user_id == self.owner_user_id)
+                .where(
+                    KnowledgeSourceRecord.owner_user_id == self.owner_user_id,
+                    KnowledgeSourceRecord.status == "READY",
+                )
                 .order_by(KnowledgeChunkRecord.source_id, KnowledgeChunkRecord.chunk_index)
             ).all()
             return [self._chunk(row) for row in rows]
@@ -378,6 +458,8 @@ class PostgresSourceStore:
                 KnowledgeChunkRecord.source_id == source_id
             ).order_by(KnowledgeChunkRecord.chunk_index)).all()
             return {"source_id": source_id, "source_name": source.source_name,
+                    "status": source.status,
+                    "metadata": dict(source.display_metadata or {}),
                     "chunks": [self._chunk(row).__dict__ for row in chunks]}
 
     def chunk(self, chunk_id: str) -> dict[str, Any] | None:
