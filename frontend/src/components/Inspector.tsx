@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { InspectorTab } from "../app/useResearchApp";
 import type { RunRecord, SourceChunk, SourceDetail, SourceSummary } from "../types/api";
-import { api } from "../lib/api";
+import { ownerScopedRetrieval } from "../lib/api";
 import { StatusBadge } from "./StatusBadge";
 
 interface InspectorProps {
@@ -70,7 +70,7 @@ function SourcesPanel({ sources }: { sources: SourceSummary[] }) {
     setSourceError(null);
     setSelectedChunk(null);
     try {
-      setSelectedSource(await api.getSource(source.source_id));
+      setSelectedSource(await ownerScopedRetrieval.getSource(source.source_id));
     } catch (cause) {
       setSelectedSource(null);
       setSourceError(cause instanceof Error ? cause.message : "Unable to load this source");

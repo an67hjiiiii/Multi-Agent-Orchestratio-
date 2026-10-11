@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, ApiError } from "../lib/api";
+import { api, ApiError, ownerScopedRetrieval } from "../lib/api";
 import { bootstrapWorkspace } from "./sessionBootstrap.mjs";
 import type {
   HealthResponse,
@@ -48,12 +48,12 @@ export function useResearchApp(): ResearchAppState {
   const [sourceNotice, setSourceNotice] = useState<string | null>(null);
 
   const refreshSources = useCallback(async () => {
-    const response = await api.listSources();
+    const response = await ownerScopedRetrieval.listSources();
     setSources(response.sources ?? []);
   }, []);
 
   const refreshHistory = useCallback(async () => {
-    setHistory(await api.listRuns());
+    setHistory(await ownerScopedRetrieval.listRuns());
   }, []);
 
   useEffect(() => {
@@ -134,7 +134,7 @@ export function useResearchApp(): ResearchAppState {
     setPendingQuestion(null);
     setError(null);
     try {
-      setActiveRun(await api.getRun(runId));
+      setActiveRun(await ownerScopedRetrieval.getRun(runId));
       setActiveTab("evidence");
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 401) expireSession();

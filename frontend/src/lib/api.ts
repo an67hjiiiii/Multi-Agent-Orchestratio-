@@ -1,5 +1,6 @@
 import type {
   HealthResponse,
+  OwnerScopedRetrievalClient,
   RunListItem,
   RunRecord,
   SourceChunk,
@@ -19,7 +20,10 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`/api${path}`, init);
+  const response = await fetch(`/api${path}`, {
+    ...init,
+    credentials: init?.credentials ?? "same-origin",
+  });
   const payload = await response.json().catch(() => null);
 
   if (!response.ok) {
@@ -85,4 +89,17 @@ export const api = {
       body,
     });
   },
+};
+
+/**
+ * The retrieval surface is intentionally session-bound. Keeping this narrow
+ * view separate makes it harder for UI code to accidentally invent an owner
+ * parameter or call an unscoped source endpoint.
+ */
+export const ownerScopedRetrieval: OwnerScopedRetrievalClient = {
+  listSources: api.listSources,
+  getSource: api.getSource,
+  getChunk: api.getChunk,
+  listRuns: api.listRuns,
+  getRun: api.getRun,
 };

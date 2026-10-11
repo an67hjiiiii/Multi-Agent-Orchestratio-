@@ -42,6 +42,18 @@ export interface SourceDetail {
   status?: string;
 }
 
+/**
+ * Authenticated retrieval contract. The server resolves the owner from the
+ * current local session; no client-supplied owner identifier is accepted.
+ */
+export interface OwnerScopedRetrievalClient {
+  listSources: () => Promise<SourcesResponse>;
+  getSource: (sourceId: string) => Promise<SourceDetail>;
+  getChunk: (chunkId: string) => Promise<SourceChunk>;
+  listRuns: () => Promise<RunListItem[]>;
+  getRun: (runId: string) => Promise<RunRecord>;
+}
+
 export interface Task {
   task_id: string;
   goal: string;
