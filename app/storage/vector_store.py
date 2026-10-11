@@ -164,11 +164,26 @@ class QdrantVectorStore:
 
     def _ensure_collection(self) -> None:
         models = self._qdrant_models()
-        self.client.get_or_create_collection(
-            collection_name=self.collection,
-            vectors_config=models.VectorParams(
-                size=self.vector_size, distance=models.Distance.COSINE
-            ),
+        vectors_config = models.VectorParams(
+            size=self.vector_size, distance=models.Distance.COSINE
+        )
+        if hasattr(self.client, "get_or_create_collection"):
+            self.client.get_or_create_collection(
+                collection_name=self.collection,
+                vectors_config=vectors_config,
+            )
+            return
+        if hasattr(self.client, "collection_exists") and hasattr(
+            self.client, "create_collection"
+        ):
+            if not self.client.collection_exists(collection_name=self.collection):
+                self.client.create_collection(
+                    collection_name=self.collection,
+                    vectors_config=vectors_config,
+                )
+            return
+        raise VectorBackendUnavailable(
+            "Qdrant client does not expose a supported collection creation API"
         )
 
     def upsert(self, records: Iterable[VectorRecord]) -> None:

@@ -127,6 +127,48 @@ def test_qdrant_candidate_request_contains_owner_filter():
     assert source_condition.match.any == ["source-a", "source-b"]
 
 
+def test_real_qdrant_local_upsert_and_owner_source_filtered_top_k(tmp_path):
+    qdrant_client = pytest.importorskip("qdrant_client")
+    from qdrant_client import QdrantClient
+
+    client = QdrantClient(path=str(tmp_path / "qdrant"))
+    try:
+        store = QdrantVectorStore(
+            path=str(tmp_path / "qdrant"),
+            collection="local-filter-test",
+            vector_size=4,
+            client=client,
+        )
+        store.upsert(
+            [
+                VectorRecord(
+                    "owner-a:chunk-a",
+                    (1.0, 0.0, 0.0, 0.0),
+                    {"owner_user_id": "owner-a", "source_id": "source-a", "chunk_id": "chunk-a"},
+                ),
+                VectorRecord(
+                    "owner-a:chunk-b",
+                    (0.9, 0.1, 0.0, 0.0),
+                    {"owner_user_id": "owner-a", "source_id": "source-b", "chunk_id": "chunk-b"},
+                ),
+                VectorRecord(
+                    "owner-b:chunk-c",
+                    (1.0, 0.0, 0.0, 0.0),
+                    {"owner_user_id": "owner-b", "source_id": "source-a", "chunk_id": "chunk-c"},
+                ),
+            ]
+        )
+        matches = store.search(
+            (1.0, 0.0, 0.0, 0.0),
+            limit=1,
+            owner_user_id="owner-a",
+            source_ids=["source-a"],
+        )
+        assert [match.id for match in matches] == ["chunk-a"]
+    finally:
+        client.close()
+
+
 def test_candidate_index_marks_authoritative_source_failed_on_index_error(tmp_path: Path):
     class FailingIndex:
         def upsert(self, records):
