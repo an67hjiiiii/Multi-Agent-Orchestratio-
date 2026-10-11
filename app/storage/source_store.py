@@ -108,6 +108,7 @@ class SourceStore:
         self._sources[source_id] = {
             "source_id": source_id,
             "source_name": clean_name,
+            "status": "READY",
             "chunk_count": len(chunks),
             "text_chars": len(clean_text),
             "source_hash": source_hash,
@@ -131,7 +132,8 @@ class SourceStore:
         return [
             SourceChunk(**{**c.__dict__, "provenance": dict(c.provenance)})
             for c in self._chunks
-            if selected is None or c.source_id in selected
+            if (selected is None or c.source_id in selected)
+            and self._sources.get(c.source_id, {}).get("status", "READY") == "READY"
         ]
 
     def list_sources(self) -> list[dict]:
@@ -159,7 +161,7 @@ class SourceStore:
             "source_name": chunks[0].source_name,
             "provenance": dict(metadata.get("provenance") or chunks[0].provenance),
             "metadata": metadata,
-            "status": "READY",
+            "status": metadata.get("status", "READY"),
             "chunks": [
                 {**c.__dict__, "provenance": dict(c.provenance)} for c in chunks
             ],
@@ -179,10 +181,29 @@ class SourceStore:
         return "corpus_" + hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
 
     def validate_source_selection(self, source_ids: list[str]) -> None:
-        owned = {source["source_id"] for source in self.list_sources()}
+        owned = {
+            source_id
+            for source_id, metadata in self._sources.items()
+            if metadata.get("status", "READY") == "READY"
+        }
         missing = [source_id for source_id in source_ids if source_id not in owned]
         if missing:
             raise LookupError("source not found")
+
+    def mark_failed(self, source_id: str, error: Exception | str) -> None:
+        metadata = self._sources.get(source_id)
+        if metadata is None:
+            return
+        metadata.update(
+            {
+                "status": "FAILED",
+                "error_type": type(error).__name__
+                if isinstance(error, Exception)
+                else "IngestionError",
+                "error": str(error),
+            }
+        )
+        self._save()
 
     def clear(self) -> None:
         self._chunks = []

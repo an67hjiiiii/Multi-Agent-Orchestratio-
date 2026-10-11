@@ -4,9 +4,18 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine, event
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
+from app import main as main_module
+from app.auth.store import AuthStore
+from app.main import app
 from app.retrieval.candidate_index import CandidateIndex, IndexingError
 from app.retrieval.embeddings import LocalHashEmbedder
+from app.storage.postgres.base import Base
+from app.storage.postgres.runtime import PostgresAuthStore, PostgresSourceStore
 from app.storage.source_store import SourceStore
 from app.storage.vector_store import (
     InMemoryVectorStore,
@@ -133,3 +142,107 @@ def test_candidate_index_marks_authoritative_source_failed_on_index_error(tmp_pa
     )
     with pytest.raises(IndexingError):
         index.index_source(imported["source_id"])
+
+
+def test_postgres_authoritative_source_fails_closed_when_derived_index_fails():
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    event.listen(
+        engine,
+        "connect",
+        lambda connection, _record: connection.create_function(
+            "btrim", 1, lambda value: value.strip()
+        ),
+    )
+    Base.metadata.create_all(engine)
+    factory = sessionmaker(bind=engine, expire_on_commit=False)
+    owner = PostgresAuthStore(factory).register(
+        email="index-failure@example.test", password="long-enough-password"
+    )
+    source_store = PostgresSourceStore(factory, owner["user_id"])
+    imported = source_store.import_text("guide.md", "Authoritative source text.")
+
+    class FailingIndex:
+        def upsert(self, records):
+            raise RuntimeError("derived backend unavailable")
+
+    index = CandidateIndex(
+        source_store,
+        FailingIndex(),
+        owner_user_id=owner["user_id"],
+    )
+    with pytest.raises(IndexingError):
+        index.index_source(imported["source_id"])
+    assert source_store.source_status(imported["source_id"])["status"] == "FAILED"
+    assert source_store.chunks() == []
+
+
+def test_api_ingestion_invokes_explicit_memory_index_for_text_and_file(tmp_path, monkeypatch):
+    monkeypatch.setenv("IMPLEMENTATION_PROFILE", "m0")
+    monkeypatch.setattr(main_module, "DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setattr(main_module, "RUNS_DIR", str(tmp_path / "runs"))
+    monkeypatch.setattr(main_module, "STORAGE_BACKEND", "file")
+    monkeypatch.setattr(main_module, "VECTOR_BACKEND", "memory")
+    monkeypatch.setattr(main_module, "VECTOR_SIZE", "8")
+    monkeypatch.setattr(main_module, "_derived_vector_store", None)
+    monkeypatch.setattr(main_module, "_derived_vector_store_backend", None)
+    auth = AuthStore(tmp_path / "auth")
+    user = auth.register(email="index-api@example.test", password="long-enough-password")
+    token, _ = auth.create_session(user["user_id"])
+    app.state.auth_store = auth
+    headers = {"Authorization": f"Bearer {token}"}
+
+    with TestClient(app) as client:
+        text_response = client.post(
+            "/api/sources/text",
+            headers=headers,
+            json={"source_name": "text.md", "text": "Text ingestion evidence."},
+        )
+        file_response = client.post(
+            "/api/sources/file",
+            headers=headers,
+            files={"file": ("file.txt", b"File ingestion evidence.", "text/plain")},
+        )
+
+    assert text_response.status_code == 200
+    assert file_response.status_code == 200
+    assert text_response.json()["derived_index"]["backend"] == "memory"
+    assert file_response.json()["derived_index"]["chunks_indexed"] == 1
+    assert main_module._derived_vector_store.count() == 2
+
+
+def test_api_index_failure_returns_503_and_marks_file_source_failed(tmp_path, monkeypatch):
+    monkeypatch.setenv("IMPLEMENTATION_PROFILE", "m0")
+    monkeypatch.setattr(main_module, "DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setattr(main_module, "STORAGE_BACKEND", "file")
+    monkeypatch.setattr(main_module, "VECTOR_BACKEND", "memory")
+
+    class FailingIndex:
+        def upsert(self, records):
+            raise RuntimeError("memory index unavailable")
+
+    monkeypatch.setattr(main_module, "_derived_vector_store", FailingIndex())
+    monkeypatch.setattr(main_module, "_derived_vector_store_backend", "memory")
+    auth = AuthStore(tmp_path / "auth")
+    user = auth.register(email="index-api-failure@example.test", password="long-enough-password")
+    token, _ = auth.create_session(user["user_id"])
+    app.state.auth_store = auth
+    headers = {"Authorization": f"Bearer {token}"}
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/sources/text",
+            headers=headers,
+            json={"source_name": "failed.md", "text": "This must not become ready."},
+        )
+        source_id = next(
+            item["source_id"]
+            for item in client.get("/api/sources", headers=headers).json()["sources"]
+        )
+        source = client.get(f"/api/sources/{source_id}", headers=headers)
+
+    assert response.status_code == 503
+    assert source.json()["status"] == "FAILED"

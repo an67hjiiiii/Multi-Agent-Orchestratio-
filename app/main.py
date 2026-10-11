@@ -16,11 +16,14 @@ from app.ingestion.documents import (
     extract_document,
 )
 from app.providers.ollama import OllamaProvider
+from app.retrieval.candidate_index import CandidateIndex, IndexingError
+from app.retrieval.embeddings import LocalHashEmbedder
 from app.research.pipeline import ResearchPipeline
 from app.research.conversation_context import build_conversation_context
 from app.storage.run_store import RunStore
 from app.storage.source_store import SourceStore
 from app.storage.conversation_store import ConversationStore
+from app.storage.vector_store import InMemoryVectorStore, QdrantVectorStore
 from app.storage.postgres import create_postgres_engine, create_session_factory
 from app.storage.postgres.config import PostgresConfigurationError
 from app.storage.postgres.runtime import (
@@ -35,6 +38,14 @@ load_dotenv(BASE / ".env", override=False)
 DATA_DIR = os.getenv("APP_DATA_DIR", str(BASE / "data"))
 RUNS_DIR = os.getenv("RUNS_DIR", str(BASE / "runs"))
 STORAGE_BACKEND = os.getenv("APP_STORAGE_BACKEND", "postgres").strip().lower()
+VECTOR_BACKEND = os.getenv(
+    "VECTOR_BACKEND", os.getenv("VECTOR_INDEX_BACKEND", "disabled")
+).strip().lower()
+VECTOR_INDEX_PATH = os.getenv("VECTOR_INDEX_PATH", str(BASE / "storage" / "qdrant"))
+VECTOR_COLLECTION = os.getenv("VECTOR_COLLECTION", "domain")
+VECTOR_SIZE = os.getenv("VECTOR_SIZE", "768")
+_derived_vector_store = None
+_derived_vector_store_backend = None
 
 
 def _configured_stores(storage_backend: str | None = None):
@@ -78,6 +89,65 @@ def owner_run_store(user: dict, conversation_id: str | None = None):
 
 def owner_pipeline(user: dict, conversation_id: str | None = None) -> ResearchPipeline:
     return ResearchPipeline(owner_source_store(user), owner_run_store(user, conversation_id))
+
+
+def _configured_vector_store():
+    """Create the explicitly selected derived-index backend lazily."""
+
+    global _derived_vector_store, _derived_vector_store_backend
+    backend = VECTOR_BACKEND
+    if backend in {"", "disabled", "off", "none"}:
+        return None
+    if backend not in {"memory", "qdrant"}:
+        raise IndexingError(f"Unsupported VECTOR_BACKEND={backend}")
+    if _derived_vector_store is not None and _derived_vector_store_backend == backend:
+        return _derived_vector_store
+    try:
+        vector_size = int(VECTOR_SIZE)
+    except (TypeError, ValueError) as exc:
+        raise IndexingError("VECTOR_SIZE must be a positive integer") from exc
+    if vector_size < 1:
+        raise IndexingError("VECTOR_SIZE must be a positive integer")
+    if backend == "memory":
+        store = InMemoryVectorStore(vector_size=vector_size)
+    else:
+        store = QdrantVectorStore(
+            path=VECTOR_INDEX_PATH,
+            collection=VECTOR_COLLECTION,
+            vector_size=vector_size,
+        )
+    _derived_vector_store = store
+    _derived_vector_store_backend = backend
+    return store
+
+
+def _index_imported_source(user: dict, source_store, imported: dict) -> dict:
+    """Index a READY source only when an explicit derived backend is enabled."""
+
+    if VECTOR_BACKEND in {"", "disabled", "off", "none"}:
+        return imported
+    source_id = str(imported.get("source_id") or "")
+    try:
+        vector_store = _configured_vector_store()
+        if vector_store is None:
+            return imported
+        index = CandidateIndex(
+            source_store,
+            vector_store,
+            owner_user_id=str(user["user_id"]),
+            embedder=LocalHashEmbedder(
+                dimension=int(getattr(vector_store, "vector_size", 768) or 768)
+            ),
+        )
+        result = index.index_source(source_id)
+    except Exception as exc:
+        marker = getattr(source_store, "mark_failed", None)
+        if callable(marker):
+            marker(source_id, exc)
+        if isinstance(exc, IndexingError):
+            raise
+        raise IndexingError("derived index failed") from exc
+    return {**imported, "derived_index": {"backend": VECTOR_BACKEND, **result}}
 
 
 def owner_conversation_store(user: dict):
@@ -152,16 +222,22 @@ def get_chunk(chunk_id: str, request: Request):
 def import_text(body: SourceTextRequest, request: Request):
     if not body.text.strip():
         raise HTTPException(400, "text is empty")
-    return owner_source_store(current_user(request)).import_text(
-        body.source_name,
-        body.text,
-        provenance={
-            "ingestion_version": DOCUMENT_INGESTION_VERSION,
-            "source_type": "text/plain",
-            "source_format": "text",
-            "origin": "text_api",
-        },
-    )
+    user = current_user(request)
+    store = owner_source_store(user)
+    try:
+        imported = store.import_text(
+            body.source_name,
+            body.text,
+            provenance={
+                "ingestion_version": DOCUMENT_INGESTION_VERSION,
+                "source_type": "text/plain",
+                "source_format": "text",
+                "origin": "text_api",
+            },
+        )
+        return _index_imported_source(user, store, imported)
+    except IndexingError as exc:
+        raise HTTPException(503, "DERIVED_INDEX_FAILED") from exc
 
 @app.post("/api/sources/file")
 async def import_file(request: Request, file: UploadFile = File(...)):
@@ -193,11 +269,16 @@ async def import_file(request: Request, file: UploadFile = File(...)):
         if "must not be empty" in str(exc):
             raise HTTPException(400, "file is empty") from exc
         raise HTTPException(415, "DOCUMENT_EXTRACTION_FAILED") from exc
-    return owner_source_store(user).import_text(
-        document.source_name,
-        document.text,
-        provenance=document.provenance,
-    )
+    store = owner_source_store(user)
+    try:
+        imported = store.import_text(
+            document.source_name,
+            document.text,
+            provenance=document.provenance,
+        )
+        return _index_imported_source(user, store, imported)
+    except IndexingError as exc:
+        raise HTTPException(503, "DERIVED_INDEX_FAILED") from exc
 
 @app.post("/api/chat")
 async def chat(body: ChatRequest, request: Request):

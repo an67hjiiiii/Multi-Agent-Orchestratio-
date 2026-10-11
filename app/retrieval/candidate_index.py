@@ -34,23 +34,23 @@ class CandidateIndex:
             raise LookupError("source not found")
         if source.get("status") not in {None, "READY"}:
             raise IndexingError("only READY sources may be indexed")
-        chunks = self.source_store.chunks([source_id])
-        records = [
-            VectorRecord(
-                id=chunk.chunk_id,
-                vector=self.embedder.embed(chunk.text),
-                payload={
-                    "owner_user_id": self.owner_user_id,
-                    "source_id": chunk.source_id,
-                    "chunk_id": chunk.chunk_id,
-                    "source_name": chunk.source_name,
-                    "embedding_version": self.embedder.version,
-                    **dict(chunk.provenance),
-                },
-            )
-            for chunk in chunks
-        ]
         try:
+            chunks = self.source_store.chunks([source_id])
+            records = [
+                VectorRecord(
+                    id=f"{self.owner_user_id}:{chunk.chunk_id}",
+                    vector=self.embedder.embed(chunk.text),
+                    payload={
+                        "owner_user_id": self.owner_user_id,
+                        "source_id": chunk.source_id,
+                        "chunk_id": chunk.chunk_id,
+                        "source_name": chunk.source_name,
+                        "embedding_version": self.embedder.version,
+                        **dict(chunk.provenance),
+                    },
+                )
+                for chunk in chunks
+            ]
             self.vector_store.upsert(records)
         except Exception as exc:
             marker = getattr(self.source_store, "mark_failed", None)
