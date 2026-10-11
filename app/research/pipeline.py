@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from app.core.config import RuntimeConfig
 from app.core.graph import topological_order, validate_tasks
 from app.core.telemetry import process_rss_mb, gpu_memory_mb
-from app.core.types import Task, TaskResult, RunMetrics
+from app.core.types import SourceChunk, Task, TaskResult, RunMetrics
 from app.providers.factory import get_provider
 from app.research.context_controller import ContextController
 from app.research.conversation_context import ConversationContext
@@ -23,10 +23,45 @@ from app.storage.run_store import RunStore
 CONDITIONS = {"A", "B", "C", "C-P", "C-N", "C-O"}
 
 class ResearchPipeline:
-    def __init__(self, source_store: SourceStore, run_store: RunStore):
+    def __init__(
+        self,
+        source_store: SourceStore,
+        run_store: RunStore,
+        candidate_index=None,
+        retrieval_backend: str = "lexical",
+    ):
         self.source_store = source_store
         self.run_store = run_store
+        self.candidate_index = candidate_index
+        self.retrieval_backend = retrieval_backend if candidate_index else "lexical"
         self.planning = PlanningRetriever()
+
+    def _retrieve_candidates(
+        self,
+        query: str,
+        chunks: list[SourceChunk],
+        *,
+        top_k: int,
+        min_score: float,
+        source_ids: list[str] | None,
+    ) -> list[SourceChunk]:
+        if self.candidate_index is None:
+            return retrieve(query, chunks, top_k=top_k, min_score=min_score)
+
+        # CandidateIndex applies owner/source filters in the vector query before top-k.
+        # Hydrate only canonical chunks already scoped by the owner source store.
+        chunks_by_id = {chunk.chunk_id: chunk for chunk in chunks}
+        matches = self.candidate_index.candidates(
+            query, limit=top_k, source_ids=source_ids
+        )
+        candidates: list[SourceChunk] = []
+        for match in matches:
+            chunk_id = str(match.payload.get("chunk_id") or "")
+            chunk = chunks_by_id.get(chunk_id)
+            if chunk is None or match.score < min_score:
+                continue
+            candidates.append(SourceChunk(**{**chunk.__dict__, "score": match.score}))
+        return candidates
 
     async def run(
         self,
@@ -78,6 +113,7 @@ class ResearchPipeline:
                 "max_run_tokens": cfg.max_run_tokens,
                 "retry_limit": cfg.retry_limit,
                 "retrieval_min_score": cfg.retrieval_min_score,
+                "retrieval_backend": self.retrieval_backend,
                 "conversation_id": conversation_id,
                 "conversation_context": conversation_context.to_trace(),
             }
@@ -119,11 +155,12 @@ class ResearchPipeline:
         try:
             if condition == "A":
                 r0 = time.perf_counter()
-                candidates = retrieve(
+                candidates = self._retrieve_candidates(
                     _retrieval_query_with_conversation_context(query, conversation_context),
                     all_chunks,
                     top_k=cfg.task_top_k,
                     min_score=cfg.retrieval_min_score,
+                    source_ids=source_ids,
                 )
                 metrics.retrieval_latency_ms += int((time.perf_counter() - r0) * 1000)
                 metrics.retrieved_chunks += len(candidates)
@@ -134,6 +171,7 @@ class ResearchPipeline:
                 metrics.context_tokens_est += sum(estimate_tokens(c.text) for c in selected)
                 event(
                     "vanilla_retrieval",
+                    retrieval_backend=self.retrieval_backend,
                     candidates=[c.chunk_id for c in candidates],
                     selected=[c.chunk_id for c in selected],
                     dropped=budget_dropped,
@@ -173,7 +211,13 @@ class ResearchPipeline:
                     dependency_context = " ".join(completed[d].answer for d in task.depends_on if d in completed)
                     retrieval_query = f"{task.goal} {' '.join(task.evidence_needs)} {dependency_context}".strip()
                     r0 = time.perf_counter()
-                    candidates = retrieve(retrieval_query, all_chunks, top_k=cfg.task_top_k, min_score=cfg.retrieval_min_score)
+                    candidates = self._retrieve_candidates(
+                        retrieval_query,
+                        all_chunks,
+                        top_k=cfg.task_top_k,
+                        min_score=cfg.retrieval_min_score,
+                        source_ids=source_ids,
+                    )
                     metrics.retrieval_latency_ms += int((time.perf_counter() - r0) * 1000)
                     metrics.retrieved_chunks += len(candidates)
                     if flags["O"]:
@@ -189,6 +233,7 @@ class ResearchPipeline:
                     event(
                         "task_retrieval",
                         task_id=task.task_id,
+                        retrieval_backend=self.retrieval_backend,
                         candidates=[c.chunk_id for c in candidates],
                         selected=[c.chunk_id for c in selected],
                         dropped=dropped,

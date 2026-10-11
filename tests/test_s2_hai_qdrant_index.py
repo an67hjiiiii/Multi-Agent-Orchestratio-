@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -14,8 +15,10 @@ from app.auth.store import AuthStore
 from app.main import app
 from app.retrieval.candidate_index import CandidateIndex, IndexingError
 from app.retrieval.embeddings import LocalHashEmbedder
+from app.research.pipeline import ResearchPipeline
 from app.storage.postgres.base import Base
 from app.storage.postgres.runtime import PostgresAuthStore, PostgresSourceStore
+from app.storage.run_store import RunStore
 from app.storage.source_store import SourceStore
 from app.storage.vector_store import (
     InMemoryVectorStore,
@@ -48,6 +51,109 @@ def test_in_memory_candidate_search_filters_owner_and_source():
         source_ids=["source-a"],
     )
     assert [match.id for match in matches] == ["chunk-a"]
+
+
+def test_pipeline_uses_owner_scoped_vector_candidates_when_enabled(tmp_path):
+    embedder = LocalHashEmbedder(dimension=8)
+    vector_store = InMemoryVectorStore(vector_size=8)
+    owner_a_store = SourceStore(str(tmp_path / "owner-a"))
+    owner_b_store = SourceStore(str(tmp_path / "owner-b"))
+    owner_a = owner_a_store.import_text("a.md", "alpha owner a evidence")
+    owner_b = owner_b_store.import_text("b.md", "alpha owner b evidence")
+    CandidateIndex(
+        owner_a_store, vector_store, owner_user_id="owner-a", embedder=embedder
+    ).index_source(owner_a["source_id"])
+    CandidateIndex(
+        owner_b_store, vector_store, owner_user_id="owner-b", embedder=embedder
+    ).index_source(owner_b["source_id"])
+    pipeline = ResearchPipeline(
+        owner_a_store,
+        RunStore(str(tmp_path / "runs")),
+        candidate_index=CandidateIndex(
+            owner_a_store, vector_store, owner_user_id="owner-a", embedder=embedder
+        ),
+        retrieval_backend="memory",
+    )
+
+    candidates = pipeline._retrieve_candidates(
+        "alpha evidence",
+        owner_a_store.chunks(),
+        top_k=1,
+        min_score=0.0,
+        source_ids=[owner_a["source_id"]],
+    )
+
+    assert len(candidates) == 1
+    assert candidates[0].source_id == owner_a["source_id"]
+    assert candidates[0].score > 0
+
+
+def test_chat_uses_real_qdrant_candidates_when_explicitly_enabled(tmp_path, monkeypatch):
+    pytest.importorskip("qdrant_client")
+    monkeypatch.setenv("IMPLEMENTATION_PROFILE", "m0")
+    monkeypatch.setattr(main_module, "STORAGE_BACKEND", "file")
+    monkeypatch.setattr(main_module, "DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setattr(main_module, "RUNS_DIR", str(tmp_path / "runs"))
+    monkeypatch.setattr(main_module, "VECTOR_BACKEND", "qdrant")
+    monkeypatch.setattr(main_module, "VECTOR_INDEX_PATH", str(tmp_path / "qdrant"))
+    monkeypatch.setattr(main_module, "VECTOR_COLLECTION", "s2-chat-test")
+    monkeypatch.setattr(main_module, "VECTOR_SIZE", "8")
+    monkeypatch.setattr(main_module, "_derived_vector_store", None)
+    monkeypatch.setattr(main_module, "_derived_vector_store_backend", None)
+    auth = AuthStore(tmp_path / "auth")
+    user = auth.register(email="qdrant-chat@example.test", password="long-enough-password")
+    token, _ = auth.create_session(user["user_id"])
+    app.state.auth_store = auth
+    headers = {"Authorization": f"Bearer {token}"}
+
+    try:
+        with TestClient(app) as client:
+            uploaded = client.post(
+                "/api/sources/text",
+                headers=headers,
+                json={"source_name": "alpha.md", "text": "Alpha evidence is stored in this private source."},
+            )
+            run = client.post(
+                "/api/chat",
+                headers=headers,
+                json={"message": "What alpha evidence is available?", "condition": "A", "provider": "fake"},
+            )
+        assert uploaded.status_code == 200
+        assert run.status_code == 200
+        assert run.json()["status"] == "COMPLETE"
+        retrieval = next(event for event in run.json()["events"] if event["stage"] == "vanilla_retrieval")
+        assert retrieval["retrieval_backend"] == "qdrant"
+        assert retrieval["selected"]
+        assert run.json()["task_results"][0]["citations"] == retrieval["selected"]
+    finally:
+        vector_store = main_module._derived_vector_store
+        if vector_store is not None and hasattr(vector_store.client, "close"):
+            vector_store.client.close()
+        monkeypatch.setattr(main_module, "_derived_vector_store", None)
+        monkeypatch.setattr(main_module, "_derived_vector_store_backend", None)
+
+
+def test_pipeline_does_not_fall_back_when_enabled_vector_search_fails(tmp_path, monkeypatch):
+    monkeypatch.setenv("IMPLEMENTATION_PROFILE", "m0")
+    source_store = SourceStore(str(tmp_path / "data"))
+    source_store.import_text("source.md", "alpha evidence is available")
+
+    class UnavailableCandidates:
+        def candidates(self, query, *, limit, source_ids=None):
+            raise RuntimeError("vector backend unavailable")
+
+    pipeline = ResearchPipeline(
+        source_store,
+        RunStore(str(tmp_path / "runs")),
+        candidate_index=UnavailableCandidates(),
+        retrieval_backend="qdrant",
+    )
+    run = asyncio.run(pipeline.run("alpha evidence", "A", "fake"))
+
+    assert run["status"] == "FAILED"
+    assert any(event["stage"] == "run_failed" for event in run["events"])
+    retrieval = run["effective_config"]["retrieval_backend"]
+    assert retrieval == "qdrant"
 
 
 class _FakeModels:

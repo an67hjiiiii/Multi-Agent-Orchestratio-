@@ -88,7 +88,25 @@ def owner_run_store(user: dict, conversation_id: str | None = None):
     return RunStore(str(root))
 
 def owner_pipeline(user: dict, conversation_id: str | None = None) -> ResearchPipeline:
-    return ResearchPipeline(owner_source_store(user), owner_run_store(user, conversation_id))
+    sources = owner_source_store(user)
+    candidate_index = None
+    if VECTOR_BACKEND not in {"", "disabled", "off", "none"}:
+        vector_store = _configured_vector_store()
+        if vector_store is not None:
+            candidate_index = CandidateIndex(
+                sources,
+                vector_store,
+                owner_user_id=str(user["user_id"]),
+                embedder=LocalHashEmbedder(
+                    dimension=int(getattr(vector_store, "vector_size", 768) or 768)
+                ),
+            )
+    return ResearchPipeline(
+        sources,
+        owner_run_store(user, conversation_id),
+        candidate_index=candidate_index,
+        retrieval_backend=VECTOR_BACKEND if candidate_index is not None else "lexical",
+    )
 
 
 def _configured_vector_store():
@@ -320,6 +338,8 @@ async def chat(body: ChatRequest, request: Request):
         return run
     except LookupError as exc:
         raise HTTPException(404, "source not found") from exc
+    except IndexingError as exc:
+        raise HTTPException(503, "DERIVED_INDEX_UNAVAILABLE") from exc
     except ValueError as exc:
         raise HTTPException(400, str(exc))
 
