@@ -2,6 +2,8 @@ from __future__ import annotations
 from app.core.types import SourceChunk
 from app.retrieval.text import make_chunks, retrieve
 
+PLANNING_RELEVANCE_THRESHOLD = 0.18
+
 DEFAULT_PATTERNS = [
     ("planning_security.md", "Authentication, authorization, JWT, identity and access-control requests should remain separate atomic obligations when the user asks for distinct concerns."),
     ("planning_database.md", "Database review requests commonly decompose into schema/data model, query/access, transaction/consistency, and performance only when the user actually asks for them."),
@@ -17,5 +19,12 @@ class PlanningRetriever:
         self.chunks = chunks
 
     def search(self, query: str, top_k: int = 3) -> list[SourceChunk]:
-        found = retrieve(query, self.chunks, top_k=top_k)
-        return found or self.chunks[:top_k]
+        """Return only planning patterns relevant to the current request."""
+
+        found = retrieve(
+            query,
+            self.chunks,
+            top_k=top_k,
+            min_score=PLANNING_RELEVANCE_THRESHOLD,
+        )
+        return found
