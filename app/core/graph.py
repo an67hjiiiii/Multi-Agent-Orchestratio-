@@ -1,9 +1,13 @@
 from __future__ import annotations
 from collections import defaultdict, deque
 from app.core.types import Task
+from app.research.registry import validate_domain
 
 
 def validate_tasks(tasks: list[Task]) -> None:
+    for task in tasks:
+        validate_domain(task.domain)
+
     ids = [t.task_id for t in tasks]
     if len(ids) != len(set(ids)):
         raise ValueError("Duplicate task_id")

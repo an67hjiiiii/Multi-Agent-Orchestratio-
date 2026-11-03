@@ -53,11 +53,18 @@ def test_postgres_source_and_run_stores_are_owner_scoped(tmp_path):
         "chunk_count": 1,
     }]
 
-    run = {"run_id": "run_owner_a", "status": "COMPLETE", "query": "Private", "answer": "Grounded"}
+    run = {
+        "run_id": "run_owner_a",
+        "status": "COMPLETE",
+        "lifecycle_status": "COMPLETED",
+        "query": "Private",
+        "answer": "Grounded",
+    }
     runs_a = PostgresRunStore(factory, owner_a["user_id"])
     runs_b = PostgresRunStore(factory, owner_b["user_id"])
     runs_a.save(run)
     assert runs_a.get("run_owner_a") == run
+    assert runs_a.list()[0]["lifecycle_status"] == "COMPLETED"
     assert runs_b.get("run_owner_a") is None
     assert runs_b.list() == []
 

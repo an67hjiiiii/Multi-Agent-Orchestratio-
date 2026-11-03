@@ -33,7 +33,16 @@ class OllamaProvider(Provider):
             },
         }
         marker = system.upper()
-        if any(x in marker for x in ("VANILLA_RAG_ANSWERER", "TASK_DECOMPOSER", "WORKER")):
+        if any(
+            x in marker
+            for x in (
+                "VANILLA_RAG_ANSWERER",
+                "TASK_DECOMPOSER",
+                "TASK_PLAN_BUILDER",
+                "OBLIGATION_CONCERN_EXTRACTOR",
+                "WORKER",
+            )
+        ):
             payload["format"] = "json"
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.post(f"{self.base_url}/api/chat", json=payload)

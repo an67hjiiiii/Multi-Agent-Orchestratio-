@@ -13,7 +13,27 @@ class FakeProvider(Provider):
     async def generate(self, *, system: str, user: str) -> ProviderResult:
         await asyncio.sleep(0.01)
         marker = system.upper()
-        if "TASK_DECOMPOSER" in marker:
+        if "OBLIGATION_CONCERN_EXTRACTOR" in marker:
+            text = json.dumps({"obligations": [], "concerns": []}, ensure_ascii=False)
+        elif "TASK_PLAN_BUILDER" in marker:
+            request = self._current_request(user)
+            tasks = self._tasks(request)
+            text = json.dumps(
+                {
+                    "tasks": [
+                        {
+                            "task_id": task["id"],
+                            "goal": task["goal"],
+                            "domain": task["domain"],
+                            "depends_on": task["depends_on"],
+                            "evidence_needs": task["evidence_needs"],
+                        }
+                        for task in tasks
+                    ]
+                },
+                ensure_ascii=False,
+            )
+        elif "TASK_DECOMPOSER" in marker:
             text = json.dumps({"tasks": self._tasks(user)}, ensure_ascii=False)
         elif "VANILLA_RAG_ANSWERER" in marker:
             evidence = self._extract_section(user, "EVIDENCE:")
@@ -51,6 +71,15 @@ class FakeProvider(Provider):
         if not tasks:
             tasks.append({"id":"T1","goal":"Answer the user's request from available evidence","domain":"api_architecture","depends_on":[],"evidence_needs":["user request"]})
         return tasks
+
+    @staticmethod
+    def _current_request(user: str) -> str:
+        marker = "CURRENT REQUEST:\n"
+        start = user.find(marker)
+        if start < 0:
+            return user
+        value = user[start + len(marker):]
+        return value.split("\n\n", 1)[0].strip()
 
     @staticmethod
     def _extract(text: str, key: str, default: str) -> str:

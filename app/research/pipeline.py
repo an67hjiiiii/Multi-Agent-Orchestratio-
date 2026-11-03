@@ -1,4 +1,5 @@
 from __future__ import annotations
+import json
 import time
 import uuid
 from dataclasses import asdict
@@ -6,12 +7,24 @@ from datetime import datetime, timezone
 from app.core.config import RuntimeConfig
 from app.core.graph import topological_order, validate_tasks
 from app.core.telemetry import process_rss_mb, gpu_memory_mb
-from app.core.types import SourceChunk, Task, TaskResult, RunMetrics
+from app.core.types import SourceChunk, Task, TaskPlan, TaskResult, RunMetrics
 from app.providers.factory import get_provider
 from app.research.context_controller import ContextController
 from app.research.conversation_context import ConversationContext
-from app.research.decomposer import decompose
+from app.research.decomposer import (
+    PLANNER_SYSTEM_PROMPT,
+    build_task_plan_repair_prompt,
+    decompose_plan,
+    parse_task_plan_output,
+    understand_request,
+)
 from app.research.normalizer import normalize_tasks
+from app.research.obligation_concern_extraction import extract_obligations_and_concerns
+from app.research.plan_verification import (
+    decide_repair,
+    validate_repaired_plan,
+    verify_task_plan,
+)
 from app.research.planning_retrieval import PlanningRetriever
 from app.research.worker import execute_task
 from app.research.synthesizer import synthesize
@@ -92,34 +105,33 @@ class ResearchPipeline:
         metrics = RunMetrics(peak_rss_mb=process_rss_mb(), gpu_memory_mb=gpu_memory_mb())
         events: list[dict] = []
         run_id = "run_" + uuid.uuid4().hex[:12]
+        created_at = datetime.now(timezone.utc).isoformat()
         flags = self._flags(condition)
         source_snapshot = self.source_store.snapshot_id()
+        lifecycle_status = "PENDING"
+        effective = {
+            "condition": condition,
+            "implementation_profile": cfg.implementation_profile,
+            "flags": flags,
+            "task_top_k": cfg.task_top_k,
+            "planning_top_k": cfg.planning_top_k,
+            "max_context_tokens": cfg.max_context_tokens,
+            "max_output_tokens": cfg.max_output_tokens,
+            "max_run_tokens": cfg.max_run_tokens,
+            "retry_limit": cfg.retry_limit,
+            "retrieval_min_score": cfg.retrieval_min_score,
+            "retrieval_backend": self.retrieval_backend,
+            "conversation_id": conversation_id,
+            "conversation_context": conversation_context.to_trace(),
+        }
 
         def event(stage: str, **data):
             events.append({"stage": stage, "ts": datetime.now(timezone.utc).isoformat(), **data})
 
-        def finalize(status: str, answer: str, tasks: list[Task], task_results: list[TaskResult]) -> dict:
-            metrics.latency_ms = int((time.perf_counter() - started) * 1000)
-            metrics.peak_rss_mb = max(filter(lambda x: x is not None, [metrics.peak_rss_mb, process_rss_mb()]), default=None)
-            metrics.gpu_memory_mb = gpu_memory_mb()
-            effective = {
-                "condition": condition,
-                "implementation_profile": cfg.implementation_profile,
-                "flags": flags,
-                "task_top_k": cfg.task_top_k,
-                "planning_top_k": cfg.planning_top_k,
-                "max_context_tokens": cfg.max_context_tokens,
-                "max_output_tokens": cfg.max_output_tokens,
-                "max_run_tokens": cfg.max_run_tokens,
-                "retry_limit": cfg.retry_limit,
-                "retrieval_min_score": cfg.retrieval_min_score,
-                "retrieval_backend": self.retrieval_backend,
-                "conversation_id": conversation_id,
-                "conversation_context": conversation_context.to_trace(),
-            }
-            run = {
+        def make_run(status: str | None, answer: str, tasks: list[Task], task_results: list[TaskResult]) -> dict:
+            return {
                 "run_id": run_id,
-                "created_at": datetime.now(timezone.utc).isoformat(),
+                "created_at": created_at,
                 "condition": condition,
                 "implementation_profile": cfg.implementation_profile,
                 "provider": provider.name,
@@ -127,6 +139,7 @@ class ResearchPipeline:
                 "query": query,
                 "conversation_id": conversation_id,
                 "conversation_context": conversation_context.to_trace(),
+                "lifecycle_status": lifecycle_status,
                 "status": status,
                 "answer": answer,
                 "source_snapshot_id": source_snapshot,
@@ -137,11 +150,26 @@ class ResearchPipeline:
                 "events": events,
                 "effective_config": effective,
             }
+
+        def persist_lifecycle(status: str) -> None:
+            nonlocal lifecycle_status
+            lifecycle_status = status
+            self.run_store.save(make_run(None, "", [], []))
+
+        def finalize(status: str, answer: str, tasks: list[Task], task_results: list[TaskResult]) -> dict:
+            nonlocal lifecycle_status
+            metrics.latency_ms = int((time.perf_counter() - started) * 1000)
+            metrics.peak_rss_mb = max(filter(lambda x: x is not None, [metrics.peak_rss_mb, process_rss_mb()]), default=None)
+            metrics.gpu_memory_mb = gpu_memory_mb()
+            lifecycle_status = "FAILED" if status == "FAILED" else "COMPLETED"
+            run = make_run(status, answer, tasks, task_results)
             self.run_store.save(run)
             return run
 
+        persist_lifecycle("PENDING")
         event(
             "run_started",
+            lifecycle_status=lifecycle_status,
             condition=condition,
             provider=provider.name,
             model=provider.model,
@@ -151,8 +179,10 @@ class ResearchPipeline:
             flags=flags,
         )
         event("conversation_context", **conversation_context.to_trace())
-        all_chunks = self.source_store.chunks(source_ids)
+        persist_lifecycle("RUNNING")
+        event("lifecycle_transition", from_status="PENDING", to_status="RUNNING")
         try:
+            all_chunks = self.source_store.chunks(source_ids)
             if condition == "A":
                 r0 = time.perf_counter()
                 candidates = self._retrieve_candidates(
@@ -183,26 +213,275 @@ class ResearchPipeline:
                 tasks, task_results = [task], [result]
                 answer = result.answer
             else:
+                planning_request = _retrieval_query_with_conversation_context(
+                    query, conversation_context
+                )
+                understanding = understand_request(query)
+                event("request_understanding", **understanding.to_dict())
+                extraction_started = time.perf_counter()
+                try:
+                    extraction = await extract_obligations_and_concerns(
+                        provider, query, metrics
+                    )
+                except Exception as exc:
+                    metrics.generation_latency_ms += int(
+                        (time.perf_counter() - extraction_started) * 1000
+                    )
+                    event(
+                        "obligation_concern_extraction",
+                        status="FAILED",
+                        error_type=type(exc).__name__,
+                    )
+                    raise ValueError(
+                        "Obligation and concern extraction failed: "
+                        f"{type(exc).__name__}"
+                    ) from exc
+                metrics.generation_latency_ms += int(
+                    (time.perf_counter() - extraction_started) * 1000
+                )
+                event(
+                    "obligation_concern_extraction",
+                    status="COMPLETE",
+                    obligations=[asdict(item) for item in extraction.obligations],
+                    concerns=[asdict(item) for item in extraction.concerns],
+                )
+
                 planning_context = ""
+                planning_hits = []
+                fallback_reason = "planning_retrieval_disabled_by_condition"
                 if flags["P"]:
-                    planning_hits = self.planning.search(query, top_k=cfg.planning_top_k)
+                    retrieval_started = time.perf_counter()
+                    planning_hits = self.planning.search(
+                        query,
+                        top_k=cfg.planning_top_k,
+                        min_score=cfg.retrieval_min_score,
+                    )
+                    metrics.retrieval_latency_ms += int(
+                        (time.perf_counter() - retrieval_started) * 1000
+                    )
                     planning_context = "\n\n".join(f"[{c.chunk_id}] {c.text}" for c in planning_hits)
-                    event("planning_retrieval", selected=[c.chunk_id for c in planning_hits])
+                    fallback_reason = (
+                        None
+                        if planning_hits
+                        else "no_planning_evidence_selected; continuing without retrieved planning context"
+                    )
+                event(
+                    "planning_retrieval",
+                    enabled=flags["P"],
+                    selected=[c.chunk_id for c in planning_hits],
+                    selected_evidence=[
+                        {"evidence_id": c.chunk_id, "score": c.score}
+                        for c in planning_hits
+                    ],
+                    fallback_reason=fallback_reason,
+                )
+
                 g0 = time.perf_counter()
-                tasks = await decompose(
+                planning_result = await decompose_plan(
                     provider,
-                    _retrieval_query_with_conversation_context(query, conversation_context),
+                    planning_request,
                     planning_context,
                     metrics,
+                    extraction=extraction,
+                    max_repairs=1,
                 )
                 metrics.generation_latency_ms += int((time.perf_counter() - g0) * 1000)
+                plan = planning_result.plan
+                event(
+                    "planning_generation",
+                    status=planning_result.status,
+                    task_ids=[] if plan is None else [task.task_id for task in plan.tasks],
+                    repair_attempted=planning_result.repair_attempted,
+                    warnings=list(planning_result.warnings),
+                )
+                if planning_result.repair_attempted:
+                    event(
+                        "planning_repair",
+                        phase="parse",
+                        attempt=1,
+                        accepted=plan is not None,
+                        errors=list(planning_result.warnings),
+                    )
+                if plan is None:
+                    failure_details = planning_result.warnings or [
+                        "TaskPlan generation did not produce a plan"
+                    ]
+                    event(
+                        "plan_verification",
+                        phase="initial",
+                        valid=False,
+                        skipped=True,
+                        errors=failure_details,
+                        repair_attempted=planning_result.repair_attempted,
+                    )
+                    event("planning_rejected", reason="task_plan_generation_failed")
+                    raise ValueError("TaskPlan generation failed")
+
+                verification = verify_task_plan(plan)
+                repair_decision = decide_repair(
+                    verification,
+                    repair_attempted=planning_result.repair_attempted,
+                )
+                event(
+                    "plan_verification",
+                    phase="initial",
+                    valid=verification.valid,
+                    action=repair_decision.action,
+                    errors=list(verification.errors),
+                    covered_obligations=list(verification.covered_obligations),
+                    missing_required_obligations=list(
+                        verification.missing_required_obligations
+                    ),
+                    covered_concerns=list(verification.covered_concerns),
+                    missing_concerns=list(verification.missing_concerns),
+                    misrouted_concerns=list(verification.misrouted_concerns),
+                    repair_attempted=planning_result.repair_attempted,
+                )
+
+                if repair_decision.action == "REPAIR":
+                    previous_output = json.dumps(
+                        {
+                            "tasks": [
+                                {
+                                    "task_id": task.task_id,
+                                    "goal": task.goal,
+                                    "domain": task.domain,
+                                    "depends_on": task.depends_on,
+                                    "evidence_needs": task.evidence_needs,
+                                }
+                                for task in plan.tasks
+                            ]
+                        },
+                        ensure_ascii=False,
+                    )
+                    repair_error = "; ".join(verification.errors)
+                    repair_prompt = build_task_plan_repair_prompt(
+                        plan.request,
+                        previous_output,
+                        repair_error,
+                        planning_context,
+                        extraction,
+                    )
+                    repaired_plan = None
+                    repaired_verification = None
+                    repair_error_type = None
+                    repair_error_message = None
+                    repair_started = time.perf_counter()
+                    try:
+                        repaired_output = await provider.generate(
+                            system=PLANNER_SYSTEM_PROMPT,
+                            user=repair_prompt,
+                        )
+                        metrics.add_usage(repaired_output.usage)
+                        repaired_plan = parse_task_plan_output(
+                            repaired_output.text,
+                            plan.request,
+                            extraction,
+                        )
+                        repaired_verification = validate_repaired_plan(
+                            plan, repaired_plan
+                        )
+                    except Exception as exc:
+                        repair_error_type = type(exc).__name__
+                        repair_error_message = str(exc)
+                    finally:
+                        metrics.generation_latency_ms += int(
+                            (time.perf_counter() - repair_started) * 1000
+                        )
+
+                    repair_accepted = bool(
+                        repaired_verification is not None
+                        and repaired_verification.valid
+                    )
+                    event(
+                        "planning_repair",
+                        phase="semantic_verification",
+                        attempt=1,
+                        accepted=repair_accepted,
+                        errors=(
+                            []
+                            if repaired_verification is None
+                            else list(repaired_verification.errors)
+                        ),
+                        error_type=repair_error_type,
+                    )
+                    event(
+                        "plan_verification",
+                        phase="post_repair",
+                        valid=repair_accepted,
+                        errors=(
+                            [repair_error_message]
+                            if repaired_verification is None
+                            and repair_error_message
+                            else []
+                            if repaired_verification is None
+                            else list(repaired_verification.errors)
+                        ),
+                    )
+                    if not repair_accepted:
+                        event(
+                            "planning_rejected",
+                            reason="task_plan_failed_verification_after_repair",
+                        )
+                        raise ValueError(
+                            "TaskPlan failed verification after one bounded repair"
+                        )
+                    plan = repaired_plan
+                    verification = repaired_verification
+                elif repair_decision.action == "REJECT":
+                    event(
+                        "planning_rejected",
+                        reason="task_plan_verification_failed",
+                        errors=list(verification.errors),
+                    )
+                    raise ValueError("TaskPlan verification failed")
+
+                tasks = list(plan.tasks)
                 event("decomposition", tasks=[asdict(t) for t in tasks])
                 if flags["N"]:
                     tasks, removed = normalize_tasks(tasks)
                     metrics.duplicate_tasks_removed += removed
                     event("normalization", removed=removed, tasks=[asdict(t) for t in tasks])
+                    normalized_plan = TaskPlan(
+                        request=plan.request,
+                        obligations=list(plan.obligations),
+                        concerns=list(plan.concerns),
+                        tasks=tasks,
+                    )
+                    verification = verify_task_plan(normalized_plan)
+                    event(
+                        "plan_verification",
+                        phase="post_normalization",
+                        valid=verification.valid,
+                        errors=list(verification.errors),
+                        covered_obligations=list(verification.covered_obligations),
+                        missing_required_obligations=list(
+                            verification.missing_required_obligations
+                        ),
+                        covered_concerns=list(verification.covered_concerns),
+                        missing_concerns=list(verification.missing_concerns),
+                        misrouted_concerns=list(verification.misrouted_concerns),
+                    )
+                    if not verification.valid:
+                        event(
+                            "planning_rejected",
+                            reason="normalization_invalidated_task_plan",
+                            errors=list(verification.errors),
+                        )
+                        raise ValueError(
+                            "Task normalization invalidated the verified TaskPlan"
+                        )
                 validate_tasks(tasks)
                 ordered = topological_order(tasks)
+                event(
+                    "validated_plan_handoff",
+                    request=plan.request,
+                    obligations=[asdict(item) for item in plan.obligations],
+                    concerns=[asdict(item) for item in plan.concerns],
+                    verification_valid=verification.valid,
+                    tasks=[asdict(task) for task in tasks],
+                    execution_order=[task.task_id for task in ordered],
+                )
                 task_results = []
                 completed: dict[str, TaskResult] = {}
                 per_task_budget = max(256, cfg.max_context_tokens // max(1, len(tasks)))
@@ -254,10 +533,21 @@ class ResearchPipeline:
             status = "COMPLETE" if task_results and all(r.status == "COMPLETE" for r in task_results) else "PARTIAL"
             if task_results and all(r.status == "NO_EVIDENCE" for r in task_results):
                 status = "NO_EVIDENCE"
-            event("run_finished", status=status)
+            lifecycle_status = "COMPLETED"
+            event(
+                "run_finished",
+                status=status,
+                lifecycle_status=lifecycle_status,
+            )
             return finalize(status, answer, tasks, task_results)
         except Exception as exc:
-            event("run_failed", error_type=type(exc).__name__, error=str(exc))
+            lifecycle_status = "FAILED"
+            event(
+                "run_failed",
+                lifecycle_status=lifecycle_status,
+                error_type=type(exc).__name__,
+                error=str(exc),
+            )
             return finalize("FAILED", f"Pipeline failed: {type(exc).__name__}: {exc}", [], [])
 
     @staticmethod

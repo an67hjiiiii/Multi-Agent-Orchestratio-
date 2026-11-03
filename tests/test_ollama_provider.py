@@ -1,6 +1,8 @@
 import asyncio
 import json
 
+import pytest
+
 from app.providers.ollama import OllamaProvider
 
 
@@ -48,3 +50,30 @@ def test_ollama_structured_calls_disable_thinking(monkeypatch):
     assert payload["format"] == "json"
     assert payload["model"] == "qwen3:4b"
     assert json.loads(result.text)["status"] == "ok"
+
+
+@pytest.mark.parametrize(
+    "marker",
+    ["TASK_PLAN_BUILDER", "OBLIGATION_CONCERN_EXTRACTOR"],
+)
+def test_ollama_planning_calls_request_json_mode(monkeypatch, marker):
+    monkeypatch.setattr("app.providers.ollama.httpx.AsyncClient", _FakeClient)
+    provider = OllamaProvider(model="qwen3:4b")
+
+    asyncio.run(provider.generate(system=f"{marker} return JSON", user="test"))
+
+    assert _FakeClient.last_json["format"] == "json"
+
+
+def test_ollama_non_planning_call_keeps_unstructured_payload(monkeypatch):
+    monkeypatch.setattr("app.providers.ollama.httpx.AsyncClient", _FakeClient)
+    provider = OllamaProvider(model="qwen3:4b")
+
+    asyncio.run(provider.generate(system="SYNTHESIZER", user="test"))
+
+    payload = _FakeClient.last_json
+    assert "format" not in payload
+    assert payload["model"] == "qwen3:4b"
+    assert payload["stream"] is False
+    assert payload["think"] is False
+    assert payload["options"] == {"temperature": 0.1, "num_predict": 700}

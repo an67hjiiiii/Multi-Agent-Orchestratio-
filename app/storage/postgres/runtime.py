@@ -600,7 +600,7 @@ class PostgresRunStore:
                 RunRecord.owner_user_id == self.owner_user_id
             ).order_by(RunRecord.created_at.desc(), RunRecord.run_id.desc()).limit(limit)).all()
             return [{key: row.extra_data.get(key) for key in
-                     ("run_id", "created_at", "condition", "query", "status")} for row in rows]
+                     ("run_id", "created_at", "condition", "query", "status", "lifecycle_status")} for row in rows]
 
 
 class PostgresConversationStore:

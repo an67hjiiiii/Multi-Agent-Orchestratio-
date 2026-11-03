@@ -22,7 +22,17 @@ class RunStore:
         for path in sorted(self.root.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)[:limit]:
             try:
                 item = json.loads(path.read_text(encoding="utf-8"))
-                rows.append({k: item.get(k) for k in ("run_id","created_at","condition","query","status")})
+                rows.append({
+                    k: item.get(k)
+                    for k in (
+                        "run_id",
+                        "created_at",
+                        "condition",
+                        "query",
+                        "status",
+                        "lifecycle_status",
+                    )
+                })
             except Exception:
                 continue
         return rows

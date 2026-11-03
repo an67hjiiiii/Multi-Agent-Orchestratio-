@@ -22,5 +22,11 @@ REGISTRY = {
 }
 
 
+def validate_domain(domain: str) -> None:
+    if domain not in REGISTRY:
+        raise ValueError(f"Unknown task domain: {domain}")
+
+
 def profile(domain: str) -> dict:
-    return REGISTRY.get(domain, REGISTRY["api_architecture"])
+    validate_domain(domain)
+    return REGISTRY[domain]

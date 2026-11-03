@@ -52,6 +52,22 @@ class Concern:
     description: str
     domain: str = "general"
 
+
+@dataclass
+class ObligationConcernExtraction:
+    """Structured extraction output kept separate from task decomposition."""
+
+    obligations: list[Obligation] = field(default_factory=list)
+    concerns: list[Concern] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize only the existing obligation and concern contracts."""
+
+        return {
+            "obligations": [asdict(item) for item in self.obligations],
+            "concerns": [asdict(item) for item in self.concerns],
+        }
+
 @dataclass
 class TaskPlan:
     """Structured plan that keeps requirements, concerns, and tasks distinct."""
