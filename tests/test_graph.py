@@ -10,3 +10,8 @@ def test_valid_graph():
 def test_cycle_rejected():
     with pytest.raises(ValueError):
         validate_tasks([Task('T1','a',depends_on=['T2']),Task('T2','b',depends_on=['T1'])])
+
+
+def test_unknown_task_domain_rejected():
+    with pytest.raises(ValueError, match="Unknown task domain: general"):
+        validate_tasks([Task('T1', 'a', domain='general')])
