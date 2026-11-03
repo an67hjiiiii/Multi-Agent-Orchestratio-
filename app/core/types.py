@@ -44,6 +44,31 @@ class Obligation:
     description: str
     required: bool = True
 
+    @property
+    def anchors(self) -> list[str]:
+        """Return request anchors when a structured extractor supplied them.
+
+        Anchors were not part of the original Sprint 1 dataclass fields, so
+        keeping them as optional metadata preserves the existing serialized
+        contract while allowing Sprint 3 extraction to retain source anchors.
+        """
+
+        return list(getattr(self, "_anchors", []))
+
+    @anchors.setter
+    def anchors(self, value: list[str]) -> None:
+        self._anchors = list(value)
+
+    @property
+    def source_anchor(self) -> str | None:
+        """Return the first source anchor for compatibility with scalar forms."""
+
+        return self.anchors[0] if self.anchors else None
+
+    @source_anchor.setter
+    def source_anchor(self, value: str | None) -> None:
+        self.anchors = [value] if isinstance(value, str) and value else []
+
 @dataclass
 class Concern:
     """A review concern recorded separately from a required obligation."""
@@ -51,6 +76,49 @@ class Concern:
     concern_id: str
     description: str
     domain: str = "general"
+
+    @property
+    def anchors(self) -> list[str]:
+        """Return request anchors when a structured extractor supplied them."""
+
+        return list(getattr(self, "_anchors", []))
+
+    @anchors.setter
+    def anchors(self, value: list[str]) -> None:
+        self._anchors = list(value)
+
+    @property
+    def source_anchor(self) -> str | None:
+        """Return the first source anchor for compatibility with scalar forms."""
+
+        return self.anchors[0] if self.anchors else None
+
+    @source_anchor.setter
+    def source_anchor(self, value: str | None) -> None:
+        self.anchors = [value] if isinstance(value, str) and value else []
+
+
+@dataclass
+class ObligationConcernExtraction:
+    """Structured extraction output kept separate from task decomposition."""
+
+    obligations: list[Obligation] = field(default_factory=list)
+    concerns: list[Concern] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize only obligations and concerns, including supplied anchors."""
+
+        def serialize(item: Obligation | Concern) -> dict[str, Any]:
+            payload = asdict(item)
+            anchors = item.anchors
+            if anchors:
+                payload["anchors"] = anchors
+            return payload
+
+        return {
+            "obligations": [serialize(item) for item in self.obligations],
+            "concerns": [serialize(item) for item in self.concerns],
+        }
 
 @dataclass
 class TaskPlan:
