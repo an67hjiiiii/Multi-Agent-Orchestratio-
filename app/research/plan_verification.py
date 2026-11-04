@@ -19,6 +19,7 @@ from app.retrieval.text import terms
 
 
 GENERAL_CONCERN_DOMAIN = "general"
+_GENERAL_CONCERN_PREFIX = "general concern about "
 RepairAction = Literal["ACCEPT", "REPAIR", "REJECT"]
 
 # These words describe the act of reviewing rather than the requested subject.
@@ -175,10 +176,11 @@ def verify_task_plan(
             uncovered_optional.append(obligation.obligation_id)
 
     for concern in plan.concerns:
+        concern_text = _concern_text_for_coverage(concern)
         retaining_tasks = [
             task
             for task in plan.tasks
-            if _retains_text(_task_text(task), _source_text(concern))
+            if _retains_text(_task_text(task), concern_text)
         ]
         if not retaining_tasks:
             missing_concerns.append(concern.concern_id)
@@ -422,6 +424,15 @@ def _source_text(item: object) -> str:
     if isinstance(source_anchor, str):
         fields.append(source_anchor)
     return " ".join(value for value in fields if isinstance(value, str))
+
+
+def _concern_text_for_coverage(concern: object) -> str:
+    """Drop the extractor's generic label before checking concern coverage."""
+
+    text = _source_text(concern).strip()
+    if text.casefold().startswith(_GENERAL_CONCERN_PREFIX):
+        return text[len(_GENERAL_CONCERN_PREFIX) :]
+    return text
 
 
 def _retains_text(task_text: str, source_text: str) -> bool:

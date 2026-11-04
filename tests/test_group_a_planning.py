@@ -141,6 +141,26 @@ def test_task_plan_parser_rejects_unknown_dependencies_and_cycles():
         parse_task_plan_output(cyclic)
 
 
+def test_task_plan_parser_rejects_noncanonical_api_architecture_alias():
+    payload = {
+        "tasks": [
+            {
+                "task_id": "T1",
+                "goal": "Review API request validation and error responses.",
+                "domain": "api_arch:architecture",
+                "depends_on": [],
+                "evidence_needs": [],
+            }
+        ]
+    }
+
+    with pytest.raises(ValueError, match="Unknown task domain: api_arch:architecture"):
+        parse_task_plan_output(
+            payload,
+            request="Review API request validation and error responses.",
+        )
+
+
 def test_task_plan_prompt_keeps_group_a_inputs_and_excludes_later_stages():
     extraction = ObligationConcernExtraction(
         obligations=[Obligation("O1", "Review authentication.")],

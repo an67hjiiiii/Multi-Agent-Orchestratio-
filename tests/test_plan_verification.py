@@ -30,6 +30,36 @@ def test_valid_plan_covers_obligation_and_general_concern():
     assert decide_repair(result).action == "ACCEPT"
 
 
+def test_generic_extractor_prefix_does_not_hide_covered_api_concern():
+    plan = TaskPlan(
+        request="Review API request validation and error responses.",
+        obligations=[
+            Obligation("O1", "Review API request validation and error responses")
+        ],
+        concerns=[
+            Concern(
+                "C1",
+                "General concern about API request validation and error responses",
+                "general",
+            )
+        ],
+        tasks=[
+            Task(
+                "T1",
+                "Review API request validation and error responses",
+                "api_architecture",
+            )
+        ],
+    )
+
+    result = verify_task_plan(plan)
+
+    assert result.valid is True
+    assert result.covered_obligations == ("O1",)
+    assert result.covered_concerns == ("C1",)
+    assert result.missing_concerns == ()
+
+
 def test_one_shared_term_does_not_cover_multi_term_obligation_or_concern():
     plan = TaskPlan(
         request="Review identity and authorization.",

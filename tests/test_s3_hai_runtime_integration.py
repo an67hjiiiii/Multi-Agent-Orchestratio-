@@ -25,9 +25,15 @@ class ScriptedPlanningProvider:
     name = "scripted-planning"
     model = "scripted-planning-test"
 
-    def __init__(self, plan_outputs: list[str], obligations: list[dict]):
+    def __init__(
+        self,
+        plan_outputs: list[str],
+        obligations: list[dict],
+        concerns: list[dict] | None = None,
+    ):
         self.plan_outputs = list(plan_outputs)
         self.obligations = obligations
+        self.concerns = concerns or []
         self.plan_prompts: list[str] = []
         self.worker_calls = 0
 
@@ -35,7 +41,7 @@ class ScriptedPlanningProvider:
         marker = system.upper()
         if "OBLIGATION_CONCERN_EXTRACTOR" in marker:
             text = json.dumps(
-                {"obligations": self.obligations, "concerns": []},
+                {"obligations": self.obligations, "concerns": self.concerns},
                 ensure_ascii=False,
             )
         elif "TASK_PLAN_BUILDER" in marker:
@@ -73,6 +79,14 @@ def _task_plan(goal: str, domain: str) -> str:
         },
         ensure_ascii=False,
     )
+
+
+def _api_request_concern() -> dict[str, str]:
+    return {
+        "concern_id": "C1",
+        "description": "General concern about API request validation and error responses",
+        "domain": "general",
+    }
 
 
 def test_pipeline_runs_verified_plan_and_traces_scored_planning_evidence(
@@ -132,6 +146,88 @@ def test_pipeline_runs_verified_plan_and_traces_scored_planning_evidence(
     assert result["status"] == "COMPLETE"
     assert runs.saved_lifecycle_statuses == ["PENDING", "RUNNING", "COMPLETED"]
     assert runs.list()[0]["lifecycle_status"] == "COMPLETED"
+
+
+def test_reproduced_api_plan_reaches_handoff_without_unneeded_repair(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("IMPLEMENTATION_PROFILE", "dev")
+    request = "Review API request validation and error responses."
+    provider = ScriptedPlanningProvider(
+        plan_outputs=[_task_plan(request.rstrip("."), "api_architecture")],
+        obligations=[
+            {
+                "obligation_id": "O1",
+                "description": "Review API request validation and error responses",
+                "required": True,
+            }
+        ],
+        concerns=[_api_request_concern()],
+    )
+    monkeypatch.setattr(pipeline_module, "get_provider", lambda *_args: provider)
+    sources = SourceStore(str(tmp_path / "sources"))
+    runs = RunStore(str(tmp_path / "runs"))
+
+    result = asyncio.run(ResearchPipeline(sources, runs).run(request, "C", "fake"))
+
+    initial_verification = next(
+        event
+        for event in result["events"]
+        if event["stage"] == "plan_verification" and event.get("phase") == "initial"
+    )
+    assert initial_verification["valid"] is True
+    assert initial_verification["covered_concerns"] == ["C1"]
+    assert not any(event["stage"] == "planning_repair" for event in result["events"])
+    assert any(event["stage"] == "validated_plan_handoff" for event in result["events"])
+    assert result["lifecycle_status"] == "COMPLETED"
+    assert len(provider.plan_prompts) == 1
+
+
+def test_missing_concern_repair_gets_canonical_domains_and_can_handoff(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("IMPLEMENTATION_PROFILE", "dev")
+    provider = ScriptedPlanningProvider(
+        plan_outputs=[
+            _task_plan("Review unrelated database indexing", "database"),
+            _task_plan("Review API request validation and error responses", "api_architecture"),
+        ],
+        obligations=[
+            {
+                "obligation_id": "O1",
+                "description": "Review API request validation and error responses",
+                "required": True,
+            }
+        ],
+        concerns=[_api_request_concern()],
+    )
+    monkeypatch.setattr(pipeline_module, "get_provider", lambda *_args: provider)
+    sources = SourceStore(str(tmp_path / "sources"))
+    runs = RunStore(str(tmp_path / "runs"))
+
+    result = asyncio.run(
+        ResearchPipeline(sources, runs).run(
+            "Review API request validation and error responses.", "C", "scripted-planning"
+        )
+    )
+
+    initial_verification = next(
+        event
+        for event in result["events"]
+        if event["stage"] == "plan_verification" and event.get("phase") == "initial"
+    )
+    assert initial_verification["missing_concerns"] == ["C1"]
+    repair_prompt = provider.plan_prompts[1]
+    assert "missing concern coverage: C1" in repair_prompt
+    assert "C1: General concern about API request validation and error responses" in repair_prompt
+    assert '"domain":"security|database|api_architecture"' in repair_prompt
+    repair = next(
+        event for event in result["events"] if event["stage"] == "planning_repair"
+    )
+    assert repair["accepted"] is True
+    assert any(event["stage"] == "validated_plan_handoff" for event in result["events"])
+    assert result["lifecycle_status"] == "COMPLETED"
+    assert provider.worker_calls == 1
 
 
 def test_enabled_planning_records_explicit_empty_evidence_fallback(
