@@ -35,6 +35,8 @@ class Task:
     domain: str = "api_architecture"
     depends_on: list[str] = field(default_factory=list)
     evidence_needs: list[str] = field(default_factory=list)
+    covers_obligations: list[str] | None = None
+    covers_concerns: list[str] | None = None
 
 @dataclass
 class Obligation:

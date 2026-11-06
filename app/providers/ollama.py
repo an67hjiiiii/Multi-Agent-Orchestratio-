@@ -16,6 +16,34 @@ class OllamaProvider(Provider):
         self.max_output_tokens = max(64, int(os.getenv("MAX_OUTPUT_TOKENS", "700")))
 
     async def generate(self, *, system: str, user: str) -> ProviderResult:
+        return await self._generate(system=system, user=user)
+
+    async def generate_structured(
+        self, *, system: str, user: str, response_schema: dict
+    ) -> ProviderResult:
+        return await self._generate(system=system, user=user, response_schema=response_schema)
+
+    async def generate_grounded(
+        self, *, system: str, user: str, evidence_ids: list[str]
+    ) -> ProviderResult:
+        # grounded-output-v1: IDs come from selected canonical chunks, not model text.
+        schema = {
+            "type": "object",
+            "properties": {
+                "status": {"type": "string", "enum": ["COMPLETE", "PARTIAL", "NO_EVIDENCE"]},
+                "answer": {"type": "string"},
+                "citations": {
+                    "type": "array",
+                    "items": {"type": "string", "enum": list(dict.fromkeys(evidence_ids))},
+                },
+                "missing_information": {"type": "array", "items": {"type": "string"}},
+            },
+            "required": ["status", "answer", "citations", "missing_information"],
+            "additionalProperties": False,
+        }
+        return await self._generate(system=system, user=user, response_schema=schema)
+
+    async def _generate(self, *, system: str, user: str, response_schema: dict | None = None) -> ProviderResult:
         payload = {
             "model": self.model,
             "stream": False,
@@ -44,6 +72,8 @@ class OllamaProvider(Provider):
             )
         ):
             payload["format"] = "json"
+        if response_schema is not None:
+            payload["format"] = response_schema
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.post(f"{self.base_url}/api/chat", json=payload)
             response.raise_for_status()

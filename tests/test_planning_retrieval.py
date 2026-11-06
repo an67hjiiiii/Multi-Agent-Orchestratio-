@@ -68,3 +68,21 @@ def test_planning_search_uses_configurable_min_score():
 
     high_floor = PlanningRetriever(min_score=low_floor[0].score + 0.01).search(query)
     assert high_floor == []
+
+
+def test_long_planning_request_keeps_domain_intent_above_existing_floor():
+    query = (
+        "Review the uploaded architecture, database and security design. "
+        "Identify the important technical obligations and explicit concerns, "
+        "determine their domains and dependencies, retrieve supporting planning "
+        "evidence, and produce a validated implementation plan. "
+        "Do not silently omit any identified requirement."
+    )
+    hits = PlanningRetriever(min_score=0.18).search(query)
+    assert {hit.source_name for hit in hits} == {
+        "planning_api.md", "planning_database.md", "planning_security.md"
+    }
+    assert all(hit.score >= 0.18 for hit in hits)
+    assert PlanningRetriever(min_score=0.18).search(
+        "Identify important obligations, retrieve evidence and produce a plan for a recipe."
+    ) == []

@@ -9,12 +9,14 @@ existing task-validator contract.
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass, replace
+import re
+from dataclasses import dataclass, field, replace
 from typing import Literal
 
 from app.core.graph import validate_tasks
 from app.core.types import TaskPlan
 from app.research.registry import validate_domain
+from app.research.decomposer import detect_domains
 from app.retrieval.text import terms
 
 
@@ -65,6 +67,7 @@ class PlanVerification:
     covered_concerns: tuple[str, ...] = ()
     missing_concerns: tuple[str, ...] = ()
     misrouted_concerns: tuple[str, ...] = ()
+    task_coverage: dict[str, dict[str, list[str]]] = field(default_factory=dict)
 
     @property
     def ok(self) -> bool:
@@ -114,6 +117,7 @@ def verify_task_plan(
     covered_concerns: list[str] = []
     missing_concerns: list[str] = []
     misrouted_concerns: list[str] = []
+    task_coverage: dict[str, dict[str, list[str]]] = {}
 
     if not isinstance(plan, TaskPlan):
         return PlanVerification(False, ("plan must be a TaskPlan",))
@@ -136,13 +140,14 @@ def verify_task_plan(
 
     obligation_ids = {item.obligation_id for item in plan.obligations}
     for task in plan.tasks:
+        task_coverage[task.task_id] = {"obligation_ids": [], "concern_ids": []}
         task_text = _task_text(task)
-        claimed = explicit_coverage.get(task.task_id)
-        if claimed is None:
+        claimed = explicit_coverage.get(task.task_id, []) if coverage is not None else None
+        if coverage is None:
             raw_claims = getattr(task, "covers_obligations", None)
-            claimed = _string_ids(raw_claims) if isinstance(raw_claims, list) else []
+            claimed = _string_ids(raw_claims) if isinstance(raw_claims, list) else None
 
-        if claimed:
+        if claimed is not None:
             for obligation_id in claimed:
                 if obligation_id not in obligation_ids:
                     errors.append(
@@ -159,11 +164,20 @@ def verify_task_plan(
                         f"task {task.task_id} does not retain obligation {obligation_id}"
                     )
                     continue
+                domains = detect_domains(obligation.description)
+                if len(domains) == 1 and task.domain != domains[0]:
+                    errors.append(f"task {task.task_id} misroutes obligation {obligation_id}: expected {domains[0]}")
+                    continue
+                task_coverage[task.task_id]["obligation_ids"].append(obligation_id)
                 if obligation_id not in covered_obligations:
                     covered_obligations.append(obligation_id)
         else:
             for obligation in plan.obligations:
                 if _retains_text(task_text, _source_text(obligation)):
+                    domains = detect_domains(obligation.description)
+                    if len(domains) == 1 and task.domain != domains[0]:
+                        continue
+                    task_coverage[task.task_id]["obligation_ids"].append(obligation.obligation_id)
                     if obligation.obligation_id not in covered_obligations:
                         covered_obligations.append(obligation.obligation_id)
 
@@ -180,6 +194,7 @@ def verify_task_plan(
         retaining_tasks = [
             task
             for task in plan.tasks
+            if task.covers_concerns is None or concern.concern_id in task.covers_concerns
             if _retains_text(_task_text(task), concern_text)
         ]
         if not retaining_tasks:
@@ -191,6 +206,23 @@ def verify_task_plan(
             misrouted_concerns.append(concern.concern_id)
             continue
         covered_concerns.append(concern.concern_id)
+        for task in retaining_tasks:
+            if concern.domain == GENERAL_CONCERN_DOMAIN or task.domain == concern.domain:
+                task_coverage[task.task_id]["concern_ids"].append(concern.concern_id)
+
+    concern_ids = {item.concern_id for item in plan.concerns}
+    for task in plan.tasks:
+        for identifier in task.covers_concerns or []:
+            if identifier not in concern_ids:
+                errors.append(f"task {task.task_id} references unknown concern {identifier}")
+            elif identifier not in task_coverage[task.task_id]["concern_ids"]:
+                errors.append(f"task {task.task_id} does not retain concern {identifier} in its canonical domain")
+
+    if _requests_supporting_evidence(plan):
+        for task in plan.tasks:
+            technical_subject = task.domain in detect_domains(task.goal) or bool(task_coverage[task.task_id]["concern_ids"])
+            if technical_subject and not _meaningful_evidence_needs(task.evidence_needs):
+                errors.append(f"task {task.task_id} requires subject-specific evidence_needs for requested supporting evidence")
 
     if missing_required:
         errors.append(
@@ -216,6 +248,7 @@ def verify_task_plan(
         covered_concerns=tuple(covered_concerns),
         missing_concerns=tuple(missing_concerns),
         misrouted_concerns=tuple(misrouted_concerns),
+        task_coverage=task_coverage,
     )
 
 
@@ -246,6 +279,24 @@ def decide_repair(
     return RepairDecision("REPAIR", report.errors)
 
 
+def repair_preservation_contract(plan: TaskPlan, report: PlanVerification | None = None) -> dict:
+    """Lock verified task content; leave only diagnosed defects editable."""
+    report = report or verify_task_plan(plan)
+    locks = []
+    for task in plan.tasks:
+        valid = report.task_coverage.get(task.task_id, {})
+        if not any(valid.values()):
+            continue
+        lock = {"task_id": task.task_id, "domain": task.domain,
+                "depends_on": list(task.depends_on), "goal_must_retain": task.goal,
+                "covers_obligations": valid.get("obligation_ids", []),
+                "covers_concerns": valid.get("concern_ids", [])}
+        if _meaningful_evidence_needs(task.evidence_needs):
+            lock["evidence_needs"] = list(task.evidence_needs)
+        locks.append(lock)
+    return {"preserve_tasks": locks, "diagnostics": list(report.errors)}
+
+
 def validate_repaired_plan(
     original: TaskPlan,
     repaired: TaskPlan,
@@ -254,8 +305,8 @@ def validate_repaired_plan(
 ) -> PlanVerification:
     """Re-run all checks after repair and reject dropped request obligations.
 
-    A repair may change task IDs, goals, domains, and dependencies, but it may
-    not change the request or remove/alter an obligation or explicit concern.
+    Invalid tasks may be corrected. Verified content and dependencies are locked;
+    goals may be extended to cover the missing process/output obligations.
     """
 
     report = verify_task_plan(repaired, coverage=coverage)
@@ -271,6 +322,21 @@ def validate_repaired_plan(
             preservation_errors.append("repair changed the obligations")
         if _concern_signature(original) != _concern_signature(repaired):
             preservation_errors.append("repair changed the concerns")
+        repaired_tasks = {task.task_id: task for task in repaired.tasks}
+        for lock in repair_preservation_contract(original)["preserve_tasks"]:
+            task = repaired_tasks.get(lock["task_id"])
+            if task is None:
+                preservation_errors.append(f"repair dropped valid task {lock['task_id']}")
+                continue
+            for name in ("domain", "depends_on", "evidence_needs"):
+                if name in lock and getattr(task, name) != lock[name]:
+                    preservation_errors.append(f"repair changed valid {name} for task {task.task_id}")
+            if " ".join(lock["goal_must_retain"].split()) not in " ".join(task.goal.split()):
+                preservation_errors.append(f"repair lost valid goal content for task {task.task_id}")
+            valid = report.task_coverage.get(task.task_id, {})
+            for field_name, coverage_name in (("covers_obligations", "obligation_ids"), ("covers_concerns", "concern_ids")):
+                if not set(lock[field_name]).issubset(valid.get(coverage_name, [])):
+                    preservation_errors.append(f"repair lost valid {field_name} for task {task.task_id}")
 
     if not preservation_errors:
         return report
@@ -342,6 +408,7 @@ def _validate_plan_shape(plan: TaskPlan) -> list[str]:
         goal = getattr(task, "goal", None)
         domain = getattr(task, "domain", None)
         dependencies = getattr(task, "depends_on", None)
+        evidence_needs = getattr(task, "evidence_needs", None)
         if not isinstance(identifier, str) or not identifier.strip():
             errors.append(f"task {index} must have a non-empty task_id")
         if not isinstance(goal, str) or not goal.strip():
@@ -359,9 +426,18 @@ def _validate_plan_shape(plan: TaskPlan) -> list[str]:
             if all(isinstance(dependency, str) for dependency in dependencies):
                 if len(dependencies) != len(set(dependencies)):
                     errors.append(f"task {identifier or index} has duplicate dependencies")
-        raw_claims = getattr(task, "covers_obligations", None)
-        if raw_claims is not None and not isinstance(raw_claims, list):
-            errors.append(f"task {identifier or index} covers_obligations must be a list")
+        for name in ("covers_obligations", "covers_concerns"):
+            raw_claims = getattr(task, name, None)
+            if raw_claims is not None and not isinstance(raw_claims, list):
+                errors.append(f"task {identifier or index} {name} must be a list")
+            elif isinstance(raw_claims, list) and any(not isinstance(value, str) or not value.strip() for value in raw_claims):
+                errors.append(f"task {identifier or index} {name} must contain non-empty IDs")
+            elif isinstance(raw_claims, list) and len(raw_claims) != len(set(raw_claims)):
+                errors.append(f"task {identifier or index} has duplicate coverage IDs")
+            elif isinstance(raw_claims, list) and any(value != value.strip() for value in raw_claims):
+                errors.append(f"task {identifier or index} has whitespace-padded coverage IDs")
+        if not isinstance(evidence_needs, list) or any(not isinstance(value, str) or not value.strip() for value in evidence_needs):
+            errors.append(f"task {identifier or index} evidence_needs must be a list of non-empty strings")
 
     if not plan.tasks:
         errors.append("TaskPlan.tasks must contain at least one task")
@@ -392,8 +468,13 @@ def _normalize_coverage(
                 errors.append(f"coverage for task {task_id} contains an invalid obligation ID")
                 continue
             clean_id = obligation_id.strip()
-            if clean_id not in ids:
-                ids.append(clean_id)
+            if clean_id != obligation_id:
+                errors.append(f"coverage for task {task_id} contains a whitespace-padded ID")
+                continue
+            if clean_id in ids:
+                errors.append(f"coverage for task {task_id} contains duplicate ID {clean_id}")
+                continue
+            ids.append(clean_id)
         normalized[task_id] = ids
     return normalized, errors
 
@@ -441,23 +522,31 @@ def _retains_text(task_text: str, source_text: str) -> bool:
     if not task_terms or not source_terms:
         return False
 
-    matched_source_terms: set[str] = set()
-    for right in source_terms:
-        if right in task_terms:
-            matched_source_terms.add(right)
-            continue
-        for left in task_terms:
-            limit = min(len(left), len(right))
-            shared = 0
-            for size in range(limit, 3, -1):
-                if left[:size] == right[:size]:
-                    shared = size
-                    break
-            if shared >= 4 and shared / limit >= 0.55:
-                matched_source_terms.add(right)
-                break
+    return source_terms.issubset(task_terms)
 
-    return matched_source_terms == source_terms
+
+def _requests_supporting_evidence(plan: TaskPlan) -> bool:
+    # An explicit positive retrieval/support clause, not a new obligation.
+    descriptions = [item.description for item in plan.obligations if item.required]
+    descriptions.extend(plan.request.split("."))
+    for description in descriptions:
+        words = terms(description)
+        negative_action = re.search(
+            r"\b(?:not|never|without)\s+(?:retrieve|retrieving|include|including|provide|providing|cite|citing|use|using)\b",
+            description, re.IGNORECASE,
+        )
+        if words & terms("evidence citation citations source sources") and words & terms("retrieve retrieval supporting cite grounded include provide use") and not negative_action:
+            return True
+    return False
+
+
+def _meaningful_evidence_needs(values: list[str]) -> bool:
+    generic = terms("evidence source sources relevant supporting planning context document task user request")
+    return any(
+        terms(value) - generic
+        for value in values
+        if not value.startswith("src_") and not re.fullmatch(r"[OCTE]\d+", value.strip(), re.IGNORECASE)
+    )
 
 
 def _obligation_signature(plan: TaskPlan) -> tuple[tuple[str, str, bool], ...]:

@@ -4,7 +4,9 @@ import json
 from collections.abc import Mapping
 from typing import Any
 
-from app.research.registry import validate_domain
+from app.research.registry import REGISTRY, validate_domain
+from app.research.decomposer import detect_domains
+from app.core.structured_output import decode_structured_json
 
 from app.core.types import (
     Concern,
@@ -14,17 +16,53 @@ from app.core.types import (
 )
 
 
+EXTRACTION_PROMPT_VERSION = "extract-v4-explicit-preservation-constraints"
 EXTRACTION_SYSTEM_PROMPT = (
     "OBLIGATION_CONCERN_EXTRACTOR. Return exactly one JSON object containing "
-    "obligations and concerns. Preserve the request's explicit distinctions; "
+    f"obligations and concerns. Contract={EXTRACTION_PROMPT_VERSION}. "
+    "Extract independently checkable requirements, not a summary of the request. "
+    "Separate technical subjects from process and output instructions; "
     "do not invent requirements, return tasks, or add unsupported fields."
 )
 EXTRACTION_SCHEMA = (
     '{"obligations":[{"obligation_id":"O1","description":"...",'
     '"required":true}],'
     '"concerns":[{"concern_id":"C1","description":"...",'
-    '"domain":"general"}]}'
+    f'"domain":"{"|".join(REGISTRY)}"}}]}}'
 )
+EXTRACTION_RESPONSE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "obligations": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "obligation_id": {"type": "string", "minLength": 1},
+                    "description": {"type": "string", "minLength": 1},
+                    "required": {"type": "boolean"},
+                },
+                "required": ["obligation_id", "description", "required"],
+                "additionalProperties": False,
+            },
+        },
+        "concerns": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "concern_id": {"type": "string", "minLength": 1},
+                    "description": {"type": "string", "minLength": 1},
+                    "domain": {"type": "string", "enum": list(REGISTRY)},
+                },
+                "required": ["concern_id", "description", "domain"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["obligations", "concerns"],
+    "additionalProperties": False,
+}
 _ROOT_FIELDS = frozenset({"obligations", "concerns"})
 _OBLIGATION_FIELDS = frozenset({"obligation_id", "description", "required"})
 _CONCERN_FIELDS = frozenset({"concern_id", "description", "domain"})
@@ -35,18 +73,71 @@ def build_extraction_prompt(request: str) -> str:
 
     if not isinstance(request, str) or not request.strip():
         raise ValueError("request must be a non-empty string")
+    request_domains = detect_domains(request)
+    domain_guidance = "\n".join(
+        f"- {domain}: {REGISTRY[domain]['scope']}; "
+        f"subjects: {', '.join(REGISTRY[domain]['capabilities'])}"
+        for domain in request_domains
+    ) or "none"
     return (
-        "CURRENT REQUEST:\n"
-        f"{request}\n\n"
+        "OUTPUT PROTOCOL:\n"
         f"Schema: {EXTRACTION_SCHEMA}\n\n"
         "Rules:\n"
         "- Derive both arrays only from the current request.\n"
-        "- Keep a required obligation separate from an explicit review concern.\n"
+        "- Preserve each independently checkable requested action or output as a "
+        "distinct obligation with its full technical subject. A coordinated list "
+        "of independent review subjects is not one summary obligation.\n"
+        "- Technical concerns describe the actual subjects/risks to examine, "
+        "with canonical domains where applicable. Domain hints identify scope, "
+        "not additional requirements. Do not invent subjects, ownership rules, "
+        "risks or technical details merely because a domain is mentioned.\n"
+        "- An instruction to identify obligations and concerns is not a technical "
+        "concern. Do not emit meta-concerns about identifying concerns.\n"
+        "- Keep explicitly requested dependency reasoning, supporting evidence, "
+        "validation and completeness as separate domainless obligations when "
+        "they are independently checkable process/output requirements. Do not "
+        "assign them a made-up technical concern domain or omit them.\n"
+        "NEGATIVE / PRESERVATION CONSTRAINTS:\n"
+        "- Explicit prohibitions and preservation/completeness invariants are "
+        "requirements too, not merely commentary about the process. Preserve "
+        "them by their meaning, not by a negative prefix alone.\n"
+        "- When an explicit constraint governs correctness or coverage of the "
+        "output, retain it as a distinct domainless obligation with required=true. "
+        "Keep its quantifier, subject and prohibitive/preservation meaning; do "
+        "not replace it with a weaker positive action or technical Concern.\n"
+        "- For example, requesting a comparison plus 'retain every stated "
+        "limitation' requires both the comparison and retention obligation. "
+        "A request to validate output does not subsume a separate no-omission "
+        "constraint. Preserve both when both are explicitly requested.\n"
+        "- Distinguish meaningful constraints from conversational filler, "
+        "irrelevant negatives and examples not asserted as requirements. "
+        "Do not add a coverage obligation when it is absent from the request.\n"
+        "- For example, reviewing endpoint errors and transaction consistency "
+        "preserves two independent subjects; requesting a cited report adds an "
+        "output obligation, not a concern about writing reports.\n"
+        "- Keep a simple single-subject request simple. There is no fixed item "
+        "count and these arrays are not a task plan.\n"
         "- Preserve any supplied IDs, required values, and non-empty domains.\n"
+        "- A canonical enum value alone is not sufficient: a concern's domain "
+        "must match its technical subject using the subject-domain guidance. "
+        "Do not assign an unrelated domain merely because it appears elsewhere "
+        "in the request. Cross-domain concerns must retain their full subject; "
+        "do not invent a domain relationship to resolve ambiguity.\n"
+        "- Otherwise assign unique O1, O2, ... and C1, C2, ... in request order; "
+        "never merge independent subjects or remove an item to fit a summary.\n"
         "- Use empty arrays when the request contains no item of that kind.\n"
         "- Use only the two root arrays and their schema fields; return no task, "
         "dependency, verification, repair, or answer fields.\n"
-        "Return JSON only."
+        "Before returning, compare all request clauses against both arrays: "
+        "every explicit correctness constraint must be represented with its "
+        "required value and polarity preserved, including trailing constraints. "
+        "Do not emit the comparison or add fields; return JSON only.\n\n"
+        "REQUEST DOMAINS (scope hints only):\n"
+        f"{', '.join(request_domains) or 'none'}\n\n"
+        "SUBJECT-DOMAIN GUIDANCE (existing registry, not new requirements):\n"
+        f"{domain_guidance}\n\n"
+        "CURRENT REQUEST:\n"
+        f"{request}"
     )
 
 
@@ -58,7 +149,7 @@ def _decode_payload(payload: Mapping[str, Any] | str) -> Mapping[str, Any]:
 
     text = payload.strip()
     try:
-        decoded = json.loads(text)
+        decoded = decode_structured_json(text)
     except json.JSONDecodeError:
         raise ValueError("extractor output must be exactly one JSON object") from None
 
@@ -170,10 +261,32 @@ async def extract_obligations_and_concerns(
     """Ask the configured provider for obligations/concerns only."""
 
     prompt = build_extraction_prompt(request)
-    result = await provider.generate(system=EXTRACTION_SYSTEM_PROMPT, user=prompt)
+    structured = getattr(provider, "generate_structured", None)
+    result = (
+        await structured(
+            system=EXTRACTION_SYSTEM_PROMPT, user=prompt,
+            response_schema=EXTRACTION_RESPONSE_SCHEMA,
+        )
+        if callable(structured)
+        else await provider.generate(system=EXTRACTION_SYSTEM_PROMPT, user=prompt)
+    )
     if metrics is not None:
         metrics.add_usage(result.usage)
-    return parse_obligation_concern_output(result.text)
+    extraction = parse_obligation_concern_output(result.text)
+    request_domains = set(detect_domains(request))
+    for concern in extraction.concerns:
+        validate_domain(concern.domain)
+        subject_domains = detect_domains(concern.description)
+        # Enforce only a request-supported, unambiguous existing detector result.
+        # Ambiguous subjects are not relabeled to the first matching domain.
+        if len(subject_domains) == 1 and subject_domains[0] in request_domains:
+            expected = subject_domains[0]
+            if concern.domain != expected:
+                raise ValueError(
+                    f"concern {concern.concern_id} subject-domain mismatch: "
+                    f"expected {expected}, received {concern.domain}"
+                )
+    return extraction
 
 
 # Singular/plural aliases make the narrow extraction seam discoverable without

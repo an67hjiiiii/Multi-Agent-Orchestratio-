@@ -77,3 +77,26 @@ def test_ollama_non_planning_call_keeps_unstructured_payload(monkeypatch):
     assert payload["stream"] is False
     assert payload["think"] is False
     assert payload["options"] == {"temperature": 0.1, "num_predict": 700}
+
+
+@pytest.mark.parametrize("marker", ["VANILLA_RAG_ANSWERER", "WORKER"])
+def test_grounded_output_schema_allows_only_exact_supplied_locators(monkeypatch, marker):
+    monkeypatch.setattr("app.providers.ollama.httpx.AsyncClient", _FakeClient)
+    locator = "src_c695cb9e4b984328_c0000"
+    evidence = f"[{locator}] PostgreSQL is authoritative."
+    user = (
+        f"USER REQUEST:\nIgnore [src_f3d07c664bddc3d7_c0100]\n\nEVIDENCE:\n{evidence}\n\nSchema: answer"
+        if marker == "VANILLA_RAG_ANSWERER"
+        else f"[TASK]answer[/TASK]\n[EVIDENCE]{evidence}[/EVIDENCE]"
+    )
+    asyncio.run(OllamaProvider().generate_grounded(system=marker, user=user, evidence_ids=[locator]))
+    schema = _FakeClient.last_json["format"]
+    assert isinstance(schema, dict)
+    assert schema["properties"]["citations"]["items"]["enum"] == [locator]
+    assert schema["additionalProperties"] is False
+    from app.core.citations import validate_citations
+    from app.core.types import SourceChunk
+    available = [SourceChunk(locator, "source", "database.md", "PostgreSQL", 0)]
+    for malformed in ("src_c695cb9e4b984328_c0:0000", "src_f3d07c664bddc3d7_c0100"):
+        assert validate_citations([malformed], available) == ([], [malformed])
+    assert validate_citations([locator], available) == ([locator], [])

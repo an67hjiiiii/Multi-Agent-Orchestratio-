@@ -64,7 +64,7 @@ class ScriptedPlanningProvider:
         return ProviderResult(text=text, usage=Usage(1, 1), model=self.model)
 
 
-def _task_plan(goal: str, domain: str) -> str:
+def _task_plan(goal: str, domain: str, *, concerns: bool = False) -> str:
     return json.dumps(
         {
             "tasks": [
@@ -74,6 +74,8 @@ def _task_plan(goal: str, domain: str) -> str:
                     "domain": domain,
                     "depends_on": [],
                     "evidence_needs": [],
+                    "covers_obligations": ["O1"],
+                    "covers_concerns": ["C1"] if concerns else [],
                 }
             ]
         },
@@ -85,7 +87,7 @@ def _api_request_concern() -> dict[str, str]:
     return {
         "concern_id": "C1",
         "description": "General concern about API request validation and error responses",
-        "domain": "general",
+        "domain": "api_architecture",
     }
 
 
@@ -154,7 +156,7 @@ def test_reproduced_api_plan_reaches_handoff_without_unneeded_repair(
     monkeypatch.setenv("IMPLEMENTATION_PROFILE", "dev")
     request = "Review API request validation and error responses."
     provider = ScriptedPlanningProvider(
-        plan_outputs=[_task_plan(request.rstrip("."), "api_architecture")],
+        plan_outputs=[_task_plan(request.rstrip("."), "api_architecture", concerns=True)],
         obligations=[
             {
                 "obligation_id": "O1",
@@ -189,8 +191,8 @@ def test_missing_concern_repair_gets_canonical_domains_and_can_handoff(
     monkeypatch.setenv("IMPLEMENTATION_PROFILE", "dev")
     provider = ScriptedPlanningProvider(
         plan_outputs=[
-            _task_plan("Review unrelated database indexing", "database"),
-            _task_plan("Review API request validation and error responses", "api_architecture"),
+            _task_plan("Review unrelated database indexing", "database", concerns=True),
+            _task_plan("Review API request validation and error responses", "api_architecture", concerns=True),
         ],
         obligations=[
             {
@@ -220,6 +222,9 @@ def test_missing_concern_repair_gets_canonical_domains_and_can_handoff(
     repair_prompt = provider.plan_prompts[1]
     assert "missing concern coverage: C1" in repair_prompt
     assert "C1: General concern about API request validation and error responses" in repair_prompt
+    assert "REQUIRED CONCERN COVERAGE:" in repair_prompt
+    assert "task.goal" in repair_prompt
+    assert "Do not substitute concern IDs or evidence_needs for goal coverage" in repair_prompt
     assert '"domain":"security|database|api_architecture"' in repair_prompt
     repair = next(
         event for event in result["events"] if event["stage"] == "planning_repair"

@@ -1,11 +1,13 @@
 from __future__ import annotations
 import json
 import re
+from copy import deepcopy
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
 from app.core.graph import validate_tasks
+from app.core.structured_output import decode_structured_json
 from app.core.types import (
     ObligationConcernExtraction,
     RunMetrics,
@@ -92,19 +94,61 @@ _DOMAIN_HINTS = {
 TASK_PLAN_SCHEMA = (
     '{"tasks":[{"task_id":"T1","goal":"...",'
     f'"domain":"{"|".join(CANONICAL_TASK_DOMAINS)}",'
-    '"depends_on":[],"evidence_needs":[]}]}'
+    '"depends_on":[],"evidence_needs":["subject-specific search phrase"],'
+    '"covers_obligations":[],"covers_concerns":[]}]}'
 )
 # Stable public alias for callers that used the schema-oriented name.
 TASK_PLAN_JSON_SCHEMA = TASK_PLAN_SCHEMA
+TASK_PLAN_RESPONSE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "tasks": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "type": "object",
+                "properties": {
+                    "task_id": {"type": "string", "minLength": 1},
+                    "goal": {"type": "string", "minLength": 1},
+                    "domain": {"type": "string", "enum": list(CANONICAL_TASK_DOMAINS)},
+                    "depends_on": {"type": "array", "items": {"type": "string", "minLength": 1}},
+                    "evidence_needs": {"type": "array", "items": {"type": "string", "minLength": 1}},
+                    "covers_obligations": {"type": "array", "uniqueItems": True, "items": {"type": "string", "minLength": 1}},
+                    "covers_concerns": {"type": "array", "uniqueItems": True, "items": {"type": "string", "minLength": 1}},
+                },
+                "required": ["task_id", "goal", "domain", "depends_on", "evidence_needs", "covers_obligations", "covers_concerns"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["tasks"],
+    "additionalProperties": False,
+}
 PLANNER_SYSTEM_PROMPT = (
     "TASK_PLAN_BUILDER. Return exactly one JSON object matching the task-plan "
     "schema. Preserve explicit obligations and dependencies; do not add "
     "verification, repair, worker, dispatch, or execution fields."
 )
+TASK_PLAN_PROMPT_VERSION = "task-plan-explicit-coverage-preserving-repair-v4"
 _TASK_ROOT_FIELDS = frozenset({"tasks"})
 _TASK_FIELDS = frozenset(
-    {"task_id", "id", "goal", "domain", "depends_on", "evidence_needs"}
+    {"task_id", "id", "goal", "domain", "depends_on", "evidence_needs", "covers_obligations", "covers_concerns"}
 )
+
+
+def task_plan_response_schema(extraction: ObligationConcernExtraction | None = None) -> dict:
+    schema = deepcopy(TASK_PLAN_RESPONSE_SCHEMA)
+    if extraction is not None:
+        fields = schema["properties"]["tasks"]["items"]["properties"]
+        for name, ids in (
+            ("covers_obligations", [item.obligation_id for item in extraction.obligations]),
+            ("covers_concerns", [item.concern_id for item in extraction.concerns]),
+        ):
+            if ids:
+                fields[name]["items"]["enum"] = ids
+            else:
+                fields[name]["maxItems"] = 0
+    return schema
 
 
 @dataclass(frozen=True)
@@ -203,10 +247,47 @@ def build_task_plan_prompt(
 
     understanding = understand_request(request)
     obligations, concerns = _format_requirements(extraction)
+    requirements = {
+        "required_obligation_ids": [item.obligation_id for item in extraction.obligations if item.required] if extraction else [],
+        "required_concern_ids": [item.concern_id for item in extraction.concerns] if extraction else [],
+        "obligations": [vars(item) for item in extraction.obligations] if extraction else [],
+        "concerns": [vars(item) for item in extraction.concerns] if extraction else [],
+    }
     return (
         "OUTPUT PROTOCOL:\n"
         "Return exactly one JSON object and no markdown or explanation.\n"
         f"Schema: {TASK_PLAN_SCHEMA}\n\n"
+        "RULES:\n"
+        "- Keep obligations and concerns distinct from tasks.\n"
+        "- Return covers_obligations and covers_concerns on every task. The union "
+        "of covers_obligations must include every required_obligation_id; the "
+        "union of covers_concerns must include every required_concern_id. Use "
+        "only IDs in REQUIREMENTS JSON; never invent IDs, repeat an ID within "
+        "one coverage array, or omit a required ID from the plan union. "
+        "A domainless obligation is not optional: required=true still applies. "
+        "Group related obligations where valid, including process/output work, "
+        "but retain each claimed subject and constraint in the task goal.\n"
+        "- Retain every required obligation, including process/output and "
+        "negative preservation constraints, in a specific actionable goal. "
+        "Do not claim coverage with IDs alone. Keep independent technical "
+        "subjects in tasks of their matching canonical domain, not one vague "
+        "cross-domain summary. Related obligations may share a task; there is "
+        "no fixed task count. Preserve required/optional meaning and polarity.\n"
+        "- Every explicit concern must be retained in at least one task.goal. "
+        "Use its full subject text, not only its ID or evidence_needs; keep its "
+        "domain when it is not general.\n"
+        "- Preserve request-stated dependency direction in depends_on.\n"
+        "- depends_on entries must be exact IDs of tasks in this plan, never "
+        "names or descriptions. Do not invent ordering when none is required.\n"
+        "- When supporting evidence is explicitly requested, technical tasks "
+        "must provide evidence_needs as subject-specific search phrases. "
+        "Derive them from the task goal, related obligations/concerns and "
+        "available planning context; describe needed evidence, not guessed chunks. "
+        "Do not use empty arrays, placeholder words or Planning KB locator IDs "
+        "as substitutes. Do not invent facts or pretend retrieval occurred.\n"
+        "- Use only security, database, or api_architecture task domains.\n"
+        "- Emit no plan-verification, repair, worker, dispatch, or execution fields.\n"
+        "Return JSON only.\n\n"
         "CURRENT REQUEST:\n"
         f"{understanding.normalized_request}\n\n"
         "REQUEST DOMAINS (routing hints only):\n"
@@ -215,14 +296,10 @@ def build_task_plan_prompt(
         f"{obligations}\n\n"
         "EXPLICIT CONCERNS:\n"
         f"{concerns}\n\n"
+        "REQUIREMENTS JSON:\n"
+        f"{json.dumps(requirements, ensure_ascii=False)}\n\n"
         "PLANNING EVIDENCE (guidance only; never a new requirement):\n"
-        f"{planning_context.strip() or 'none'}\n\n"
-        "RULES:\n"
-        "- Keep obligations and concerns distinct from tasks.\n"
-        "- Preserve request-stated dependency direction in depends_on.\n"
-        "- Use only security, database, or api_architecture task domains.\n"
-        "- Emit no plan-verification, repair, worker, dispatch, or execution fields.\n"
-        "Return JSON only."
+        f"{planning_context.strip() or 'none'}"
     )
 
 
@@ -233,13 +310,13 @@ def _decode_task_plan_payload(payload: Mapping[str, Any] | str) -> Mapping[str, 
         raise ValueError("task plan output must be a JSON object")
     text = payload.strip()
     try:
-        decoded = json.loads(text)
+        decoded = decode_structured_json(text)
     except json.JSONDecodeError:
         fenced = re.fullmatch(r"```(?:json)?\s*(\{.*\})\s*```", text, re.DOTALL)
         if not fenced:
             raise ValueError("task plan output must be exactly one JSON object") from None
         try:
-            decoded = json.loads(fenced.group(1))
+            decoded = decode_structured_json(fenced.group(1))
         except json.JSONDecodeError:
             raise ValueError("task plan output must be exactly one JSON object") from None
     if not isinstance(decoded, Mapping):
@@ -274,6 +351,8 @@ def _string_list(raw: Mapping[str, Any], key: str, index: int) -> list[str]:
         if not isinstance(item, str) or not item.strip():
             raise ValueError(f"task {index}.{key} must contain non-empty strings")
         values.append(item)
+    if len(values) != len(set(values)):
+        raise ValueError(f"task {index}.{key} contains duplicate entries")
     return values
 
 
@@ -321,8 +400,25 @@ def parse_task_plan_output(
                 domain=domain,
                 depends_on=_string_list(raw, "depends_on", index),
                 evidence_needs=_string_list(raw, "evidence_needs", index),
+                covers_obligations=(
+                    _string_list(raw, "covers_obligations", index) if "covers_obligations" in raw
+                    else [] if extraction is not None else None
+                ),
+                covers_concerns=(
+                    _string_list(raw, "covers_concerns", index) if "covers_concerns" in raw
+                    else [] if extraction is not None else None
+                ),
             )
         )
+    if extraction is not None:
+        allowed = {
+            "covers_obligations": {item.obligation_id for item in extraction.obligations},
+            "covers_concerns": {item.concern_id for item in extraction.concerns},
+        }
+        for task in tasks:
+            for name, ids in allowed.items():
+                if set(getattr(task, name) or []) - ids:
+                    raise ValueError(f"task {task.task_id}.{name} contains unknown IDs")
     validate_tasks(tasks)
     return TaskPlan(
         request=request,
@@ -341,19 +437,64 @@ def build_task_plan_repair_prompt(
     error: str,
     planning_context: str = "",
     extraction: ObligationConcernExtraction | None = None,
+    *,
+    missing_concern_ids: tuple[str, ...] = (),
+    missing_obligation_ids: tuple[str, ...] = (),
+    preservation: dict | None = None,
 ) -> str:
     """Request one bounded correction without widening the planning scope."""
 
     base = build_task_plan_prompt(request, planning_context, extraction)
-    bounded_output = previous_output[:4000]
+    static_rules, dynamic_inputs = base.split("CURRENT REQUEST:\n", 1)
+    bounded_output = previous_output
+    concerns = [
+        item for item in (extraction.concerns if extraction else [])
+        if item.concern_id in missing_concern_ids
+    ]
+    concern_feedback = ""
+    obligation_feedback = ""
+    obligations = [
+        item for item in (extraction.obligations if extraction else [])
+        if item.obligation_id in missing_obligation_ids
+    ]
+    if obligations:
+        obligation_feedback = (
+            "REQUIRED OBLIGATION COVERAGE:\n"
+            + "\n".join(
+                f"- {item.obligation_id}: task.goal must retain {item.description} "
+                f"(required={item.required})." for item in obligations
+            ) + "\n\n"
+        )
+    if concerns:
+        concern_feedback = (
+            "REQUIRED CONCERN COVERAGE:\n"
+            + "\n".join(
+                f"- {item.concern_id}: task.goal must retain the full subject: "
+                f"{item.description} (domain={item.domain})."
+                for item in concerns
+            )
+            + "\nDo not substitute concern IDs or evidence_needs for goal coverage. "
+            "Coverage IDs and retained goal text must both be correct.\n\n"
+        )
     return (
-        f"{base}\n\n"
+        f"{static_rules}"
+        "BOUNDED REPAIR RULES:\n"
+        "Return one corrected JSON object only. Preserve all valid IDs and "
+        "request-stated dependency direction. Return the complete plan, not a "
+        "replacement design: KEEP fields locked by PRESERVATION JSON exactly. "
+        "Keep already-verified coverage for each task; append missing coverage "
+        "only when the updated goal actually satisfies it. Add missing process "
+        "obligations and subject-specific evidence queries; do not drop good "
+        "tasks to fix another. Change only fields identified by diagnostics.\n\n"
+        f"CURRENT REQUEST:\n{dynamic_inputs}\n\n"
+        f"{obligation_feedback}"
+        f"{concern_feedback}"
+        "PRESERVATION JSON:\n"
+        f"{json.dumps(preservation or {}, ensure_ascii=False)}\n\n"
         "PREVIOUS INVALID TASK PLAN:\n"
         f"{bounded_output}\n\n"
         "VALIDATION ERROR:\n"
-        f"{error[:500]}\n\n"
-        "Return one corrected JSON object only. Preserve all valid IDs and "
-        "request-stated dependency direction."
+        f"{error}"
     )
 
 
@@ -365,6 +506,18 @@ def _safe_warning(error: BaseException) -> str:
         message,
     )
     return f"{type(error).__name__}: {message[:300]}"
+
+
+async def generate_task_plan(provider: Any, *, user: str, extraction: ObligationConcernExtraction | None = None):
+    structured = getattr(provider, "generate_structured", None)
+    if callable(structured):
+        return await structured(
+            system=PLANNER_SYSTEM_PROMPT,
+            user=user,
+            response_schema=task_plan_response_schema(extraction),
+        )
+    # Keep scripted test providers compatible; live Ollama uses structured output.
+    return await provider.generate(system=PLANNER_SYSTEM_PROMPT, user=user)
 
 
 async def decompose_plan(
@@ -390,7 +543,7 @@ async def decompose_plan(
         understanding.normalized_request, planning_context, extraction
     )
     try:
-        result = await provider.generate(system=PLANNER_SYSTEM_PROMPT, user=prompt)
+        result = await generate_task_plan(provider, user=prompt, extraction=extraction)
         metrics.add_usage(result.usage)
     except Exception as error:
         return PlanningResult(
@@ -421,10 +574,7 @@ async def decompose_plan(
             extraction,
         )
         try:
-            repaired = await provider.generate(
-                system=PLANNER_SYSTEM_PROMPT,
-                user=repair_prompt,
-            )
+            repaired = await generate_task_plan(provider, user=repair_prompt, extraction=extraction)
             metrics.add_usage(repaired.usage)
             plan = parse_task_plan_output(
                 repaired.text, understanding.normalized_request, extraction

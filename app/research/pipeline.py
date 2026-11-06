@@ -1,5 +1,6 @@
 from __future__ import annotations
 import json
+import re
 import time
 import uuid
 from dataclasses import asdict
@@ -12,20 +13,23 @@ from app.providers.factory import get_provider
 from app.research.context_controller import ContextController
 from app.research.conversation_context import ConversationContext
 from app.research.decomposer import (
-    PLANNER_SYSTEM_PROMPT,
+    TASK_PLAN_PROMPT_VERSION,
+    _safe_warning,
     build_task_plan_repair_prompt,
     decompose_plan,
+    generate_task_plan,
     parse_task_plan_output,
     understand_request,
 )
 from app.research.normalizer import normalize_tasks
 from app.research.obligation_concern_extraction import extract_obligations_and_concerns
 from app.research.plan_verification import (
+    repair_preservation_contract,
     decide_repair,
     validate_repaired_plan,
     verify_task_plan,
 )
-from app.research.planning_retrieval import PlanningRetriever
+from app.research.planning_retrieval import PlanningRetriever, PLANNING_SCORER_VERSION
 from app.research.worker import execute_task
 from app.research.synthesizer import synthesize
 from app.research.vanilla import answer_vanilla
@@ -121,6 +125,9 @@ class ResearchPipeline:
             "retry_limit": cfg.retry_limit,
             "retrieval_min_score": cfg.retrieval_min_score,
             "retrieval_backend": self.retrieval_backend,
+            "planning_scorer_version": PLANNING_SCORER_VERSION,
+            "task_plan_prompt_version": TASK_PLAN_PROMPT_VERSION,
+            "task_plan_schema_version": "canonical-task-plan-explicit-coverage-v2",
             "conversation_id": conversation_id,
             "conversation_context": conversation_context.to_trace(),
         }
@@ -213,7 +220,7 @@ class ResearchPipeline:
                 tasks, task_results = [task], [result]
                 answer = result.answer
             else:
-                planning_request = _retrieval_query_with_conversation_context(
+                planning_request = _planning_request_with_conversation_context(
                     query, conversation_context
                 )
                 understanding = understand_request(query)
@@ -231,6 +238,7 @@ class ResearchPipeline:
                         "obligation_concern_extraction",
                         status="FAILED",
                         error_type=type(exc).__name__,
+                        error=_safe_warning(exc),
                     )
                     raise ValueError(
                         "Obligation and concern extraction failed: "
@@ -268,6 +276,8 @@ class ResearchPipeline:
                 event(
                     "planning_retrieval",
                     enabled=flags["P"],
+                    scorer_version=PLANNING_SCORER_VERSION,
+                    min_score=cfg.retrieval_min_score,
                     selected=[c.chunk_id for c in planning_hits],
                     selected_evidence=[
                         {"evidence_id": c.chunk_id, "score": c.score}
@@ -335,6 +345,7 @@ class ResearchPipeline:
                     covered_concerns=list(verification.covered_concerns),
                     missing_concerns=list(verification.missing_concerns),
                     misrouted_concerns=list(verification.misrouted_concerns),
+                    task_coverage=verification.task_coverage,
                     repair_attempted=planning_result.repair_attempted,
                 )
 
@@ -348,6 +359,8 @@ class ResearchPipeline:
                                     "domain": task.domain,
                                     "depends_on": task.depends_on,
                                     "evidence_needs": task.evidence_needs,
+                                    "covers_obligations": task.covers_obligations,
+                                    "covers_concerns": task.covers_concerns,
                                 }
                                 for task in plan.tasks
                             ]
@@ -361,6 +374,11 @@ class ResearchPipeline:
                         repair_error,
                         planning_context,
                         extraction,
+                        missing_concern_ids=tuple(dict.fromkeys(
+                            (*verification.missing_concerns, *verification.misrouted_concerns)
+                        )),
+                        missing_obligation_ids=verification.missing_required_obligations,
+                        preservation=repair_preservation_contract(plan, verification),
                     )
                     repaired_plan = None
                     repaired_verification = None
@@ -368,10 +386,7 @@ class ResearchPipeline:
                     repair_error_message = None
                     repair_started = time.perf_counter()
                     try:
-                        repaired_output = await provider.generate(
-                            system=PLANNER_SYSTEM_PROMPT,
-                            user=repair_prompt,
-                        )
+                        repaired_output = await generate_task_plan(provider, user=repair_prompt, extraction=extraction)
                         metrics.add_usage(repaired_output.usage)
                         repaired_plan = parse_task_plan_output(
                             repaired_output.text,
@@ -409,6 +424,7 @@ class ResearchPipeline:
                         "plan_verification",
                         phase="post_repair",
                         valid=repair_accepted,
+                        task_coverage={} if repaired_verification is None else repaired_verification.task_coverage,
                         errors=(
                             [repair_error_message]
                             if repaired_verification is None
@@ -479,6 +495,7 @@ class ResearchPipeline:
                     obligations=[asdict(item) for item in plan.obligations],
                     concerns=[asdict(item) for item in plan.concerns],
                     verification_valid=verification.valid,
+                    task_coverage=verification.task_coverage,
                     tasks=[asdict(task) for task in tasks],
                     execution_order=[task.task_id for task in ordered],
                 )
@@ -560,6 +577,21 @@ class ResearchPipeline:
 
 
 def _retrieval_query_with_conversation_context(
+    query: str, conversation_context: ConversationContext
+) -> str:
+    """Keep a new question primary; resolve references from the last user turn."""
+
+    if not conversation_context.last_user_request or not re.search(
+        r"\b(it|its|they|their|them|follow-up)\b|"
+        r"\b(this|that|those|same|previous|earlier)\s+(one|approach|design|system|topic|question|request)\b|"
+        r"\b(nó|đó|trước)\b",
+        query, re.IGNORECASE,
+    ):
+        return query
+    return f"{query}\n{conversation_context.last_user_request}"
+
+
+def _planning_request_with_conversation_context(
     query: str, conversation_context: ConversationContext
 ) -> str:
     """Use bounded history only for query disambiguation, never as evidence."""

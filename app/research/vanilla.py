@@ -39,7 +39,12 @@ async def answer_vanilla(provider, query: str, evidence: list[SourceChunk], metr
         'Schema: {"status":"COMPLETE|PARTIAL|NO_EVIDENCE","answer":"...",'
         '"citations":["chunk_id"],"missing_information":[]}'
     )
-    result = await provider.generate(system=system, user=user)
+    grounded = getattr(provider, "generate_grounded", None)
+    result = (
+        await grounded(system=system, user=user, evidence_ids=[c.chunk_id for c in evidence])
+        if callable(grounded)
+        else await provider.generate(system=system, user=user)
+    )
     metrics.add_usage(result.usage)
     obj = _extract_json(result.text)
     raw_citations = [str(x) for x in obj.get("citations") or []]

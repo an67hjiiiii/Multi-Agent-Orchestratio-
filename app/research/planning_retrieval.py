@@ -18,6 +18,7 @@ PLANNING_ANCHORS = {
     "planning_api.md": frozenset({"api", "architecture", "endpoint", "error", "handling", "integration", "dependency"}),
     "planning_multi_domain.md": frozenset({"multi-domain", "independent", "semantically", "merge", "invent"}),
 }
+PLANNING_SCORER_VERSION = "planning-lexical-intent-v2"
 
 class PlanningRetriever:
     def __init__(self, min_score: float = 0.0):
@@ -37,17 +38,29 @@ class PlanningRetriever:
         """Return ranked planning patterns with pattern-specific relevance."""
 
         query_terms = terms(query)
+        eligible_names = {
+            name for name, values in PLANNING_ANCHORS.items() if query_terms & values
+        }
+        intent_terms = query_terms & set().union(*(
+            terms(" ".join(PLANNING_ANCHORS[name])) for name in eligible_names
+        ))
         candidates = [
-            chunk
+            SourceChunk(**{
+                **chunk.__dict__, "text": f"{chunk.source_name}\n{chunk.text}"
+            })
             for chunk in self.chunks
-            if query_terms & PLANNING_ANCHORS.get(chunk.source_name, frozenset())
+            if chunk.source_name in eligible_names
         ]
         score_floor = self.min_score if min_score is None else max(0.0, float(min_score))
 
         found = retrieve(
-            query,
+            " ".join(sorted(intent_terms)),
             candidates,
             top_k=top_k,
             min_score=score_floor,
         )
-        return found
+        originals = {chunk.chunk_id: chunk for chunk in self.chunks}
+        return [
+            SourceChunk(**{**originals[hit.chunk_id].__dict__, "score": hit.score})
+            for hit in found
+        ]

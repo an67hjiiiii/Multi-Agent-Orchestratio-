@@ -15,6 +15,8 @@ def validate_tasks(tasks: list[Task]) -> None:
     indeg = {task_id: 0 for task_id in ids}
     edges: dict[str, list[str]] = defaultdict(list)
     for task in tasks:
+        if len(task.depends_on) != len(set(task.depends_on)):
+            raise ValueError(f"Duplicate dependency for task {task.task_id}")
         for dep in task.depends_on:
             if dep not in known:
                 raise ValueError(f"Unknown dependency: {dep}")

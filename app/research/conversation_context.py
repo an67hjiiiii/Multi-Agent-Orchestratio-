@@ -15,6 +15,7 @@ class ConversationContext:
     text: str = ""
     message_ids: tuple[str, ...] = ()
     truncated: bool = False
+    last_user_request: str = ""
 
     def to_trace(self) -> dict[str, Any]:
         return {
@@ -57,6 +58,7 @@ def build_conversation_context(
     rendered_reversed: list[str] = []
     kept_ids_reversed: list[str] = []
     used = 0
+    last_user_request = ""
     for item in reversed(selected):
         role = str(item.get("role") or "").upper()
         content = str(item.get("content") or "").strip()
@@ -73,6 +75,8 @@ def build_conversation_context(
             break
         rendered_reversed.append(line)
         kept_ids_reversed.append(str(item.get("message_id")))
+        if role == "USER" and not last_user_request:
+            last_user_request = line[len("[USER] "):]
         used += len(line)
         if used >= char_limit:
             if len(rendered_reversed) < len(selected):
@@ -86,6 +90,7 @@ def build_conversation_context(
         text=rendered,
         message_ids=tuple(reversed(kept_ids_reversed)),
         truncated=truncated,
+        last_user_request=last_user_request,
     )
 
 

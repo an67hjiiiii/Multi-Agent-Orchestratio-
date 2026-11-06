@@ -14,11 +14,21 @@ def normalize_tasks(tasks: list[Task]) -> tuple[list[Task], int]:
     """
     kept: list[Task] = []
     removed = 0
+    referenced_ids = {dependency for task in tasks for dependency in task.depends_on}
     for task in tasks:
         fp = _fingerprint(task)
         duplicate = False
         for prev in kept:
             if task.domain != prev.domain:
+                continue
+            if (task.covers_obligations != prev.covers_obligations
+                    or task.covers_concerns != prev.covers_concerns):
+                continue
+            if task.covers_obligations is not None and (
+                task.goal != prev.goal or task.depends_on != prev.depends_on
+                or task.evidence_needs != prev.evidence_needs
+                or task.task_id in referenced_ids
+            ):
                 continue
             prev_fp = _fingerprint(prev)
             if fp == prev_fp or (fp and prev_fp and len(fp & prev_fp) / max(1, min(len(fp), len(prev_fp))) >= 0.92):
@@ -30,7 +40,9 @@ def normalize_tasks(tasks: list[Task]) -> tuple[list[Task], int]:
     # re-number only when IDs collided/removed; remap dependencies conservatively
     old_to_new: dict[str, str] = {}
     for i, task in enumerate(kept, 1):
-        old_to_new[task.task_id] = f"T{i}"
+        old_to_new[task.task_id] = (
+            task.task_id if task.covers_obligations is not None else f"T{i}"
+        )
     normalized: list[Task] = []
     for task in kept:
         normalized.append(Task(
@@ -39,5 +51,7 @@ def normalize_tasks(tasks: list[Task]) -> tuple[list[Task], int]:
             domain=task.domain,
             depends_on=[old_to_new[d] for d in task.depends_on if d in old_to_new],
             evidence_needs=task.evidence_needs,
+            covers_obligations=task.covers_obligations,
+            covers_concerns=task.covers_concerns,
         ))
     return normalized, removed
